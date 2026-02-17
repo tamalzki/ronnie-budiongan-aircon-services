@@ -15,15 +15,16 @@ class SupplierPaymentController extends Controller
             ->orderBy('payment_date', 'desc')
             ->get();
 
-        // Get unpaid/partial POs
+        // Get unpaid/partial POs (45-day terms only)
         $unpaidPOs = PurchaseOrder::with('supplier')
             ->whereIn('payment_status', ['unpaid', 'partial'])
-            ->where('payment_type', 'installment')
+            ->where('payment_type', '45days')
+            ->where('balance', '>', 0)
             ->orderBy('payment_due_date')
             ->get();
 
         // Calculate totals
-        $totalPaid = SupplierPayment::sum('amount');
+        $totalPaid    = SupplierPayment::sum('amount');
         $totalPending = PurchaseOrder::whereIn('payment_status', ['unpaid', 'partial'])->sum('balance');
 
         return view('supplier-payments.index', compact('payments', 'unpaidPOs', 'totalPaid', 'totalPending'));

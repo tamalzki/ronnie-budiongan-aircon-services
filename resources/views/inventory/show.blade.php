@@ -4,238 +4,242 @@
 
 @section('content')
 <div class="container-fluid">
-    <!-- Header -->
+
+    {{-- Header --}}
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <nav aria-label="breadcrumb">
-                <ol class="breadcrumb mb-2">
+                <ol class="breadcrumb mb-1">
                     <li class="breadcrumb-item"><a href="{{ route('inventory.index') }}">Inventory</a></li>
                     <li class="breadcrumb-item active">{{ $product->name }}</li>
                 </ol>
             </nav>
             <h2 class="mb-0"><i class="bi bi-box-seam text-primary"></i> {{ $product->name }}</h2>
         </div>
-        <div>
-            <a href="{{ route('inventory.index') }}" class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-left"></i> Back to Inventory
-            </a>
-        </div>
+        <a href="{{ route('inventory.index') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Back
+        </a>
     </div>
 
-    <div class="row">
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-3">
+            {{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+
+    {{-- ═══════════════════════════════════════════════════
+         ROW 1: Product Info + Stock Status + Actions
+    ════════════════════════════════════════════════════ --}}
+    <div class="row g-3 mb-4">
+
+        {{-- Product Info --}}
         <div class="col-md-4">
-            <!-- Product Info Card -->
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-header bg-primary text-white border-0">
-                    <h5 class="mb-0"><i class="bi bi-info-circle"></i> Product Information</h5>
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-primary text-white border-0 py-2">
+                    <h6 class="mb-0"><i class="bi bi-info-circle"></i> Product Information</h6>
                 </div>
-                <div class="card-body">
-                    <table class="table table-borderless mb-0">
+                <div class="card-body p-0">
+                    <table class="table table-sm table-borderless mb-0" style="font-size:0.875rem;">
                         <tr>
-                            <th width="120">Brand:</th>
-                            <td>
+                            <th class="px-3 py-2 text-muted" width="90">Brand</th>
+                            <td class="px-3 py-2">
                                 @if($product->brand)
-                                <span class="badge bg-secondary">{{ $product->brand->name }}</span>
-                                @else
-                                <span class="text-muted">-</span>
+                                    <span class="badge bg-secondary">{{ $product->brand->name }}</span>
+                                @else <span class="text-muted">—</span>
                                 @endif
                             </td>
                         </tr>
                         <tr>
-                            <th>Model:</th>
-                            <td>{{ $product->model ?? '-' }}</td>
+                            <th class="px-3 py-2 text-muted">Model</th>
+                            <td class="px-3 py-2">{{ $product->model ?? '—' }}</td>
                         </tr>
                         <tr>
-                            <th>Supplier:</th>
-                            <td>{{ $product->supplier->name ?? '-' }}</td>
+                            <th class="px-3 py-2 text-muted">Supplier</th>
+                            <td class="px-3 py-2">{{ $product->supplier->name ?? '—' }}</td>
                         </tr>
                         <tr>
-                            <th>Price:</th>
-                            <td><strong class="text-success">₱{{ number_format($product->price, 2) }}</strong></td>
+                            <th class="px-3 py-2 text-muted">Price</th>
+                            <td class="px-3 py-2 fw-semibold text-success">₱{{ number_format($product->price, 2) }}</td>
                         </tr>
+                        @if($product->description)
                         <tr>
-                            <th>Description:</th>
-                            <td>{{ $product->description ?? '-' }}</td>
+                            <th class="px-3 py-2 text-muted">Notes</th>
+                            <td class="px-3 py-2 text-muted small">{{ $product->description }}</td>
                         </tr>
+                        @endif
                     </table>
                 </div>
             </div>
+        </div>
 
-            <!-- Current Stock Card -->
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-header border-0" 
-                     style="background: linear-gradient(135deg, {{ $product->stock_quantity == 0 ? '#dc3545' : ($product->stock_quantity <= 5 ? '#ffc107' : '#198754') }} 0%, {{ $product->stock_quantity == 0 ? '#c82333' : ($product->stock_quantity <= 5 ? '#e0a800' : '#157347') }} 100%);">
-                    <h5 class="mb-0 text-white"><i class="bi bi-box"></i> Current Stock</h5>
+        {{-- Stock Status --}}
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header border-0 py-2"
+                     style="background:{{ $product->stock_quantity == 0 ? '#dc3545' : ($product->stock_quantity <= 5 ? '#ffc107' : '#198754') }}">
+                    <h6 class="mb-0 text-white"><i class="bi bi-box"></i> Current Stock</h6>
                 </div>
-                <div class="card-body text-center">
-                    <h1 class="display-3 fw-bold mb-2" style="color: {{ $product->stock_quantity == 0 ? '#dc3545' : ($product->stock_quantity <= 5 ? '#ffc107' : '#198754') }}">
+                <div class="card-body text-center d-flex flex-column justify-content-center py-4">
+                    <div class="fw-bold mb-1" style="font-size:3.5rem;line-height:1;color:{{ $product->stock_quantity == 0 ? '#dc3545' : ($product->stock_quantity <= 5 ? '#e0a800' : '#198754') }}">
                         {{ $product->stock_quantity }}
-                    </h1>
-                    <p class="text-muted mb-0">units available</p>
-                    
+                    </div>
+                    <div class="text-muted mb-3" style="font-size:0.85rem;">units available</div>
+
                     @if($product->stock_quantity == 0)
-                        <div class="alert alert-danger mt-3 mb-0">
+                        <span class="badge bg-danger align-self-center px-3 py-2 mb-3">
                             <i class="bi bi-exclamation-triangle"></i> Out of Stock
-                        </div>
+                        </span>
                     @elseif($product->stock_quantity <= 5)
-                        <div class="alert alert-warning mt-3 mb-0">
-                            <i class="bi bi-exclamation-circle"></i> Low Stock Alert
-                        </div>
+                        <span class="badge bg-warning text-dark align-self-center px-3 py-2 mb-3">
+                            <i class="bi bi-exclamation-circle"></i> Low Stock — Reorder Soon
+                        </span>
+                    @else
+                        <span class="badge bg-success align-self-center px-3 py-2 mb-3">
+                            <i class="bi bi-check-circle"></i> In Stock
+                        </span>
                     @endif
 
-                    <div class="mt-3">
-                        <small class="text-muted">Stock Value:</small>
-                        <h4 class="mb-0 text-success">₱{{ number_format($product->stock_quantity * $product->price, 2) }}</h4>
+                    <div class="bg-light rounded p-2">
+                        <small class="text-muted d-block">Total Stock Value</small>
+                        <strong class="text-success fs-5">₱{{ number_format($product->stock_quantity * $product->price, 2) }}</strong>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- Quick Actions -->
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-light border-0">
-                    <h6 class="mb-0"><i class="bi bi-lightning"></i> Quick Actions</h6>
+        {{-- Quick Actions + Stats --}}
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header bg-light border-0 py-2">
+                    <h6 class="mb-0"><i class="bi bi-lightning-fill text-warning"></i> Quick Actions</h6>
                 </div>
-                <div class="card-body">
+                <div class="card-body py-3">
                     <div class="d-grid gap-2">
-                        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#stockInModal">
+                        <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#stockInModal">
                             <i class="bi bi-plus-circle"></i> Add Stock (Stock In)
                         </button>
-                        <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#adjustModal">
+                        <button class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#adjustModal">
                             <i class="bi bi-gear"></i> Adjust Inventory
                         </button>
-                        <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#returnModal" {{ $product->stock_quantity == 0 ? 'disabled' : '' }}>
+                        <button class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#returnModal"
+                                {{ $product->stock_quantity == 0 ? 'disabled' : '' }}>
                             <i class="bi bi-arrow-return-left"></i> Return to Supplier
                         </button>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <div class="col-md-8">
-            <!-- Movement Stats -->
-            <div class="row mb-4">
-                <div class="col-md-3">
-                    <div class="card border-0 shadow-sm">
-                        <div class="card-body text-center">
-                            <i class="bi bi-box-arrow-in-down fs-2 text-success mb-2"></i>
-                            <h3 class="mb-0 text-success">{{ $totalStockIn }}</h3>
-                            <small class="text-muted">Total Stock In</small>
-                        </div>
+            {{-- Mini stats --}}
+            <div class="row g-2">
+                <div class="col-6">
+                    <div class="card border-0 shadow-sm text-center py-2">
+                        <div class="text-success fw-bold fs-5">{{ $totalStockIn }}</div>
+                        <div class="text-muted" style="font-size:0.72rem;"><i class="bi bi-box-arrow-in-down"></i> Stock In</div>
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <div class="card border-0 shadow-sm">
-                        <div class="card-body text-center">
-                            <i class="bi bi-box-arrow-up fs-2 text-danger mb-2"></i>
-                            <h3 class="mb-0 text-danger">{{ $totalStockOut }}</h3>
-                            <small class="text-muted">Total Sold</small>
-                        </div>
+                <div class="col-6">
+                    <div class="card border-0 shadow-sm text-center py-2">
+                        <div class="text-danger fw-bold fs-5">{{ $totalStockOut }}</div>
+                        <div class="text-muted" style="font-size:0.72rem;"><i class="bi bi-box-arrow-up"></i> Sold</div>
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <div class="card border-0 shadow-sm">
-                        <div class="card-body text-center">
-                            <i class="bi bi-arrow-return-left fs-2 text-warning mb-2"></i>
-                            <h3 class="mb-0 text-warning">{{ $totalReturns }}</h3>
-                            <small class="text-muted">Total Returns</small>
-                        </div>
+                <div class="col-6">
+                    <div class="card border-0 shadow-sm text-center py-2">
+                        <div class="text-warning fw-bold fs-5">{{ $totalReturns }}</div>
+                        <div class="text-muted" style="font-size:0.72rem;"><i class="bi bi-arrow-return-left"></i> Returns</div>
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <div class="card border-0 shadow-sm">
-                        <div class="card-body text-center">
-                            <i class="bi bi-gear fs-2 text-info mb-2"></i>
-                            <h3 class="mb-0 text-info">{{ $totalAdjustments }}</h3>
-                            <small class="text-muted">Adjustments</small>
-                        </div>
+                <div class="col-6">
+                    <div class="card border-0 shadow-sm text-center py-2">
+                        <div class="text-info fw-bold fs-5">{{ $totalAdjustments }}</div>
+                        <div class="text-muted" style="font-size:0.72rem;"><i class="bi bi-gear"></i> Adjustments</div>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- Movement History -->
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white border-0 py-3">
-                    <h5 class="mb-0"><i class="bi bi-clock-history"></i> Movement History</h5>
-                </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead class="bg-light">
-                                <tr>
-                                    <th class="border-0 px-4 py-3">Date</th>
-                                    <th class="border-0 px-4 py-3">Type</th>
-                                    <th class="border-0 px-4 py-3">Quantity</th>
-                                    <th class="border-0 px-4 py-3">Before</th>
-                                    <th class="border-0 px-4 py-3">After</th>
-                                    <th class="border-0 px-4 py-3">Reference</th>
-                                    <th class="border-0 px-4 py-3">Notes</th>
-                                    <th class="border-0 px-4 py-3">By</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($movements as $movement)
-                                <tr>
-                                    <td class="px-4 py-3">
-                                        <small>{{ $movement->created_at->format('M d, Y') }}</small>
-                                        <br>
-                                        <small class="text-muted">{{ $movement->created_at->format('h:i A') }}</small>
-                                    </td>
-                                    <td class="px-4 py-3">
-                                        @if($movement->type == 'stock_in')
-                                            <span class="badge bg-success">
-                                                <i class="bi bi-box-arrow-in-down"></i> Stock In
-                                            </span>
-                                        @elseif($movement->type == 'stock_out')
-                                            <span class="badge bg-danger">
-                                                <i class="bi bi-box-arrow-up"></i> Stock Out
-                                            </span>
-                                        @elseif($movement->type == 'return')
-                                            <span class="badge bg-warning">
-                                                <i class="bi bi-arrow-return-left"></i> Return
-                                            </span>
-                                        @else
-                                            <span class="badge bg-info">
-                                                <i class="bi bi-gear"></i> Adjustment
-                                            </span>
-                                        @endif
-                                    </td>
-                                    <td class="px-4 py-3">
-                                        <strong class="{{ $movement->quantity > 0 ? 'text-success' : 'text-danger' }}">
-                                            {{ $movement->quantity > 0 ? '+' : '' }}{{ $movement->quantity }}
-                                        </strong>
-                                    </td>
-                                    <td class="px-4 py-3">{{ $movement->stock_before }}</td>
-                                    <td class="px-4 py-3"><strong>{{ $movement->stock_after }}</strong></td>
-                                    <td class="px-4 py-3">
-                                        <small class="text-muted">{{ $movement->reference_type ?? '-' }}</small>
-                                    </td>
-                                    <td class="px-4 py-3">
-                                        <small class="text-muted">{{ $movement->notes ?? '-' }}</small>
-                                    </td>
-                                    <td class="px-4 py-3">
-                                        <small class="text-muted">{{ $movement->user->name }}</small>
-                                    </td>
-                                </tr>
-                                @empty
-                                <tr>
-                                    <td colspan="8" class="text-center py-5">
-                                        <div class="text-muted">
-                                            <i class="bi bi-inbox fs-1 d-block mb-3"></i>
-                                            <p class="mb-0">No movement history yet</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+    </div>
+
+    {{-- ═══════════════════════════════════════════════════
+         ROW 2: Movement History (full width)
+    ════════════════════════════════════════════════════ --}}
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center py-2">
+            <h6 class="mb-0"><i class="bi bi-clock-history text-primary"></i> Movement History</h6>
+            <small class="text-muted">{{ $movements->count() }} record(s)</small>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm mb-0" style="font-size:0.875rem;">
+                    <thead class="bg-light">
+                        <tr>
+                            <th class="border-0 px-3 py-2" style="white-space:nowrap">Date & Time</th>
+                            <th class="border-0 px-3 py-2">Type</th>
+                            <th class="border-0 px-3 py-2 text-center">Qty</th>
+                            <th class="border-0 px-3 py-2 text-center">Before</th>
+                            <th class="border-0 px-3 py-2 text-center">After</th>
+                            <th class="border-0 px-3 py-2">Reference</th>
+                            <th class="border-0 px-3 py-2">Notes</th>
+                            <th class="border-0 px-3 py-2">By</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($movements as $movement)
+                        <tr>
+                            <td class="px-3 py-2" style="white-space:nowrap">
+                                <div>{{ $movement->created_at->format('M d, Y') }}</div>
+                                <small class="text-muted">{{ $movement->created_at->format('h:i A') }}</small>
+                            </td>
+                            <td class="px-3 py-2" style="white-space:nowrap">
+                                @if($movement->type == 'stock_in')
+                                    <span class="badge bg-success"><i class="bi bi-box-arrow-in-down"></i> Stock In</span>
+                                @elseif($movement->type == 'stock_out')
+                                    <span class="badge bg-danger"><i class="bi bi-box-arrow-up"></i> Stock Out</span>
+                                @elseif($movement->type == 'return')
+                                    <span class="badge bg-warning text-dark"><i class="bi bi-arrow-return-left"></i> Return</span>
+                                @else
+                                    <span class="badge bg-info text-dark"><i class="bi bi-gear"></i> Adjustment</span>
+                                @endif
+                            </td>
+                            <td class="px-3 py-2 text-center fw-bold" style="white-space:nowrap">
+                                <span class="{{ $movement->quantity > 0 ? 'text-success' : 'text-danger' }}">
+                                    {{ $movement->quantity > 0 ? '+' : '' }}{{ $movement->quantity }}
+                                </span>
+                            </td>
+                            <td class="px-3 py-2 text-center text-muted" style="white-space:nowrap">
+                                {{ $movement->stock_before }}
+                            </td>
+                            <td class="px-3 py-2 text-center fw-semibold" style="white-space:nowrap">
+                                {{ $movement->stock_after }}
+                            </td>
+                            <td class="px-3 py-2" style="white-space:nowrap">
+                                <small class="text-muted">{{ $movement->reference_type ?? '—' }}</small>
+                            </td>
+                            <td class="px-3 py-2">
+                                <small class="text-muted">{{ $movement->notes ?? '—' }}</small>
+                            </td>
+                            <td class="px-3 py-2" style="white-space:nowrap">
+                                <small class="text-muted">{{ $movement->user->name ?? '—' }}</small>
+                            </td>
+                        </tr>
+                        @empty
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                No movement history yet
+                            </td>
+                        </tr>
+                        @endforelse
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
+
 </div>
 
-<!-- Stock In Modal -->
+{{-- Stock In Modal --}}
 <div class="modal fade" id="stockInModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content border-0 shadow">
@@ -246,37 +250,32 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-4">
-                    <div class="alert alert-info border-0 mb-4">
+                    <div class="alert alert-info border-0 mb-3">
                         <i class="bi bi-info-circle"></i> Current stock: <strong>{{ $product->stock_quantity }} units</strong>
                     </div>
-
                     <div class="mb-3">
-                        <label for="stock_in_quantity" class="form-label fw-semibold">Quantity to Add <span class="text-danger">*</span></label>
-                        <input type="number" class="form-control form-control-lg" id="stock_in_quantity" name="quantity" 
-                               min="1" required placeholder="Enter quantity">
+                        <label class="form-label fw-semibold">Quantity to Add <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" name="quantity" min="1" required placeholder="Enter quantity">
                     </div>
-
                     <div class="mb-3">
-                        <label for="supplier_id" class="form-label fw-semibold">From Supplier (Optional)</label>
-                        <select class="form-select" id="supplier_id" name="supplier_id">
-                            <option value="">-- Select Supplier --</option>
+                        <label class="form-label fw-semibold">From Supplier (Optional)</label>
+                        <select class="form-select" name="supplier_id">
+                            <option value="">— Select Supplier —</option>
                             @foreach($suppliers as $supplier)
                                 <option value="{{ $supplier->id }}">{{ $supplier->name }}</option>
                             @endforeach
                         </select>
                     </div>
-
                     <div class="mb-3">
-                        <label for="cost_per_unit" class="form-label fw-semibold">Cost Per Unit (Optional)</label>
+                        <label class="form-label fw-semibold">Cost Per Unit (Optional)</label>
                         <div class="input-group">
                             <span class="input-group-text">₱</span>
-                            <input type="number" step="0.01" class="form-control" id="cost_per_unit" name="cost_per_unit" placeholder="0.00">
+                            <input type="number" step="0.01" class="form-control" name="cost_per_unit" placeholder="0.00">
                         </div>
                     </div>
-
                     <div class="mb-3">
-                        <label for="stock_in_notes" class="form-label fw-semibold">Notes</label>
-                        <textarea class="form-control" id="stock_in_notes" name="notes" rows="2" placeholder="Optional notes"></textarea>
+                        <label class="form-label fw-semibold">Notes</label>
+                        <textarea class="form-control" name="notes" rows="2" placeholder="Optional notes"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer border-0 bg-light">
@@ -290,7 +289,7 @@
     </div>
 </div>
 
-<!-- Adjust Inventory Modal -->
+{{-- Adjust Inventory Modal --}}
 <div class="modal fade" id="adjustModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content border-0 shadow">
@@ -301,20 +300,19 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-4">
-                    <div class="alert alert-info border-0 mb-4">
+                    <div class="alert alert-info border-0 mb-3">
                         <i class="bi bi-info-circle"></i> Current stock: <strong>{{ $product->stock_quantity }} units</strong>
                     </div>
-
                     <div class="mb-3">
-                        <label for="adjust_quantity" class="form-label fw-semibold">New Stock Quantity <span class="text-danger">*</span></label>
-                        <input type="number" class="form-control form-control-lg" id="adjust_quantity" name="quantity" 
+                        <label class="form-label fw-semibold">New Stock Quantity <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" name="quantity"
                                value="{{ $product->stock_quantity }}" min="0" required>
                         <small class="text-muted">Enter the corrected total stock quantity</small>
                     </div>
-
                     <div class="mb-3">
-                        <label for="adjust_notes" class="form-label fw-semibold">Reason for Adjustment <span class="text-danger">*</span></label>
-                        <textarea class="form-control" id="adjust_notes" name="notes" rows="3" required placeholder="e.g., Stock count discrepancy, damaged items found, etc."></textarea>
+                        <label class="form-label fw-semibold">Reason for Adjustment <span class="text-danger">*</span></label>
+                        <textarea class="form-control" name="notes" rows="3" required
+                                  placeholder="e.g., Stock count discrepancy, damaged items..."></textarea>
                     </div>
                 </div>
                 <div class="modal-footer border-0 bg-light">
@@ -328,7 +326,7 @@
     </div>
 </div>
 
-<!-- Return to Supplier Modal -->
+{{-- Return to Supplier Modal --}}
 <div class="modal fade" id="returnModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content border-0 shadow">
@@ -339,21 +337,19 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-4">
-                    <div class="alert alert-warning border-0 mb-4">
+                    <div class="alert alert-warning border-0 mb-3">
                         <i class="bi bi-exclamation-triangle"></i> Current stock: <strong>{{ $product->stock_quantity }} units</strong>
                     </div>
-
                     <div class="mb-3">
-                        <label for="return_quantity" class="form-label fw-semibold">Quantity to Return <span class="text-danger">*</span></label>
-                        <input type="number" class="form-control form-control-lg" id="return_quantity" name="quantity" 
+                        <label class="form-label fw-semibold">Quantity to Return <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" name="quantity"
                                min="1" max="{{ $product->stock_quantity }}" required placeholder="Enter quantity">
                         <small class="text-muted">Maximum: {{ $product->stock_quantity }} units</small>
                     </div>
-
                     <div class="mb-3">
-                        <label for="return_supplier_id" class="form-label fw-semibold">Return to Supplier (Optional)</label>
-                        <select class="form-select" id="return_supplier_id" name="supplier_id">
-                            <option value="">-- Select Supplier --</option>
+                        <label class="form-label fw-semibold">Return to Supplier (Optional)</label>
+                        <select class="form-select" name="supplier_id">
+                            <option value="">— Select Supplier —</option>
                             @foreach($suppliers as $supplier)
                                 <option value="{{ $supplier->id }}" {{ $product->supplier_id == $supplier->id ? 'selected' : '' }}>
                                     {{ $supplier->name }}
@@ -361,22 +357,21 @@
                             @endforeach
                         </select>
                     </div>
-
                     <div class="mb-3">
-                        <label for="return_reason" class="form-label fw-semibold">Reason for Return <span class="text-danger">*</span></label>
-                        <select class="form-select" id="return_reason" name="reason" required>
-                            <option value="">-- Select Reason --</option>
-                            <option value="Defective/Damaged">Defective/Damaged</option>
+                        <label class="form-label fw-semibold">Reason for Return <span class="text-danger">*</span></label>
+                        <select class="form-select" name="reason" required>
+                            <option value="">— Select Reason —</option>
+                            <option value="Defective/Damaged">Defective / Damaged</option>
                             <option value="Wrong Item">Wrong Item</option>
                             <option value="Overstocked">Overstocked</option>
                             <option value="Quality Issues">Quality Issues</option>
                             <option value="Other">Other</option>
                         </select>
                     </div>
-
                     <div class="mb-3">
-                        <label for="return_notes" class="form-label fw-semibold">Additional Notes</label>
-                        <textarea class="form-control" id="return_notes" name="notes" rows="3" placeholder="Describe the issue or provide additional details"></textarea>
+                        <label class="form-label fw-semibold">Additional Notes</label>
+                        <textarea class="form-control" name="notes" rows="2"
+                                  placeholder="Describe the issue or provide additional details"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer border-0 bg-light">
@@ -389,4 +384,5 @@
         </div>
     </div>
 </div>
+
 @endsection

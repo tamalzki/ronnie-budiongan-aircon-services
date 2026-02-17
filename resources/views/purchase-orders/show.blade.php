@@ -184,21 +184,45 @@
                                 </span>
                             </td>
                         </tr>
-                        @if($purchaseOrder->payment_due_date)
+                        @if($purchaseOrder->payment_type === '45days')
                         <tr class="border-bottom">
                             <td class="px-4 py-2 text-muted small fw-semibold">Due Date</td>
                             <td class="px-4 py-2">
-                                {{ $purchaseOrder->payment_due_date->format('M d, Y') }}
-                                @if($daysRemaining !== null && $purchaseOrder->payment_status !== 'paid')
-                                    <br>
-                                    @if($daysRemaining < 0)
-                                        <span class="badge bg-danger">Overdue</span>
-                                    @elseif($daysRemaining <= 10)
-                                        <span class="badge bg-warning text-dark">{{ (int)$daysRemaining }} days left</span>
-                                    @else
-                                        <small class="text-muted">{{ (int)$daysRemaining }} days left</small>
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <span id="dueDateDisplay">
+                                        {{ $purchaseOrder->payment_due_date ? $purchaseOrder->payment_due_date->format('M d, Y') : '—' }}
+                                    </span>
+                                    @if($daysRemaining !== null && $purchaseOrder->payment_status !== 'paid')
+                                        @if($daysRemaining < 0)
+                                            <span class="badge bg-danger">Overdue {{ abs((int)$daysRemaining) }}d</span>
+                                        @elseif($daysRemaining <= 10)
+                                            <span class="badge bg-warning text-dark">{{ (int)$daysRemaining }}d left</span>
+                                        @else
+                                            <small class="text-muted">{{ (int)$daysRemaining }}d left</small>
+                                        @endif
                                     @endif
-                                @endif
+                                    @if($purchaseOrder->payment_status !== 'paid')
+                                    <button class="btn btn-outline-secondary btn-sm" style="padding:1px 7px;font-size:0.75rem"
+                                            onclick="document.getElementById('editDueDateForm').classList.toggle('d-none')">
+                                        <i class="bi bi-pencil"></i> Edit
+                                    </button>
+                                    @endif
+                                </div>
+                                {{-- Inline edit form --}}
+                                <form id="editDueDateForm" class="d-none mt-2 d-flex gap-2 align-items-center"
+                                      action="{{ route('purchase-orders.update-due-date', $purchaseOrder) }}" method="POST">
+                                    @csrf @method('PATCH')
+                                    <input type="date" name="payment_due_date" class="form-control form-control-sm"
+                                           value="{{ optional($purchaseOrder->payment_due_date)->format('Y-m-d') }}"
+                                           style="max-width:160px" required>
+                                    <button type="submit" class="btn btn-primary btn-sm" style="padding:2px 10px;font-size:0.8rem">
+                                        <i class="bi bi-check"></i> Save
+                                    </button>
+                                    <button type="button" class="btn btn-light btn-sm" style="padding:2px 10px;font-size:0.8rem"
+                                            onclick="document.getElementById('editDueDateForm').classList.add('d-none')">
+                                        Cancel
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                         @endif
@@ -505,9 +529,13 @@
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Method <span class="text-danger">*</span></label>
                             <select class="form-select" name="payment_method" required>
+                                <option value="">-- Select Method --</option>
                                 <option value="cash">Cash</option>
                                 <option value="bank_transfer">Bank Transfer</option>
-                                <option value="check">Check</option>
+                                <option value="cash">💵 Cash</option>
+                                <option value="gcash">📱 GCash</option>
+                                <option value="bank_transfer">🏦 Bank Transfer</option>
+                                <option value="cheque">🧾 Cheque</option>
                             </select>
                         </div>
                         <div class="col-md-6">

@@ -18,7 +18,13 @@ class PurchaseOrderController extends Controller
     {
         $purchaseOrders = PurchaseOrder::with(['supplier', 'items', 'payments'])
             ->orderBy('created_at', 'desc')
-            ->get();
+            ->paginate(15);
+
+        // Summary card counts (separate queries — not affected by pagination)
+        $totalCount    = PurchaseOrder::count();
+        $awaitingCount = PurchaseOrder::where('status', 'pending')->count();
+        $receivedCount = PurchaseOrder::where('status', 'received')->count();
+        $unpaidCount   = PurchaseOrder::where('payment_status', 'unpaid')->count();
 
         // Alert: POs with deadline within 10 days
         $upcomingDeadlines = PurchaseOrder::with('supplier')
@@ -33,7 +39,22 @@ class PurchaseOrderController extends Controller
             ->where('payment_due_date', '<', now())
             ->get();
 
-        return view('purchase-orders.index', compact('purchaseOrders', 'upcomingDeadlines', 'overdueOrders'));
+        // Payments Due tab — all 45-day terms with unpaid balance (ordered by due date)
+        $paymentsDue = PurchaseOrder::with('supplier')
+            ->where('payment_type', '45days')
+            ->where('balance', '>', 0)
+            ->orderBy('payment_due_date')
+            ->get();
+
+        $paymentsDueCount = $paymentsDue->filter(function($po) {
+            return $po->payment_due_date && $po->payment_due_date->lte(now()->addDays(30));
+        })->count();
+
+        return view('purchase-orders.index', compact(
+            'purchaseOrders', 'upcomingDeadlines', 'overdueOrders',
+            'totalCount', 'awaitingCount', 'receivedCount', 'unpaidCount',
+            'paymentsDue', 'paymentsDueCount'
+        ));
     }
 
     public function create()
@@ -46,9 +67,14 @@ class PurchaseOrderController extends Controller
             ->orderBy('brand_id')
             ->get()
             ->map(function ($p) {
+                $parts = array_filter([
+                    $p->brand->name ?? null,
+                    $p->model        ?? null,
+                    $p->hp           ? $p->hp . ' HP' : null,
+                ]);
                 return [
                     'id'    => $p->id,
-                    'label' => ($p->brand->name ?? 'No Brand') . ' - ' . ($p->model ?? 'No Model'),
+                    'label' => implode(' · ', $parts) ?: 'Unknown Product',
                     'cost'  => (float) ($p->cost ?? 0),
                 ];
             })
@@ -73,7 +99,7 @@ class PurchaseOrderController extends Controller
             'items.*.discount_percent'        => 'nullable|numeric|min:0|max:100',
             'downpayment_amount'              => 'nullable|numeric|min:0',
             'downpayment_date'                => 'nullable|date',
-            'downpayment_method'              => 'nullable|in:cash,bank_transfer,check',
+            'downpayment_method'              => 'nullable|in:cash,gcash,bank_transfer,cheque',
             'downpayment_reference'           => 'nullable|string',
         ]);
 
@@ -267,7 +293,7 @@ class PurchaseOrderController extends Controller
         $validated = $request->validate([
             'amount'           => 'required|numeric|min:0.01|max:' . $purchaseOrder->balance,
             'payment_date'     => 'required|date',
-            'payment_method'   => 'required|in:cash,bank_transfer,check',
+            'payment_method'   => 'required|in:cash,gcash,bank_transfer,cheque',
             'reference_number' => 'nullable|string',
             'notes'            => 'nullable|string',
         ]);
@@ -307,17 +333,145 @@ class PurchaseOrderController extends Controller
         }
     }
 
-    public function destroy(PurchaseOrder $purchaseOrder)
+    public function edit(PurchaseOrder $purchaseOrder)
     {
-        if ($purchaseOrder->status !== 'pending') {
-            return back()->with('error', 'Cannot delete a received purchase order.');
+        if ($purchaseOrder->status === 'received') {
+            return back()->with('error', 'Cannot edit a received purchase order.');
         }
 
-        $purchaseOrder->items()->delete();
-        $purchaseOrder->payments()->delete();
-        $purchaseOrder->delete();
+        $purchaseOrder->load(['supplier', 'items.product.brand']);
+        $suppliers    = Supplier::where('is_active', true)->orderBy('name')->get();
+        $productsJson = Product::with('brand')
+            ->where('is_active', true)
+            ->get()
+            ->map(function ($p) {
+                $parts = array_filter([
+                    $p->brand->name ?? null,
+                    $p->model        ?? null,
+                    $p->hp           ? $p->hp . ' HP' : null,
+                ]);
+                return [
+                    'id'    => $p->id,
+                    'label' => implode(' · ', $parts) ?: 'Unknown Product',
+                    'cost'  => (float) ($p->cost ?? 0),
+                ];
+            })
+            ->values()
+            ->toArray();
 
-        return redirect()->route('purchase-orders.index')
-            ->with('success', 'Purchase order deleted successfully.');
+        return view('purchase-orders.edit', compact('purchaseOrder', 'suppliers', 'productsJson'));
+    }
+
+    public function update(Request $request, PurchaseOrder $purchaseOrder)
+    {
+        if ($purchaseOrder->status === 'received') {
+            return back()->with('error', 'Cannot edit a received purchase order.');
+        }
+
+        $request->validate([
+            'supplier_id'            => 'required|exists:suppliers,id',
+            'order_date'             => 'required|date',
+            'expected_delivery_date' => 'nullable|date',
+            'payment_type'           => 'required|in:full,45days',
+            'notes'                  => 'nullable|string',
+            'items'                  => 'required|array|min:1',
+            'items.*.product_id'     => 'required|exists:products,id',
+            'items.*.quantity'       => 'required|integer|min:1',
+            'items.*.unit_cost'      => 'required|numeric|min:0',
+            'items.*.discount_percent' => 'nullable|numeric|min:0|max:100',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $subtotal = 0;
+            foreach ($request->items as $item) {
+                $disc      = $item['discount_percent'] ?? 0;
+                $netCost   = $item['unit_cost'] * (1 - $disc / 100);
+                $subtotal += $item['quantity'] * $netCost;
+            }
+            $total = $subtotal;
+
+            $paymentDueDate = $purchaseOrder->payment_due_date;
+            if ($request->payment_type === '45days') {
+                $paymentDueDate = $paymentDueDate ?? Carbon::parse($request->order_date)->addDays(45);
+            } else {
+                $paymentDueDate = null;
+            }
+
+            $purchaseOrder->update([
+                'supplier_id'            => $request->supplier_id,
+                'order_date'             => $request->order_date,
+                'expected_delivery_date' => $request->expected_delivery_date,
+                'subtotal'               => $subtotal,
+                'total'                  => $total,
+                'payment_type'           => $request->payment_type,
+                'payment_due_date'       => $paymentDueDate,
+                'notes'                  => $request->notes,
+            ]);
+
+            // Replace items
+            $purchaseOrder->items()->delete();
+            foreach ($request->items as $item) {
+                $disc    = $item['discount_percent'] ?? 0;
+                $netCost = $item['unit_cost'] * (1 - $disc / 100);
+                PurchaseOrderItem::create([
+                    'purchase_order_id' => $purchaseOrder->id,
+                    'product_id'        => $item['product_id'],
+                    'quantity_ordered'  => $item['quantity'],
+                    'unit_cost'         => $item['unit_cost'],
+                    'discount_percent'  => $disc,
+                    'discounted_cost'   => $netCost,
+                    'total_cost'        => $item['quantity'] * $netCost,
+                ]);
+            }
+
+            DB::commit();
+            return redirect()->route('purchase-orders.show', $purchaseOrder)
+                ->with('success', 'Purchase order updated successfully.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withInput()->with('error', 'Error updating: ' . $e->getMessage());
+        }
+    }
+
+    public function updateDueDate(Request $request, PurchaseOrder $purchaseOrder)
+    {
+        $request->validate([
+            'payment_due_date' => 'required|date',
+        ]);
+
+        $purchaseOrder->update(['payment_due_date' => $request->payment_due_date]);
+
+        return back()->with('success', 'Payment due date updated to ' .
+            Carbon::parse($request->payment_due_date)->format('M d, Y') . '.');
+    }
+
+        public function destroy(PurchaseOrder $purchaseOrder)
+    {
+        // Block deletion of received POs — stock has already been added
+        if ($purchaseOrder->status === 'received') {
+            return back()->with('error',
+                'Cannot delete a received purchase order — stock has already been added to inventory. ' .
+                'Create a return/adjustment instead.'
+            );
+        }
+
+        DB::beginTransaction();
+
+        try {
+            $purchaseOrder->items()->delete();
+            $purchaseOrder->payments()->delete();
+            $purchaseOrder->delete();
+
+            DB::commit();
+
+            return redirect()->route('purchase-orders.index')
+                ->with('success', 'Purchase order deleted successfully.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Error deleting purchase order: ' . $e->getMessage());
+        }
     }
 }

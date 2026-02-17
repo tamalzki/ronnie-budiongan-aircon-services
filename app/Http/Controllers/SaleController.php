@@ -16,24 +16,48 @@ class SaleController extends Controller
 {
     public function index()
     {
-        $sales = Sale::with('user')->orderBy('sale_date', 'desc')->get();
+        $sales = Sale::with('user')->orderBy('sale_date', 'desc')->paginate(15);
         return view('sales.index', compact('sales'));
     }
 
     public function create()
     {
-        // Only products WITH a selling price — locked products are hidden
+        // Count locked products to show warning tip in the view
+        $lockedCount = Product::where('is_active', true)->where('price', 0)->count();
+
+        // Pre-map with full label: Brand · Model · HP — avoids ambiguity in dropdown
         $products = Product::with('brand')
             ->where('is_active', true)
             ->where('price', '>', 0)
             ->orderBy('brand_id')
             ->orderBy('model')
-            ->get();
+            ->get()
+            ->map(function ($p) {
+                $parts = array_filter([
+                    $p->brand->name ?? null,
+                    $p->model        ?? null,
+                    $p->hp           ? $p->hp . ' HP'  : null,
+                ]);
+                $label = implode(' · ', $parts);
+                return [
+                    'id'    => $p->id,
+                    'label' => $label ?: 'Unknown Product',
+                    'price' => (float) $p->price,
+                    'stock' => (int)   $p->stock_quantity,
+                ];
+            })
+            ->values()
+            ->toArray();
 
-        // Count locked products to show warning tip in the view
-        $lockedCount = Product::where('is_active', true)->where('price', 0)->count();
-
-        $services = Service::where('is_active', true)->get();
+        $services = Service::where('is_active', true)
+            ->get()
+            ->map(fn($s) => [
+                'id'    => $s->id,
+                'label' => $s->name,
+                'price' => (float) $s->default_price,
+            ])
+            ->values()
+            ->toArray();
 
         return view('sales.create', compact('products', 'services', 'lockedCount'));
     }
@@ -51,9 +75,12 @@ class SaleController extends Controller
             'items.*.id'         => 'required|integer',
             'items.*.quantity'   => 'required|integer|min:1',
             'items.*.price'      => 'required|numeric|min:0',
-            'notes'              => 'nullable|string',
-            'down_payment'       => 'nullable|numeric|min:0',
-            'installment_months' => 'nullable|integer|min:1|max:24',
+            'notes'               => 'nullable|string',
+            'discount'            => 'nullable|numeric|min:0',
+            'payment_method'      => 'required|in:cash,gcash,bank_transfer,cheque',
+            'down_payment'        => 'nullable|numeric|min:0',
+            'down_payment_method' => 'nullable|in:cash,gcash,bank_transfer,cheque',
+            'installment_months'  => 'nullable|integer|min:1|max:24',
         ]);
 
         // ── Server-side guard: block products with no selling price ──
@@ -84,15 +111,19 @@ class SaleController extends Controller
                 $subtotal += $item['quantity'] * $item['price'];
             }
 
-            $tax   = 0;
-            $total = $subtotal + $tax;
+            $discount = (float) ($request->discount ?? 0);
+            $tax      = 0;
+            $total    = max(0, $subtotal - $discount + $tax);
 
             $paidAmount = 0;
             $balance    = $total;
 
-            if ($request->payment_type === 'installment' && $request->filled('down_payment')) {
-                $paidAmount = $request->down_payment;
-                $balance    = $total - $paidAmount;
+            if ($request->payment_type === 'installment' && $request->filled('down_payment') && $request->down_payment > 0) {
+                $paidAmount = (float) $request->down_payment;
+                $balance    = max(0, $total - $paidAmount);
+            } elseif ($request->payment_type === 'cash') {
+                $paidAmount = $total;
+                $balance    = 0;
             }
 
             $sale = Sale::create([
@@ -101,12 +132,14 @@ class SaleController extends Controller
                 'customer_address' => $request->customer_address,
                 'sale_date'        => $request->sale_date,
                 'subtotal'         => $subtotal,
+                'discount'         => $discount,
                 'tax'              => $tax,
                 'total'            => $total,
                 'payment_type'     => $request->payment_type,
                 'paid_amount'      => $paidAmount,
                 'balance'          => $balance,
                 'status'           => 'completed',
+                'payment_method'   => $request->payment_method,
                 'notes'            => $request->notes,
                 'user_id'          => auth()->id(),
             ]);
@@ -152,20 +185,45 @@ class SaleController extends Controller
             }
 
             if ($request->payment_type === 'installment') {
-                $installmentMonths = $request->installment_months ?? 12;
-                $installmentAmount = $balance / $installmentMonths;
+                $installmentMonths = (int) ($request->installment_months ?? 12);
+                $downPayment       = (float) ($request->down_payment ?? 0);
+                $saleDate          = Carbon::parse($request->sale_date);
 
-                for ($i = 1; $i <= $installmentMonths; $i++) {
-                    $dueDate = Carbon::parse($request->sale_date)->addMonths($i);
+                $num = 1; // installment counter
 
+                // ── Downpayment = Month #1, recorded as PAID ──
+                if ($downPayment > 0) {
                     InstallmentPayment::create([
                         'sale_id'            => $sale->id,
-                        'installment_number' => $i,
-                        'amount'             => round($installmentAmount, 2),
+                        'installment_number' => $num,
+                        'amount'             => $downPayment,
+                        'amount_paid'        => $downPayment,
+                        'due_date'           => $saleDate,
+                        'paid_date'          => $saleDate,
+                        'status'             => 'paid',
+                        'payment_method'     => $request->down_payment_method
+                                               ?: $request->payment_method,
+                        'notes'              => 'Downpayment',
+                    ]);
+                    $num++;
+                }
+
+                // ── Remaining balance ÷ months = each monthly payment ──
+                // $balance already = total - downpayment (set above)
+                $monthly = $installmentMonths > 0
+                    ? round($balance / $installmentMonths, 2)
+                    : $balance;
+
+                for ($i = 0; $i < $installmentMonths; $i++) {
+                    InstallmentPayment::create([
+                        'sale_id'            => $sale->id,
+                        'installment_number' => $num,
+                        'amount'             => $monthly,
                         'amount_paid'        => 0,
-                        'due_date'           => $dueDate,
+                        'due_date'           => $saleDate->copy()->addMonths($i + 1),
                         'status'             => 'unpaid',
                     ]);
+                    $num++;
                 }
             }
 
@@ -196,7 +254,22 @@ class SaleController extends Controller
                 if ($item->product_id) {
                     $product = Product::find($item->product_id);
                     if ($product) {
+                        $stockBefore = $product->stock_quantity;
                         $product->increment('stock_quantity', $item->quantity);
+                        $stockAfter = $product->fresh()->stock_quantity;
+
+                        // Log the reversal in inventory movement history
+                        InventoryMovement::create([
+                            'product_id'     => $product->id,
+                            'type'           => 'stock_in',
+                            'quantity'       => $item->quantity,
+                            'stock_before'   => $stockBefore,
+                            'stock_after'    => $stockAfter,
+                            'reference_type' => 'Sale',
+                            'reference_id'   => $sale->id,
+                            'notes'          => 'Stock reversed — Sale deleted: ' . $sale->invoice_number,
+                            'user_id'        => auth()->id(),
+                        ]);
                     }
                 }
             }

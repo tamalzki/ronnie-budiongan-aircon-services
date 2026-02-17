@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Create Purchase Order')
+@section('title', 'Edit Purchase Order')
 
 @section('content')
 <div class="container-fluid">
@@ -8,8 +8,8 @@
     {{-- Header --}}
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h2 class="mb-1"><i class="bi bi-cart-plus text-primary"></i> Create Purchase Order</h2>
-            <p class="text-muted mb-0">Order products from supplier</p>
+            <h2 class="mb-1"><i class="bi bi-pencil text-warning"></i> Edit Purchase Order</h2>
+            <p class="text-muted mb-0">{{ $purchaseOrder->po_number }}</p>
         </div>
         <a href="{{ route('purchase-orders.index') }}" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-arrow-left"></i> Back to Orders
@@ -22,8 +22,9 @@
     </div>
     @endif
 
-    <form action="{{ route('purchase-orders.store') }}" method="POST" id="poForm">
+    <form action="{{ route('purchase-orders.update', $purchaseOrder) }}" method="POST" id="poForm">
         @csrf
+        @method('PUT')
 
         <div class="row g-3">
 
@@ -42,7 +43,7 @@
                                 <select class="form-select form-select-sm" name="supplier_id" required>
                                     <option value="">-- Select Supplier --</option>
                                     @foreach($suppliers as $supplier)
-                                        <option value="{{ $supplier->id }}" {{ old('supplier_id') == $supplier->id ? 'selected' : '' }}>
+                                        <option value="{{ $supplier->id }}" {{ old('supplier_id', $purchaseOrder->supplier_id) == $supplier->id ? 'selected' : '' }}>
                                             {{ $supplier->name }}
                                         </option>
                                     @endforeach
@@ -51,12 +52,12 @@
                             <div class="col-md-4">
                                 <label class="form-label small fw-semibold">Order Date <span class="text-danger">*</span></label>
                                 <input type="date" class="form-control form-control-sm" name="order_date"
-                                       value="{{ old('order_date', date('Y-m-d')) }}" required id="orderDate">
+                                       value="{{ old('order_date', $purchaseOrder->order_date->format('Y-m-d')) }}" required id="orderDate">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label small fw-semibold">Expected Delivery</label>
                                 <input type="date" class="form-control form-control-sm" name="expected_delivery_date"
-                                       value="{{ old('expected_delivery_date') }}">
+                                       value="{{ old('expected_delivery_date', optional($purchaseOrder->expected_delivery_date)->format('Y-m-d')) }}">
                             </div>
                         </div>
                     </div>
@@ -87,7 +88,7 @@
                     </div>
                     <div class="card-body">
                         <textarea class="form-control form-control-sm" name="notes" rows="2"
-                                  placeholder="Optional notes about this purchase order">{{ old('notes') }}</textarea>
+                                  placeholder="Optional notes about this purchase order">{{ old('notes', $purchaseOrder->notes) }}</textarea>
                     </div>
                 </div>
 
@@ -123,8 +124,8 @@
                             <label class="form-label small fw-semibold">Payment Type <span class="text-danger">*</span></label>
                             <select class="form-select form-select-sm" name="payment_type" id="paymentType" required>
                                 <option value="">-- Select Payment Type --</option>
-                                <option value="full"   {{ old('payment_type') == 'full'   ? 'selected' : '' }}>Full Payment</option>
-                                <option value="45days" {{ old('payment_type') == '45days' ? 'selected' : '' }}>45-Day Term</option>
+                                <option value="full"   {{ old('payment_type', $purchaseOrder->payment_type) == 'full'   ? 'selected' : '' }}>Full Payment</option>
+                                <option value="45days" {{ old('payment_type', $purchaseOrder->payment_type) == '45days' ? 'selected' : '' }}>45-Day Term</option>
                             </select>
                             <small class="text-muted">45-Day: balance due in 45 days</small>
                         </div>
@@ -197,7 +198,7 @@
 
                 {{-- Submit --}}
                 <button type="submit" class="btn btn-primary btn-lg w-100 shadow-sm">
-                    <i class="bi bi-check-circle"></i> Create Purchase Order
+                    <i class="bi bi-check-circle"></i> Update Purchase Order
                 </button>
 
             </div>
@@ -489,7 +490,35 @@ document.getElementById('poForm').addEventListener('submit', function (e) {
     }
 });
 
-// Trigger initial state
+// Pre-fill existing items from PO
+const existingItems = {!! json_encode($purchaseOrder->items->map(fn($i) => [
+    'product_id'   => $i->product_id,
+    'quantity'     => $i->quantity_ordered,
+    'unit_cost'    => $i->unit_cost,
+    'discount'     => $i->discount_percent ?? 0,
+    'label'        => optional(optional($i->product)->brand)->name . ' · ' . optional($i->product)->model,
+])) !!};
+
+existingItems.forEach(item => {
+    addItem();
+    const idx  = rowIndex;
+    const row  = document.getElementById(`row-${idx}`);
+    const sel  = row.querySelector('.product-select');
+
+    // Set hidden select
+    sel.value = item.product_id;
+
+    // Update combobox display
+    const disp = document.querySelector(`.pocb-display-${idx}`);
+    if (disp) { disp.textContent = item.label; disp.style.color = '#212529'; }
+
+    row.querySelector('.qty-input').value  = item.quantity;
+    row.querySelector('.cost-input').value = parseFloat(item.unit_cost).toFixed(2);
+    row.querySelector('.disc-input').value = item.discount;
+    calcRow(idx);
+    refreshDropdowns();
+});
+
 if (document.getElementById('paymentType').value === '45days') {
     document.getElementById('downpaymentSection').style.display = '';
     document.getElementById('deadlinePreview').style.display = '';

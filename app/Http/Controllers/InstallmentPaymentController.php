@@ -30,6 +30,28 @@ class InstallmentPaymentController extends Controller
         return view('installments.index', compact('customersData'));
     }
 
+    public function update(Request $request, InstallmentPayment $installment)
+{
+    $request->validate([
+        'amount_paid'      => 'required|numeric|min:0.01|max:' . $installment->amount,
+        'paid_date'        => 'required|date',
+        'payment_method'   => 'required|in:cash,bank_transfer,check',
+        'reference_number' => 'nullable|string',
+        'notes'            => 'nullable|string',
+    ]);
+
+    $installment->update([
+        'amount_paid'      => $request->amount_paid,
+        'paid_date'        => $request->paid_date,
+        'payment_method'   => $request->payment_method,
+        'reference_number' => $request->reference_number,
+        'notes'            => $request->notes,
+        'status'           => $request->amount_paid >= $installment->amount ? 'paid' : 'partial',
+    ]);
+
+    return back()->with('success', 'Payment updated successfully.');
+}
+
     /**
      * Show customer's installment details (using first sale ID)
      */

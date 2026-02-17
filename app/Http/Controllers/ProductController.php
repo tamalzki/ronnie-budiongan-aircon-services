@@ -32,24 +32,19 @@ class ProductController extends Controller
             'model'          => 'required|string|max:255',
             'supplier_id'    => 'nullable|exists:suppliers,id',
             'description'    => 'nullable|string',
-            'price'          => 'nullable|numeric|min:0',
+            'price'          => 'required|numeric|min:0.01',
             'stock_quantity' => 'required|integer|min:0',
         ]);
 
         $validated['is_active'] = $request->has('is_active');
         $validated['cost']      = 0;
-        $validated['price']     = $validated['price'] ?? 0;
 
         $brand = Brand::find($validated['brand_id']);
         $validated['name'] = $brand->name . ' ' . $validated['model'];
 
         Product::create($validated);
 
-        $msg = $validated['price'] == 0
-            ? 'Product added. ⚠️ No selling price set — set it after receiving from Purchase Order.'
-            : 'Product added successfully.';
-
-        return redirect()->route('products.index')->with('success', $msg);
+        return redirect()->route('products.index')->with('success', 'Product added successfully.');
     }
 
     public function edit(Product $product)
@@ -67,7 +62,7 @@ class ProductController extends Controller
             'model'          => 'required|string|max:255',
             'supplier_id'    => 'nullable|exists:suppliers,id',
             'description'    => 'nullable|string',
-            'price'          => 'nullable|numeric|min:0',
+            'price'          => 'required|numeric|min:0.01',
             'stock_quantity' => 'required|integer|min:0',
         ]);
 

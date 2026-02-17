@@ -76,25 +76,19 @@
                                       placeholder="Optional">{{ old('description') }}</textarea>
                         </div>
 
-                        {{-- Selling Price (optional) --}}
+                        {{-- Selling Price (required) --}}
                         <div class="mb-3">
                             <label class="form-label fw-semibold">
-                                Selling Price
-                                <span class="badge bg-secondary fw-normal ms-1">Optional</span>
+                                Selling Price <span class="text-danger">*</span>
                             </label>
                             <div class="input-group">
                                 <span class="input-group-text">₱</span>
-                                <input type="number" step="0.01" min="0"
+                                <input type="number" step="0.01" min="0.01"
                                        class="form-control @error('price') is-invalid @enderror"
                                        name="price" value="{{ old('price', '') }}"
-                                       placeholder="Leave blank to set after receiving PO">
+                                       placeholder="e.g. 35000.00" required>
                             </div>
                             @error('price')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                            <small class="text-muted">
-                                <i class="bi bi-info-circle"></i>
-                                You can leave this blank now and set it after receiving the Purchase Order.
-                                <strong class="text-warning">Products without a price cannot be sold.</strong>
-                            </small>
                         </div>
 
                         {{-- Stock --}}

@@ -1,207 +1,249 @@
 @extends('layouts.app')
 
-@section('title', 'Sale Details')
+@section('title', 'Sale — {{ $sale->invoice_number }}')
 
 @section('content')
 <div class="container-fluid">
+
+    {{-- Header --}}
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Sale Details - {{ $sale->invoice_number }}</h2>
         <div>
-            <a href="{{ route('sales.index') }}" class="btn btn-secondary">
-                <i class="bi bi-arrow-left"></i> Back to Sales
-            </a>
-            <button onclick="window.print()" class="btn btn-info">
-                <i class="bi bi-printer"></i> Print Invoice
-            </button>
+            <h2 class="mb-1"><i class="bi bi-receipt text-primary"></i> {{ $sale->invoice_number }}</h2>
+            <p class="text-muted mb-0">{{ $sale->sale_date->format('F d, Y') }} &mdash; {{ $sale->customer_name }}</p>
         </div>
+        <a href="{{ route('sales.index') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Back to Sales
+        </a>
     </div>
 
-    <div class="row">
+    @if(session('success'))
+    <div class="alert alert-success border-0 shadow-sm mb-3">{{ session('success') }}</div>
+    @endif
+
+    <div class="row g-3">
+
+        {{-- LEFT: Customer + Items + Installment Schedule --}}
         <div class="col-md-8">
-            <!-- Customer Information -->
-            <div class="card mb-3">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">Customer Information</h5>
+
+            {{-- Customer Info --}}
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header bg-light border-0 py-2">
+                    <h6 class="mb-0"><i class="bi bi-person"></i> Customer Information</h6>
                 </div>
-                <div class="card-body">
-                    <table class="table table-bordered">
-                        <tr>
-                            <th width="200">Customer Name:</th>
-                            <td>{{ $sale->customer_name }}</td>
-                        </tr>
-                        <tr>
-                            <th>Contact Number:</th>
-                            <td>{{ $sale->customer_contact ?? 'N/A' }}</td>
-                        </tr>
-                        <tr>
-                            <th>Address:</th>
-                            <td>{{ $sale->customer_address ?? 'N/A' }}</td>
-                        </tr>
-                        <tr>
-                            <th>Sale Date:</th>
-                            <td>{{ $sale->sale_date->format('F d, Y') }}</td>
-                        </tr>
-                        <tr>
-                            <th>Created By:</th>
-                            <td>{{ $sale->user->name }}</td>
-                        </tr>
+                <div class="card-body" style="font-size:0.875rem;">
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <span class="text-muted small">Name</span>
+                            <div class="fw-semibold">{{ $sale->customer_name }}</div>
+                        </div>
+                        <div class="col-md-4">
+                            <span class="text-muted small">Contact</span>
+                            <div>{{ $sale->customer_contact ?? '—' }}</div>
+                        </div>
+                        <div class="col-md-4">
+                            <span class="text-muted small">Sale Date</span>
+                            <div>{{ $sale->sale_date->format('M d, Y') }}</div>
+                        </div>
+                        @if($sale->customer_address)
+                        <div class="col-12">
+                            <span class="text-muted small">Address</span>
+                            <div>{{ $sale->customer_address }}</div>
+                        </div>
+                        @endif
+                    </div>
+                </div>
+            </div>
+
+            {{-- Items --}}
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header bg-light border-0 py-2">
+                    <h6 class="mb-0"><i class="bi bi-cart"></i> Items Purchased</h6>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-sm mb-0" style="font-size:0.875rem;">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="px-3 py-2 border-0">Item</th>
+                                <th class="px-3 py-2 border-0 text-center">Qty</th>
+                                <th class="px-3 py-2 border-0 text-end">Unit Price</th>
+                                <th class="px-3 py-2 border-0 text-end">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($sale->items as $item)
+                            <tr>
+                                <td class="px-3 py-2">{{ $item->item_name }}</td>
+                                <td class="px-3 py-2 text-center">{{ $item->quantity }}</td>
+                                <td class="px-3 py-2 text-end">₱{{ number_format($item->unit_price, 2) }}</td>
+                                <td class="px-3 py-2 text-end fw-semibold">₱{{ number_format($item->total_price, 2) }}</td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                        <tfoot class="bg-light">
+                            <tr>
+                                <td colspan="3" class="px-3 py-2 text-end text-muted">Subtotal</td>
+                                <td class="px-3 py-2 text-end fw-semibold">₱{{ number_format($sale->subtotal, 2) }}</td>
+                            </tr>
+                            @if(($sale->discount ?? 0) > 0)
+                            <tr>
+                                <td colspan="3" class="px-3 py-1 text-end text-danger">Discount</td>
+                                <td class="px-3 py-1 text-end text-danger fw-semibold">-₱{{ number_format($sale->discount, 2) }}</td>
+                            </tr>
+                            @endif
+                            <tr class="border-top">
+                                <td colspan="3" class="px-3 py-2 text-end fw-bold">TOTAL</td>
+                                <td class="px-3 py-2 text-end fw-bold text-primary" style="font-size:1.1rem;">
+                                    ₱{{ number_format($sale->total, 2) }}
+                                </td>
+                            </tr>
+                        </tfoot>
                     </table>
                 </div>
             </div>
 
-            <!-- Sale Items -->
-            <div class="card mb-3">
-                <div class="card-header bg-success text-white">
-                    <h5 class="mb-0">Sale Items</h5>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-bordered">
-                            <thead>
-                                <tr>
-                                    <th>Type</th>
-                                    <th>Item Name</th>
-                                    <th>Quantity</th>
-                                    <th>Unit Price</th>
-                                    <th>Total</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($sale->items as $item)
-                                <tr>
-                                    <td>
-                                        <span class="badge bg-{{ $item->item_type == 'product' ? 'primary' : 'info' }}">
-                                            {{ ucfirst($item->item_type) }}
-                                        </span>
-                                    </td>
-                                    <td>{{ $item->item_name }}</td>
-                                    <td>{{ $item->quantity }}</td>
-                                    <td>₱{{ number_format($item->unit_price, 2) }}</td>
-                                    <td>₱{{ number_format($item->total_price, 2) }}</td>
-                                </tr>
-                                @endforeach
-                                <tr class="table-light">
-                                    <td colspan="4" class="text-end fw-bold">Subtotal:</td>
-                                    <td class="fw-bold">₱{{ number_format($sale->subtotal, 2) }}</td>
-                                </tr>
-                                @if($sale->discount > 0)
-                                <tr class="table-light">
-                                    <td colspan="4" class="text-end fw-bold text-danger">Discount:</td>
-                                    <td class="fw-bold text-danger">₱{{ number_format($sale->discount, 2) }}</td>
-                                </tr>
-                                @endif
-                                <tr class="table-primary">
-                                    <td colspan="4" class="text-end fw-bold fs-5">TOTAL:</td>
-                                    <td class="fw-bold fs-5">₱{{ number_format($sale->total, 2) }}</td>
-                                </tr>
-                            </tbody>
-                        </table>
+            {{-- Installment Schedule --}}
+            @if($sale->payment_type === 'installment' && $sale->installmentPayments->count())
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-light border-0 py-2 d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="bi bi-calendar-check text-primary"></i> Installment Schedule</h6>
+                    <div class="d-flex gap-2" style="font-size:0.8rem;">
+                        <span class="badge bg-success">Paid: ₱{{ number_format($sale->paid_amount, 2) }}</span>
+                        @if($sale->balance > 0)
+                        <span class="badge bg-danger">Balance: ₱{{ number_format($sale->balance, 2) }}</span>
+                        @endif
                     </div>
                 </div>
-            </div>
-
-            <!-- Installment Schedule (if applicable) -->
-            @if($sale->payment_type === 'installment' && $sale->installmentPayments->count() > 0)
-            <div class="card mb-3">
-                <div class="card-header bg-warning">
-                    <h5 class="mb-0">Installment Schedule</h5>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-sm">
-                            <thead>
-                                <tr>
-                                    <th>Payment #</th>
-                                    <th>Due Date</th>
-                                    <th>Amount Due</th>
-                                    <th>Amount Paid</th>
-                                    <th>Paid Date</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($sale->installmentPayments as $payment)
-                                <tr>
-                                    <td>{{ $payment->payment_number }}</td>
-                                    <td>{{ $payment->due_date->format('M d, Y') }}</td>
-                                    <td>₱{{ number_format($payment->amount_due, 2) }}</td>
-                                    <td>₱{{ number_format($payment->amount_paid, 2) }}</td>
-                                    <td>{{ $payment->paid_date ? $payment->paid_date->format('M d, Y') : 'N/A' }}</td>
-                                    <td>
-                                        <span class="badge bg-{{ $payment->status == 'paid' ? 'success' : ($payment->status == 'overdue' ? 'danger' : 'warning') }}">
-                                            {{ ucfirst($payment->status) }}
-                                        </span>
-                                    </td>
-                                </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
+                <div class="card-body p-0">
+                    <table class="table table-sm mb-0" style="font-size:0.855rem;">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="px-3 py-2 border-0">#</th>
+                                <th class="px-3 py-2 border-0">Due Date</th>
+                                <th class="px-3 py-2 border-0 text-end">Amount</th>
+                                <th class="px-3 py-2 border-0 text-end">Paid</th>
+                                <th class="px-3 py-2 border-0">Method</th>
+                                <th class="px-3 py-2 border-0">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach($sale->installmentPayments->sortBy('installment_number') as $inst)
+                            @php
+                                $isDownpayment = $inst->installment_number === 1 && $inst->status === 'paid' && $inst->notes === 'Downpayment';
+                                $rowClass = '';
+                                if ($inst->status === 'paid') $rowClass = 'table-success';
+                                elseif($inst->due_date && $inst->due_date->isPast()) $rowClass = 'table-danger';
+                                elseif($inst->due_date && $inst->due_date->diffInDays(now()) <= 7) $rowClass = 'table-warning';
+                            @endphp
+                            <tr class="{{ $rowClass }}">
+                                <td class="px-3 py-2">
+                                    {{ $inst->installment_number }}
+                                    @if($isDownpayment)
+                                        <span class="badge bg-primary ms-1" style="font-size:0.68rem;">Down</span>
+                                    @endif
+                                </td>
+                                <td class="px-3 py-2" style="white-space:nowrap">
+                                    {{ $inst->due_date ? $inst->due_date->format('M d, Y') : '—' }}
+                                </td>
+                                <td class="px-3 py-2 text-end fw-semibold">₱{{ number_format($inst->amount, 2) }}</td>
+                                <td class="px-3 py-2 text-end text-success fw-semibold">
+                                    {{ $inst->amount_paid > 0 ? '₱' . number_format($inst->amount_paid, 2) : '—' }}
+                                </td>
+                                <td class="px-3 py-2" style="white-space:nowrap">
+                                    @php
+                                        $icons = ['cash'=>'💵','gcash'=>'📱','bank_transfer'=>'🏦','cheque'=>'🧾'];
+                                        $m = $inst->payment_method;
+                                    @endphp
+                                    {{ $m ? ($icons[$m] ?? '') . ' ' . ucwords(str_replace('_',' ',$m)) : '—' }}
+                                </td>
+                                <td class="px-3 py-2" style="white-space:nowrap">
+                                    @if($inst->status === 'paid')
+                                        <span class="badge bg-success"><i class="bi bi-check-circle"></i> Paid</span>
+                                    @elseif($inst->due_date && $inst->due_date->isPast())
+                                        <span class="badge bg-danger">Overdue</span>
+                                    @elseif($inst->due_date && $inst->due_date->diffInDays(now()) <= 7)
+                                        <span class="badge bg-warning text-dark">Due Soon</span>
+                                    @else
+                                        <span class="badge bg-secondary">Pending</span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                        </tbody>
+                    </table>
                 </div>
             </div>
             @endif
+
         </div>
 
+        {{-- RIGHT: Payment Summary --}}
         <div class="col-md-4">
-            <!-- Payment Summary -->
-            <div class="card mb-3">
-                <div class="card-header bg-info text-white">
-                    <h5 class="mb-0">Payment Summary</h5>
+
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header bg-primary text-white border-0 py-2">
+                    <h6 class="mb-0"><i class="bi bi-credit-card"></i> Payment Summary</h6>
                 </div>
-                <div class="card-body">
-                    <table class="table table-bordered">
-                        <tr>
-                            <th>Payment Type:</th>
-                            <td>
-                                <span class="badge bg-{{ $sale->payment_type == 'cash' ? 'success' : 'warning' }}">
-                                    {{ ucfirst($sale->payment_type) }}
-                                </span>
-                            </td>
-                        </tr>
-                        @if($sale->payment_type === 'installment')
-                        <tr>
-                            <th>Months:</th>
-                            <td>{{ $sale->installment_months }}</td>
-                        </tr>
-                        <tr>
-                            <th>Monthly Payment:</th>
-                            <td class="fw-bold">₱{{ number_format($sale->installment_amount, 2) }}</td>
-                        </tr>
+                <div class="card-body" style="font-size:0.875rem;">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Payment Type</span>
+                        <span class="badge {{ $sale->payment_type === 'cash' ? 'bg-success' : 'bg-warning text-dark' }}">
+                            {{ $sale->payment_type === 'cash' ? 'Cash (Full)' : 'Installment' }}
+                        </span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Payment Method</span>
+                        <span>
+                            @php $icons = ['cash'=>'💵','gcash'=>'📱','bank_transfer'=>'🏦','cheque'=>'🧾']; @endphp
+                            {{ ($icons[$sale->payment_method] ?? '') . ' ' . ucwords(str_replace('_',' ',$sale->payment_method ?? '—')) }}
+                        </span>
+                    </div>
+                    <hr class="my-2">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">Subtotal</span>
+                        <span>₱{{ number_format($sale->subtotal, 2) }}</span>
+                    </div>
+                    @if(($sale->discount ?? 0) > 0)
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-danger">Discount</span>
+                        <span class="text-danger">-₱{{ number_format($sale->discount, 2) }}</span>
+                    </div>
+                    @endif
+                    <div class="d-flex justify-content-between mb-2 border-top pt-2">
+                        <span class="fw-bold">Total</span>
+                        <span class="fw-bold text-primary" style="font-size:1.1rem;">₱{{ number_format($sale->total, 2) }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">Amount Paid</span>
+                        <span class="text-success fw-semibold">₱{{ number_format($sale->paid_amount, 2) }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted">Balance</span>
+                        @if($sale->balance > 0)
+                            <span class="text-danger fw-bold">₱{{ number_format($sale->balance, 2) }}</span>
+                        @else
+                            <span class="text-success fw-bold"><i class="bi bi-check-circle"></i> Fully Paid</span>
                         @endif
-                        <tr>
-                            <th>Total Amount:</th>
-                            <td class="fw-bold fs-5">₱{{ number_format($sale->total, 2) }}</td>
-                        </tr>
-                        <tr>
-                            <th>Paid Amount:</th>
-                            <td class="fw-bold text-success">₱{{ number_format($sale->paid_amount, 2) }}</td>
-                        </tr>
-                        <tr>
-                            <th>Balance:</th>
-                            <td class="fw-bold {{ $sale->balance > 0 ? 'text-danger' : 'text-success' }}">
-                                ₱{{ number_format($sale->balance, 2) }}
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>Status:</th>
-                            <td>
-                                <span class="badge bg-{{ $sale->status == 'completed' ? 'success' : ($sale->status == 'pending' ? 'warning' : 'danger') }}">
-                                    {{ ucfirst($sale->status) }}
-                                </span>
-                            </td>
-                        </tr>
-                    </table>
+                    </div>
                 </div>
             </div>
+
+            @if($sale->notes)
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header bg-light border-0 py-2">
+                    <h6 class="mb-0"><i class="bi bi-sticky"></i> Notes</h6>
+                </div>
+                <div class="card-body" style="font-size:0.875rem;">{{ $sale->notes }}</div>
+            </div>
+            @endif
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-body" style="font-size:0.78rem;color:#aaa;">
+                    Created by {{ $sale->user->name ?? '—' }}<br>
+                    {{ $sale->created_at->format('M d, Y h:i A') }}
+                </div>
+            </div>
+
         </div>
     </div>
 </div>
-
-<style>
-@media print {
-    .btn, nav, .navbar {
-        display: none !important;
-    }
-}
-</style>
 @endsection
