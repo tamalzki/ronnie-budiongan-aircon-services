@@ -229,8 +229,8 @@
                         <table class="table table-hover mb-0">
                             <thead class="bg-light">
                                 <tr>
-                                    <th class="px-3 py-2 border-0">Product</th>
                                     <th class="px-3 py-2 border-0">Brand</th>
+                                    <th class="px-3 py-2 border-0">Model</th>
                                     <th class="px-3 py-2 border-0">Stock</th>
                                 </tr>
                             </thead>
@@ -238,10 +238,10 @@
                                 @forelse($lowStockProductsList as $product)
                                 <tr>
                                     <td class="px-3 py-2">
-                                        <small class="fw-semibold">{{ $product->name }}</small>
+                                        <small class="fw-semibold">{{ $product->brand->name ?? 'N/A' }}</small>
                                     </td>
                                     <td class="px-3 py-2">
-                                        <small class="text-muted">{{ $product->brand->name ?? 'N/A' }}</small>
+                                        <small class="text-muted">{{ $product->model ?? '—' }}</small>
                                     </td>
                                     <td class="px-3 py-2">
                                         <span class="badge bg-{{ $product->stock_quantity == 0 ? 'danger' : 'warning' }}">
