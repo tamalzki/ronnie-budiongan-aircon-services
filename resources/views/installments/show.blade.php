@@ -292,15 +292,19 @@
                             </div>
                         </div>
                     </div>
+                    <div class="alert alert-info border-0 mb-3">
+                        <i class="bi bi-info-circle"></i> <strong>Flexible Payment:</strong> You can enter any amount. If payment exceeds this installment, the extra will automatically apply to the next unpaid installments.
+                    </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Amount to Pay <span class="text-danger">*</span></label>
                         <div class="input-group">
                             <span class="input-group-text">₱</span>
                             <input type="number" step="0.01" class="form-control" name="amount_paid"
                                    value="{{ $installment->amount - $installment->amount_paid }}"
-                                   max="{{ $installment->amount - $installment->amount_paid }}"
-                                   min="0.01" required>
+                                   min="0.01" required
+                                   placeholder="Enter any amount">
                         </div>
+                        <small class="text-muted">Enter the amount customer is paying (can be more or less than remaining balance)</small>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Payment Date <span class="text-danger">*</span></label>
@@ -309,9 +313,11 @@
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Payment Method <span class="text-danger">*</span></label>
                         <select class="form-select" name="payment_method" required>
-                            <option value="cash">Cash</option>
-                            <option value="bank_transfer">Bank Transfer</option>
-                            <option value="check">Check</option>
+                            <option value="">-- Select Method --</option>
+                            <option value="cash">💵 Cash</option>
+                            <option value="gcash">📱 GCash</option>
+                            <option value="bank_transfer">🏦 Bank Transfer</option>
+                            <option value="cheque">🧾 Cheque</option>
                         </select>
                     </div>
                     <div class="mb-3">
@@ -360,7 +366,6 @@
                             <span class="input-group-text">₱</span>
                             <input type="number" step="0.01" class="form-control" name="amount_paid"
                                    value="{{ $installment->amount_paid }}"
-                                   max="{{ $installment->amount }}"
                                    min="0.01" required>
                         </div>
                     </div>
@@ -372,9 +377,10 @@
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Payment Method <span class="text-danger">*</span></label>
                         <select class="form-select" name="payment_method" required>
-                            <option value="cash"          {{ ($installment->payment_method ?? '') == 'cash'          ? 'selected' : '' }}>Cash</option>
-                            <option value="bank_transfer" {{ ($installment->payment_method ?? '') == 'bank_transfer' ? 'selected' : '' }}>Bank Transfer</option>
-                            <option value="check"         {{ ($installment->payment_method ?? '') == 'check'         ? 'selected' : '' }}>Check</option>
+                            <option value="cash"          {{ ($installment->payment_method ?? '') == 'cash'          ? 'selected' : '' }}>💵 Cash</option>
+                            <option value="gcash"         {{ ($installment->payment_method ?? '') == 'gcash'         ? 'selected' : '' }}>📱 GCash</option>
+                            <option value="bank_transfer" {{ ($installment->payment_method ?? '') == 'bank_transfer' ? 'selected' : '' }}>🏦 Bank Transfer</option>
+                            <option value="cheque"        {{ ($installment->payment_method ?? '') == 'cheque'        ? 'selected' : '' }}>🧾 Cheque</option>
                         </select>
                     </div>
                     <div class="mb-3">

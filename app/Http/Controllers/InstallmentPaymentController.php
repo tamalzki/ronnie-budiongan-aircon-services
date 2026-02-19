@@ -31,26 +31,26 @@ class InstallmentPaymentController extends Controller
     }
 
     public function update(Request $request, InstallmentPayment $installment)
-{
-    $request->validate([
-        'amount_paid'      => 'required|numeric|min:0.01|max:' . $installment->amount,
-        'paid_date'        => 'required|date',
-        'payment_method'   => 'required|in:cash,bank_transfer,check',
-        'reference_number' => 'nullable|string',
-        'notes'            => 'nullable|string',
-    ]);
+    {
+        $request->validate([
+            'amount_paid'      => 'required|numeric|min:0.01',
+            'paid_date'        => 'required|date',
+            'payment_method'   => 'required|in:cash,gcash,bank_transfer,cheque',
+            'reference_number' => 'nullable|string',
+            'notes'            => 'nullable|string',
+        ]);
 
-    $installment->update([
-        'amount_paid'      => $request->amount_paid,
-        'paid_date'        => $request->paid_date,
-        'payment_method'   => $request->payment_method,
-        'reference_number' => $request->reference_number,
-        'notes'            => $request->notes,
-        'status'           => $request->amount_paid >= $installment->amount ? 'paid' : 'partial',
-    ]);
+        $installment->update([
+            'amount_paid'      => $request->amount_paid,
+            'paid_date'        => $request->paid_date,
+            'payment_method'   => $request->payment_method,
+            'reference_number' => $request->reference_number,
+            'notes'            => $request->notes,
+            'status'           => $request->amount_paid >= $installment->amount ? 'paid' : 'partial',
+        ]);
 
-    return back()->with('success', 'Payment updated successfully.');
-}
+        return back()->with('success', 'Payment updated successfully.');
+    }
 
     /**
      * Show customer's installment details (using first sale ID)
@@ -92,54 +92,103 @@ class InstallmentPaymentController extends Controller
     }
 
     /**
-     * Record payment for an installment
+     * Record payment for an installment — FLEXIBLE amount
      */
     public function recordPayment(Request $request, InstallmentPayment $installment)
-{
-    // Log the request for debugging
-    \Log::info('Installment Payment Request:', $request->all());
-    
-    $validated = $request->validate([
-        'amount_paid' => 'required|numeric|min:0.01|max:' . ($installment->amount - $installment->amount_paid),
-        'paid_date' => 'required|date',
-        'payment_method' => 'required|in:cash,bank_transfer,check',
-        'reference_number' => 'nullable|string|max:255',
-        'notes' => 'nullable|string',
-    ], [
-        'amount_paid.max' => 'Payment amount cannot exceed the remaining balance of ₱' . number_format($installment->amount - $installment->amount_paid, 2),
-        'amount_paid.min' => 'Payment amount must be at least ₱0.01',
-    ]);
-
-    DB::beginTransaction();
-
-    try {
-        $sale = $installment->sale;
-        $amountToPay = $validated['amount_paid'];
-
-        // Update installment
-        $installment->increment('amount_paid', $amountToPay);
-        $installment->update([
-            'paid_date' => $validated['paid_date'],
-            'status' => $installment->amount_paid >= $installment->amount ? 'paid' : 'partial',
+    {
+        // Log the request for debugging
+        \Log::info('Installment Payment Request:', $request->all());
+        
+        $validated = $request->validate([
+            'amount_paid'       => 'required|numeric|min:0.01',
+            'paid_date'         => 'required|date',
+            'payment_method'    => 'required|in:cash,gcash,bank_transfer,cheque',
+            'reference_number'  => 'nullable|string|max:255',
+            'notes'             => 'nullable|string',
+        ], [
+            'amount_paid.min' => 'Payment amount must be at least ₱0.01',
         ]);
 
-        // Update sale
-        $sale->increment('paid_amount', $amountToPay);
-        $sale->decrement('balance', $amountToPay);
+        DB::beginTransaction();
 
-        // Update sale status if fully paid
-        if ($sale->balance <= 0) {
-            $sale->update(['status' => 'completed']);
+        try {
+            $sale = $installment->sale;
+            $amountToPay = (float) $validated['amount_paid'];
+            $remainingInstallmentBalance = $installment->amount - $installment->amount_paid;
+
+            // Case 1: Payment covers this installment exactly or less
+            if ($amountToPay <= $remainingInstallmentBalance) {
+                $installment->increment('amount_paid', $amountToPay);
+                $installment->update([
+                    'paid_date' => $validated['paid_date'],
+                    'payment_method' => $validated['payment_method'],
+                    'reference_number' => $validated['reference_number'],
+                    'notes' => $validated['notes'],
+                    'status' => $installment->amount_paid >= $installment->amount ? 'paid' : 'partial',
+                ]);
+
+                $sale->increment('paid_amount', $amountToPay);
+                $sale->decrement('balance', $amountToPay);
+
+            } 
+            // Case 2: Payment exceeds this installment — apply overflow to next unpaid installments
+            else {
+                $overflow = $amountToPay;
+
+                // Pay current installment fully first
+                $payForCurrent = $remainingInstallmentBalance;
+                $installment->update([
+                    'amount_paid' => $installment->amount,
+                    'paid_date' => $validated['paid_date'],
+                    'payment_method' => $validated['payment_method'],
+                    'reference_number' => $validated['reference_number'],
+                    'notes' => $validated['notes'],
+                    'status' => 'paid',
+                ]);
+                $overflow -= $payForCurrent;
+
+                // Apply overflow to next unpaid installments in order
+                $nextInstallments = InstallmentPayment::where('sale_id', $sale->id)
+                    ->where('id', '!=', $installment->id)
+                    ->where('status', '!=', 'paid')
+                    ->orderBy('due_date')
+                    ->get();
+
+                foreach ($nextInstallments as $next) {
+                    if ($overflow <= 0) break;
+
+                    $nextRemaining = $next->amount - $next->amount_paid;
+                    $applyAmount = min($overflow, $nextRemaining);
+
+                    $next->increment('amount_paid', $applyAmount);
+                    $next->update([
+                        'paid_date' => $validated['paid_date'],
+                        'payment_method' => $validated['payment_method'],
+                        'notes' => 'Overflow from payment #' . $installment->installment_number,
+                        'status' => $next->amount_paid >= $next->amount ? 'paid' : 'partial',
+                    ]);
+
+                    $overflow -= $applyAmount;
+                }
+
+                // Update sale totals
+                $sale->increment('paid_amount', $amountToPay);
+                $sale->decrement('balance', $amountToPay);
+            }
+
+            // Update sale status if fully paid
+            if ($sale->balance <= 0) {
+                $sale->update(['status' => 'completed']);
+            }
+
+            DB::commit();
+
+            return back()->with('success', 'Payment of ₱' . number_format($amountToPay, 2) . ' recorded successfully.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Installment Payment Error:', ['error' => $e->getMessage()]);
+            return back()->with('error', 'Error recording payment: ' . $e->getMessage());
         }
-
-        DB::commit();
-
-        return back()->with('success', 'Payment of ₱' . number_format($amountToPay, 2) . ' recorded successfully.');
-
-    } catch (\Exception $e) {
-        DB::rollBack();
-        \Log::error('Installment Payment Error:', ['error' => $e->getMessage()]);
-        return back()->with('error', 'Error recording payment: ' . $e->getMessage());
     }
-}
 }
