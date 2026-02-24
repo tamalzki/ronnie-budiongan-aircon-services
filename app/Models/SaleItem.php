@@ -40,4 +40,9 @@ class SaleItem extends Model
     {
         return $this->belongsTo(Service::class);
     }
+
+    public function serials()
+{
+    return $this->hasMany(ProductSerial::class, 'sale_item_id');
+}
 }

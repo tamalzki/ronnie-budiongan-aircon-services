@@ -16,7 +16,10 @@ class SaleController extends Controller
 {
     public function index()
     {
-        $sales = Sale::with('user')->orderBy('sale_date', 'desc')->paginate(15);
+        $sales = Sale::with(['user', 'items'])
+        ->withCount('items')
+        ->orderBy('sale_date', 'desc')
+        ->paginate(15);
         return view('sales.index', compact('sales'));
     }
 
@@ -151,7 +154,9 @@ class SaleController extends Controller
 
                     // Flip serials: in_stock → sold
                     $serialIds = array_filter($item['serial_ids'] ?? []);
-                    ProductSerial::whereIn('id', $serialIds)
+
+                    // Update and check how many rows were actually updated
+                    $updated = ProductSerial::whereIn('id', $serialIds)
                         ->where('product_id', $product->id)
                         ->where('status', 'in_stock')
                         ->update([
@@ -160,6 +165,11 @@ class SaleController extends Controller
                             'sale_item_id' => $saleItem->id,
                             'sold_date'    => $request->sale_date,
                         ]);
+
+                    // Prevent double-selling or race condition issues
+                    if ($updated !== count($serialIds)) {
+                        throw new \Exception('One or more selected serial numbers are no longer available.');
+                    }
 
                 } else {
                     $service = Service::findOrFail($item['id']);
