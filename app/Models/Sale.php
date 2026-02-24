@@ -19,6 +19,7 @@ class Sale extends Model
         'discount',
         'total',
         'payment_type',
+        'payment_method',   // 
         'installment_months',
         'installment_amount',
         'paid_amount',

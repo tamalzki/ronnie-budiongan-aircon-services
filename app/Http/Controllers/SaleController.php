@@ -14,14 +14,32 @@ use Carbon\Carbon;
 
 class SaleController extends Controller
 {
-    public function index()
-    {
-        $sales = Sale::with(['user', 'items'])
+    public function index(Request $request)
+{
+    $search = $request->search;
+
+    $sales = Sale::with(['user', 'items.serials'])
         ->withCount('items')
+        ->when($search, function ($query) use ($search) {
+            $query->where(function ($q) use ($search) {
+
+                // Invoice / Customer / Contact
+                $q->where('invoice_number', 'like', "%{$search}%")
+                  ->orWhere('customer_name', 'like', "%{$search}%")
+                  ->orWhere('customer_contact', 'like', "%{$search}%")
+
+                  // 🔥 Serial number search
+                  ->orWhereHas('items.serials', function ($sq) use ($search) {
+                      $sq->where('serial_number', 'like', "%{$search}%");
+                  });
+            });
+        })
         ->orderBy('sale_date', 'desc')
-        ->paginate(15);
-        return view('sales.index', compact('sales'));
-    }
+        ->paginate(15)
+        ->withQueryString();
+
+    return view('sales.index', compact('sales'));
+}
 
     public function create()
     {
