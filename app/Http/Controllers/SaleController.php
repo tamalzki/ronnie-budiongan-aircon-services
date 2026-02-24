@@ -25,7 +25,6 @@ class SaleController extends Controller
         // Count locked products to show warning tip in the view
         $lockedCount = Product::where('is_active', true)->where('price', 0)->count();
 
-        // Pre-map with full label: Brand · Model · HP — avoids ambiguity in dropdown
         $products = Product::with('brand')
             ->where('is_active', true)
             ->where('price', '>', 0)
@@ -36,14 +35,14 @@ class SaleController extends Controller
                 $parts = array_filter([
                     $p->brand->name ?? null,
                     $p->model        ?? null,
-                    $p->hp           ? $p->hp . ' HP'  : null,
                 ]);
-                $label = implode(' · ', $parts);
                 return [
-                    'id'    => $p->id,
-                    'label' => $label ?: 'Unknown Product',
-                    'price' => (float) $p->price,
-                    'stock' => (int)   $p->stock_quantity,
+                    'id'            => $p->id,
+                    'label'         => implode(' · ', $parts) ?: 'Unknown Product',
+                    'unit_type'     => $p->unit_type,
+                    'serial_number' => $p->serial_number,
+                    'price'         => (float) $p->price,
+                    'stock'         => (int)   $p->stock_quantity,
                 ];
             })
             ->values()
@@ -101,7 +100,6 @@ class SaleController extends Controller
                            '. Go to Products → Set Price first.',
             ]);
         }
-        // ────────────────────────────────────────────────────────────
 
         DB::beginTransaction();
 
@@ -150,7 +148,6 @@ class SaleController extends Controller
 
                 if ($item['type'] === 'product') {
                     $product   = Product::with('brand')->findOrFail($item['id']);
-                    // Use Brand + Model as the item name (no separate "name" field)
                     $itemName  = trim(($product->brand->name ?? '') . ' ' . $product->model);
                     $productId = $product->id;
 
@@ -189,9 +186,8 @@ class SaleController extends Controller
                 $downPayment       = (float) ($request->down_payment ?? 0);
                 $saleDate          = Carbon::parse($request->sale_date);
 
-                $num = 1; // installment counter
+                $num = 1;
 
-                // ── Downpayment = Month #1, recorded as PAID ──
                 if ($downPayment > 0) {
                     InstallmentPayment::create([
                         'sale_id'            => $sale->id,
@@ -208,8 +204,6 @@ class SaleController extends Controller
                     $num++;
                 }
 
-                // ── Remaining balance ÷ months = each monthly payment ──
-                // $balance already = total - downpayment (set above)
                 $monthly = $installmentMonths > 0
                     ? round($balance / $installmentMonths, 2)
                     : $balance;
@@ -258,7 +252,6 @@ class SaleController extends Controller
                         $product->increment('stock_quantity', $item->quantity);
                         $stockAfter = $product->fresh()->stock_quantity;
 
-                        // Log the reversal in inventory movement history
                         InventoryMovement::create([
                             'product_id'     => $product->id,
                             'type'           => 'stock_in',

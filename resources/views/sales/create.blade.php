@@ -21,6 +21,14 @@
     </div>
     @endif
 
+    @if($lockedCount > 0)
+    <div class="alert alert-warning border-0 shadow-sm mb-3" style="font-size:0.875rem;">
+        <i class="bi bi-lock-fill me-1"></i>
+        <strong>{{ $lockedCount }} product(s)</strong> have no selling price and are hidden from this form.
+        <a href="{{ route('products.index') }}" class="alert-link">Set prices in Products</a> to make them sellable.
+    </div>
+    @endif
+
     <form action="{{ route('sales.store') }}" method="POST" id="saleForm">
         @csrf
 
@@ -231,6 +239,15 @@ const products = @json($products);
 const services = @json($services);
 let counter = 0;
 
+// Build unit_type badge HTML (shared with PO style)
+function unitTypeBadge(unitType) {
+    if (!unitType) return '';
+    const isIndoor = unitType === 'indoor';
+    const color    = isIndoor ? '#0d6efd' : '#198754';
+    const icon     = isIndoor ? '❄️' : '🌀';
+    return `<span style="font-size:0.68rem;padding:1px 6px;border-radius:20px;background:${color}15;color:${color};border:1px solid ${color}40;font-weight:600;white-space:nowrap;">${icon} ${isIndoor ? 'Indoor' : 'Outdoor'}</span>`;
+}
+
 /* ── ADD ITEM ── */
 function addItem(type) {
     document.getElementById('emptyState')?.remove();
@@ -238,26 +255,48 @@ function addItem(type) {
     const id  = counter;
     const arr = type === 'product' ? products : services;
 
-    const opts = arr.map(p => {
-        if (type === 'product') {
-            const badge = p.stock === 0 ? ' ⚠ Out of Stock' : ` (Stock: ${p.stock})`;
-            return `<option value="${p.id}" data-price="${p.price}">${p.label} — ₱${parseFloat(p.price).toFixed(2)}${badge}</option>`;
-        }
-        return `<option value="${p.id}" data-price="${p.price}">${p.label} — ₱${parseFloat(p.price).toFixed(2)}</option>`;
-    }).join('');
-
-    // Hidden real select for form submission (keeps value)
+    // Hidden real select for form submission
     const hiddenSelect = `<select name="items[${id}][id]" class="item-select d-none" data-id="${id}" required>
         <option value="">-- Select --</option>
-        ${opts}
+        ${arr.map(p => `<option value="${p.id}" data-price="${p.price}">${p.label}</option>`).join('')}
     </select>`;
+
+    // Build combobox options
+    const cbOptions = arr.map(p => {
+        if (type === 'product') {
+            const stockStr  = p.stock === 0 ? ' ⚠ Out of Stock' : ` (Stock: ${p.stock})`;
+            const badgeHtml = unitTypeBadge(p.unit_type);
+            const snHtml    = p.serial_number
+                ? `<span style="font-size:0.7rem;color:#888;"> · S/N: ${p.serial_number}</span>`
+                : '';
+            return `<div class="cb-option px-3 py-2" style="cursor:pointer;font-size:0.82rem;"
+                         data-value="${p.id}" data-price="${p.price}" data-label="${p.label}"
+                         data-unit-type="${p.unit_type || ''}" data-serial="${p.serial_number || ''}"
+                         onmouseenter="this.style.background='#f0f4ff'"
+                         onmouseleave="this.style.background=''"
+                         onclick="pickCombo(${id}, '${p.id}', '${p.price}', this.getAttribute('data-label'), this.getAttribute('data-unit-type'), this.getAttribute('data-serial'))">
+                      <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <span>₱${parseFloat(p.price).toFixed(2)} — ${p.label}${stockStr}</span>
+                        ${badgeHtml}${snHtml}
+                      </div>
+                    </div>`;
+        }
+        return `<div class="cb-option px-3 py-2" style="cursor:pointer;font-size:0.82rem;"
+                     data-value="${p.id}" data-price="${p.price}" data-label="${p.label}"
+                     data-unit-type="" data-serial=""
+                     onmouseenter="this.style.background='#f0f4ff'"
+                     onmouseleave="this.style.background=''"
+                     onclick="pickCombo(${id}, '${p.id}', '${p.price}', this.getAttribute('data-label'), '', '')">
+                  ${p.label} — ₱${parseFloat(p.price).toFixed(2)}
+                </div>`;
+    }).join('');
 
     const html = `
     <div class="border rounded p-2 mb-2 item-row bg-white shadow-sm" id="item-${id}" data-type="${type}">
       <div class="d-flex justify-content-between align-items-center mb-2">
-        <span class="badge bg-${type==='product'?'success':'info'}">
-          <i class="bi bi-${type==='product'?'box':'tools'}"></i>
-          ${type==='product'?'Product':'Service'}
+        <span class="badge bg-${type === 'product' ? 'success' : 'info'}">
+          <i class="bi bi-${type === 'product' ? 'box' : 'tools'}"></i>
+          ${type === 'product' ? 'Product' : 'Service'}
         </span>
         <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeItem(${id})"
                 style="padding:1px 8px;font-size:0.78rem">
@@ -268,14 +307,18 @@ function addItem(type) {
       ${hiddenSelect}
       <div class="row g-2 align-items-end">
         <div class="col-md-6">
-          <label class="form-label small fw-semibold mb-1">${type==='product'?'Product':'Service'} <span class="text-danger">*</span></label>
+          <label class="form-label small fw-semibold mb-1">${type === 'product' ? 'Product' : 'Service'} <span class="text-danger">*</span></label>
           {{-- Combobox --}}
           <div class="combobox position-relative" id="cb-${id}">
-            <div class="form-control form-control-sm d-flex justify-content-between align-items-center"
+            <div class="form-control form-control-sm d-flex justify-content-between align-items-center gap-2"
                  style="cursor:pointer;user-select:none;background:#fff;"
                  onclick="toggleCombo(${id})">
-              <span class="cb-display-${id} text-muted" style="font-size:0.82rem;">-- Select ${type==='product'?'Product':'Service'} --</span>
-              <i class="bi bi-chevron-down" style="font-size:0.7rem;color:#888;"></i>
+              <div class="d-flex align-items-center gap-2 flex-wrap" style="flex:1;min-width:0;">
+                <span class="cb-display-${id} text-muted" style="font-size:0.82rem;">-- Select ${type === 'product' ? 'Product' : 'Service'} --</span>
+                <span class="cb-badge-${id}"></span>
+                <span class="cb-serial-${id} text-muted" style="font-size:0.72rem;"></span>
+              </div>
+              <i class="bi bi-chevron-down flex-shrink-0" style="font-size:0.7rem;color:#888;"></i>
             </div>
             <div class="cb-panel-${id} position-absolute w-100 bg-white border rounded shadow-sm"
                  style="display:none;z-index:9999;top:100%;left:0;max-height:260px;overflow:hidden;">
@@ -285,19 +328,7 @@ function addItem(type) {
                        onclick="event.stopPropagation()">
               </div>
               <div class="cb-list-${id}" style="max-height:200px;overflow-y:auto;">
-                ${arr.map(p => {
-                    const label = type==='product'
-                        ? `${p.label} — ₱${parseFloat(p.price).toFixed(2)}${p.stock===0?' ⚠ Out':' ('+p.stock+')'}`
-                        : `${p.label} — ₱${parseFloat(p.price).toFixed(2)}`;
-                    const price = type==='product' ? p.price : p.price;
-                    return `<div class="cb-option px-3 py-2" style="cursor:pointer;font-size:0.82rem;"
-                                 data-value="${p.id}" data-price="${price}" data-label="${p.label}"
-                                 onmouseenter="this.style.background='#f0f4ff'"
-                                 onmouseleave="this.style.background=''"
-                                 onclick="pickCombo(${id}, '${p.id}', '${price}', this.getAttribute('data-label'))">
-                              ${label}
-                            </div>`;
-                }).join('')}
+                ${cbOptions}
               </div>
             </div>
           </div>
@@ -340,27 +371,38 @@ function toggleCombo(id) {
 function searchCombo(id) {
     const term = document.querySelector(`.cb-search-${id}`).value.toLowerCase();
     document.querySelectorAll(`#cb-${id} .cb-option`).forEach(opt => {
-        opt.style.display = opt.textContent.toLowerCase().includes(term) ? '' : 'none';
+        const text = opt.textContent.toLowerCase();
+        const sn   = (opt.getAttribute('data-serial') || '').toLowerCase();
+        opt.style.display = (text.includes(term) || sn.includes(term)) ? '' : 'none';
     });
 }
 
 /* ── COMBOBOX: PICK ── */
-function pickCombo(id, value, price, label) {
+function pickCombo(id, value, price, label, unitType, serialNumber) {
     // Set hidden select value
     const sel = document.querySelector(`select[name="items[${id}][id]"]`);
     sel.value = value;
 
-    // Update display text
-    document.querySelector(`.cb-display-${id}`).textContent = label;
-    document.querySelector(`.cb-display-${id}`).style.color = '#212529';
+    // Update display label
+    const disp = document.querySelector(`.cb-display-${id}`);
+    disp.textContent = label;
+    disp.style.color = '#212529';
+
+    // Update unit type badge
+    const badge = document.querySelector(`.cb-badge-${id}`);
+    badge.innerHTML = unitType ? unitTypeBadge(unitType) : '';
+
+    // Update serial number
+    const snEl = document.querySelector(`.cb-serial-${id}`);
+    snEl.textContent = serialNumber ? `S/N: ${serialNumber}` : '';
 
     // Set price
     document.getElementById(`price-${id}`).value = parseFloat(price).toFixed(2);
 
-    // Close panel
+    // Close panel + reset search
     document.querySelector(`.cb-panel-${id}`).style.display = 'none';
     document.querySelector(`.cb-search-${id}`).value = '';
-    searchCombo(id); // reset filter
+    searchCombo(id);
 
     calculateTotals();
     refreshDropdowns();
@@ -368,12 +410,8 @@ function pickCombo(id, value, price, label) {
 
 /* ── COMBOBOX: CLOSE ALL ── */
 function closeAllCombos() {
-    document.querySelectorAll('[class^="cb-panel-"], [class*=" cb-panel-"]').forEach(p => {
-        p.style.display = 'none';
-    });
-    // Use attribute selector pattern instead
     document.querySelectorAll('.item-row').forEach(row => {
-        const id = row.id.replace('item-', '');
+        const id    = row.id.replace('item-', '');
         const panel = document.querySelector(`.cb-panel-${id}`);
         if (panel) panel.style.display = 'none';
     });
@@ -400,18 +438,17 @@ function refreshDropdowns() {
         const s = r.querySelector('.item-select');
         if (s?.value) (r.dataset.type === 'product' ? usedP : usedS).add(s.value);
     });
-    // Gray out already-selected options in all comboboxes
     document.querySelectorAll('.item-row').forEach(r => {
         const s    = r.querySelector('.item-select');
         const used = r.dataset.type === 'product' ? usedP : usedS;
         const cur  = s.value;
         const id   = r.id.replace('item-', '');
         document.querySelectorAll(`#cb-${id} .cb-option`).forEach(opt => {
-            const val = opt.getAttribute('data-value');
+            const val   = opt.getAttribute('data-value');
             const taken = val !== cur && used.has(val);
-            opt.style.opacity         = taken ? '0.35' : '1';
-            opt.style.textDecoration  = taken ? 'line-through' : '';
-            opt.style.pointerEvents   = taken ? 'none' : '';
+            opt.style.opacity        = taken ? '0.35' : '1';
+            opt.style.textDecoration = taken ? 'line-through' : '';
+            opt.style.pointerEvents  = taken ? 'none' : '';
         });
     });
 }
@@ -457,13 +494,7 @@ function updateInstallmentSummary(total) {
 
 /* ── CLOSE COMBOS ON OUTSIDE CLICK ── */
 document.addEventListener('click', function(e) {
-    if (!e.target.closest('.combobox')) {
-        document.querySelectorAll('.item-row').forEach(row => {
-            const id = row.id.replace('item-', '');
-            const panel = document.querySelector(`.cb-panel-${id}`);
-            if (panel) panel.style.display = 'none';
-        });
-    }
+    if (!e.target.closest('.combobox')) closeAllCombos();
 });
 
 /* ── INIT ── */
