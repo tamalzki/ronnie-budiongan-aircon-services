@@ -1,7 +1,5 @@
 @extends('layouts.app')
-
 @section('title', 'Create Sale')
-
 @section('content')
 <div class="container-fluid">
 
@@ -24,17 +22,16 @@
     @if($lockedCount > 0)
     <div class="alert alert-warning border-0 shadow-sm mb-3" style="font-size:0.875rem;">
         <i class="bi bi-lock-fill me-1"></i>
-        <strong>{{ $lockedCount }} product(s)</strong> have no selling price and are hidden from this form.
-        <a href="{{ route('products.index') }}" class="alert-link">Set prices in Products</a> to make them sellable.
+        <strong>{{ $lockedCount }} product(s)</strong> have no selling price and are hidden.
+        <a href="{{ route('products.index') }}" class="alert-link">Set prices in Products</a>.
     </div>
     @endif
 
     <form action="{{ route('sales.store') }}" method="POST" id="saleForm">
         @csrf
-
         <div class="row g-3">
 
-            {{-- LEFT COLUMN --}}
+            {{-- LEFT --}}
             <div class="col-md-8">
 
                 {{-- Customer --}}
@@ -101,13 +98,12 @@
                                   placeholder="Optional notes (warranty, instructions…)">{{ old('notes') }}</textarea>
                     </div>
                 </div>
-
             </div>
 
-            {{-- RIGHT COLUMN --}}
+            {{-- RIGHT --}}
             <div class="col-md-4">
 
-                {{-- Order Summary sticky --}}
+                {{-- Summary --}}
                 <div class="card border-0 shadow-sm mb-3 sticky-top" style="top:16px;z-index:100;">
                     <div class="card-header bg-primary text-white border-0 py-2">
                         <h6 class="mb-0"><i class="bi bi-calculator"></i> Order Summary</h6>
@@ -125,10 +121,9 @@
                             <span class="fw-bold">TOTAL</span>
                             <span class="fw-bold text-primary" style="font-size:1.2rem;">₱<span id="totalDisplay">0.00</span></span>
                         </div>
-                        {{-- Installment breakdown --}}
                         <div id="installmentSummary" style="display:none;" class="border-top mt-2 pt-2">
                             <div class="d-flex justify-content-between mb-1">
-                                <span class="text-muted">Down Payment <small>(Month #1)</small></span>
+                                <span class="text-muted">Down Payment</span>
                                 <span class="text-success fw-semibold" id="summaryDown">₱0.00</span>
                             </div>
                             <div class="d-flex justify-content-between mb-1">
@@ -144,13 +139,12 @@
                     </div>
                 </div>
 
-                {{-- Payment Details --}}
+                {{-- Payment --}}
                 <div class="card border-0 shadow-sm mb-3">
                     <div class="card-header bg-light border-0 py-2">
                         <h6 class="mb-0"><i class="bi bi-credit-card"></i> Payment Details</h6>
                     </div>
                     <div class="card-body">
-
                         <div class="mb-2">
                             <label class="form-label small fw-semibold">Payment Type <span class="text-danger">*</span></label>
                             <select class="form-select form-select-sm @error('payment_type') is-invalid @enderror"
@@ -159,22 +153,18 @@
                                 <option value="cash"        {{ old('payment_type') == 'cash'        ? 'selected' : '' }}>Cash (Full Payment)</option>
                                 <option value="installment" {{ old('payment_type') == 'installment' ? 'selected' : '' }}>Installment Plan</option>
                             </select>
-                            @error('payment_type')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
-
                         <div class="mb-2">
                             <label class="form-label small fw-semibold">Payment Method <span class="text-danger">*</span></label>
                             <select class="form-select form-select-sm @error('payment_method') is-invalid @enderror"
-                                    id="payment_method" name="payment_method" required>
+                                    name="payment_method" required>
                                 <option value="">-- Select Method --</option>
                                 <option value="cash"          {{ old('payment_method') == 'cash'          ? 'selected' : '' }}>💵 Cash</option>
                                 <option value="gcash"         {{ old('payment_method') == 'gcash'         ? 'selected' : '' }}>📱 GCash</option>
                                 <option value="bank_transfer" {{ old('payment_method') == 'bank_transfer' ? 'selected' : '' }}>🏦 Bank Transfer</option>
                                 <option value="cheque"        {{ old('payment_method') == 'cheque'        ? 'selected' : '' }}>🧾 Cheque</option>
                             </select>
-                            @error('payment_method')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
-
                         <div class="mb-2">
                             <label class="form-label small fw-semibold">Discount (₱)</label>
                             <div class="input-group input-group-sm">
@@ -184,20 +174,16 @@
                                        value="{{ old('discount', 0) }}" oninput="calculateTotals()">
                             </div>
                         </div>
-
-                        {{-- Installment Options --}}
                         <div id="installmentOptions" style="display:none;" class="border-top pt-2 mt-2">
                             <p class="small fw-semibold text-muted mb-2">Installment Settings</p>
-
                             <div class="mb-2">
-                                <label class="form-label small fw-semibold">Number of Months <span class="text-danger">*</span></label>
+                                <label class="form-label small fw-semibold">Number of Months</label>
                                 <select class="form-select form-select-sm" id="installment_months" name="installment_months">
                                     @foreach([3,6,9,12,18,24] as $m)
                                     <option value="{{ $m }}" {{ old('installment_months', 12) == $m ? 'selected' : '' }}>{{ $m }} months</option>
                                     @endforeach
                                 </select>
                             </div>
-
                             <div class="mb-2">
                                 <label class="form-label small fw-semibold">Down Payment</label>
                                 <div class="input-group input-group-sm">
@@ -206,28 +192,25 @@
                                            id="down_payment" name="down_payment"
                                            value="{{ old('down_payment', 0) }}" oninput="calculateTotals()">
                                 </div>
-                                <small class="text-success"><i class="bi bi-info-circle"></i> Saved as Month #1 (already paid)</small>
+                                <small class="text-success"><i class="bi bi-info-circle"></i> Saved as Month #1 (paid today)</small>
                             </div>
-
                             <div class="mb-1">
                                 <label class="form-label small fw-semibold">Down Payment Method</label>
                                 <select class="form-select form-select-sm" name="down_payment_method">
                                     <option value="">-- Same as above --</option>
-                                    <option value="cash"          {{ old('down_payment_method') == 'cash'          ? 'selected' : '' }}>💵 Cash</option>
-                                    <option value="gcash"         {{ old('down_payment_method') == 'gcash'         ? 'selected' : '' }}>📱 GCash</option>
-                                    <option value="bank_transfer" {{ old('down_payment_method') == 'bank_transfer' ? 'selected' : '' }}>🏦 Bank Transfer</option>
-                                    <option value="cheque"        {{ old('down_payment_method') == 'cheque'        ? 'selected' : '' }}>🧾 Cheque</option>
+                                    <option value="cash">💵 Cash</option>
+                                    <option value="gcash">📱 GCash</option>
+                                    <option value="bank_transfer">🏦 Bank Transfer</option>
+                                    <option value="cheque">🧾 Cheque</option>
                                 </select>
                             </div>
                         </div>
-
                     </div>
                 </div>
 
                 <button type="submit" class="btn btn-primary w-100 shadow-sm">
                     <i class="bi bi-check-circle"></i> Create Sale
                 </button>
-
             </div>
         </div>
     </form>
@@ -239,185 +222,253 @@ const products = @json($products);
 const services = @json($services);
 let counter = 0;
 
-// Build unit_type badge HTML (shared with PO style)
 function unitTypeBadge(unitType) {
     if (!unitType) return '';
     const isIndoor = unitType === 'indoor';
-    const color    = isIndoor ? '#0d6efd' : '#198754';
-    const icon     = isIndoor ? '❄️' : '🌀';
-    return `<span style="font-size:0.68rem;padding:1px 6px;border-radius:20px;background:${color}15;color:${color};border:1px solid ${color}40;font-weight:600;white-space:nowrap;">${icon} ${isIndoor ? 'Indoor' : 'Outdoor'}</span>`;
+    const c = isIndoor ? '#0d6efd' : '#198754';
+    const icon = isIndoor ? '❄️' : '🌀';
+    return `<span style="font-size:0.68rem;padding:1px 6px;border-radius:20px;background:${c}15;color:${c};border:1px solid ${c}40;font-weight:600;">${icon} ${isIndoor?'Indoor':'Outdoor'}</span>`;
 }
 
-/* ── ADD ITEM ── */
 function addItem(type) {
     document.getElementById('emptyState')?.remove();
     counter++;
-    const id  = counter;
-    const arr = type === 'product' ? products : services;
+    const id = counter;
+    const html = type === 'product' ? buildProductRow(id) : buildServiceRow(id);
+    document.getElementById('itemsContainer').insertAdjacentHTML('beforeend', html);
+    refreshDropdowns();
+}
 
-    // Hidden real select for form submission
-    const hiddenSelect = `<select name="items[${id}][id]" class="item-select d-none" data-id="${id}" required>
-        <option value="">-- Select --</option>
-        ${arr.map(p => `<option value="${p.id}" data-price="${p.price}">${p.label}</option>`).join('')}
-    </select>`;
-
-    // Build combobox options
-    const cbOptions = arr.map(p => {
-        if (type === 'product') {
-            const stockStr  = p.stock === 0 ? ' ⚠ Out of Stock' : ` (Stock: ${p.stock})`;
-            const badgeHtml = unitTypeBadge(p.unit_type);
-            const snHtml    = p.serial_number
-                ? `<span style="font-size:0.7rem;color:#888;"> · S/N: ${p.serial_number}</span>`
-                : '';
-            return `<div class="cb-option px-3 py-2" style="cursor:pointer;font-size:0.82rem;"
-                         data-value="${p.id}" data-price="${p.price}" data-label="${p.label}"
-                         data-unit-type="${p.unit_type || ''}" data-serial="${p.serial_number || ''}"
-                         onmouseenter="this.style.background='#f0f4ff'"
-                         onmouseleave="this.style.background=''"
-                         onclick="pickCombo(${id}, '${p.id}', '${p.price}', this.getAttribute('data-label'), this.getAttribute('data-unit-type'), this.getAttribute('data-serial'))">
-                      <div class="d-flex align-items-center gap-2 flex-wrap">
-                        <span>₱${parseFloat(p.price).toFixed(2)} — ${p.label}${stockStr}</span>
-                        ${badgeHtml}${snHtml}
-                      </div>
-                    </div>`;
-        }
+/* ─── PRODUCT ROW ─── */
+function buildProductRow(id) {
+    const opts = products.map(p => {
+        const stockStr = p.stock === 0 ? ' ⚠ Out' : ` (${p.stock} in stock)`;
         return `<div class="cb-option px-3 py-2" style="cursor:pointer;font-size:0.82rem;"
-                     data-value="${p.id}" data-price="${p.price}" data-label="${p.label}"
-                     data-unit-type="" data-serial=""
+                     data-value="${p.id}" data-price="${p.price}" data-label="${escHtml(p.label)}"
+                     data-unit-type="${p.unit_type||''}"
                      onmouseenter="this.style.background='#f0f4ff'"
                      onmouseleave="this.style.background=''"
-                     onclick="pickCombo(${id}, '${p.id}', '${p.price}', this.getAttribute('data-label'), '', '')">
-                  ${p.label} — ₱${parseFloat(p.price).toFixed(2)}
-                </div>`;
+                     onclick="pickProduct(${id},${p.id},${p.price},this.dataset.label,'${p.unit_type||''}')">
+               <div class="d-flex align-items-center gap-2 flex-wrap">
+                 <span>₱${p.price.toFixed(2)} — ${p.label}${stockStr}</span>
+                 ${unitTypeBadge(p.unit_type)}
+               </div>
+             </div>`;
     }).join('');
 
-    const html = `
-    <div class="border rounded p-2 mb-2 item-row bg-white shadow-sm" id="item-${id}" data-type="${type}">
+    return `
+    <div class="border rounded p-2 mb-2 item-row bg-white shadow-sm" id="item-${id}" data-type="product">
       <div class="d-flex justify-content-between align-items-center mb-2">
-        <span class="badge bg-${type === 'product' ? 'success' : 'info'}">
-          <i class="bi bi-${type === 'product' ? 'box' : 'tools'}"></i>
-          ${type === 'product' ? 'Product' : 'Service'}
-        </span>
+        <span class="badge bg-success"><i class="bi bi-box"></i> Product</span>
         <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeItem(${id})"
-                style="padding:1px 8px;font-size:0.78rem">
-          <i class="bi bi-trash"></i> Remove
-        </button>
+                style="padding:1px 8px;font-size:0.78rem"><i class="bi bi-trash"></i> Remove</button>
       </div>
-      <input type="hidden" name="items[${id}][type]" value="${type}">
-      ${hiddenSelect}
-      <div class="row g-2 align-items-end">
-        <div class="col-md-6">
-          <label class="form-label small fw-semibold mb-1">${type === 'product' ? 'Product' : 'Service'} <span class="text-danger">*</span></label>
-          {{-- Combobox --}}
+      <input type="hidden" name="items[${id}][type]" value="product">
+      <input type="hidden" name="items[${id}][id]"       id="prod-id-${id}" value="">
+      <input type="hidden" name="items[${id}][quantity]" id="qty-${id}"     value="0">
+      <input type="hidden" name="items[${id}][price]"    id="price-${id}"   value="0">
+
+      <div class="row g-2 align-items-end mb-2">
+        <div class="col-md-7">
+          <label class="form-label small fw-semibold mb-1">Product <span class="text-danger">*</span></label>
           <div class="combobox position-relative" id="cb-${id}">
             <div class="form-control form-control-sm d-flex justify-content-between align-items-center gap-2"
-                 style="cursor:pointer;user-select:none;background:#fff;"
-                 onclick="toggleCombo(${id})">
+                 style="cursor:pointer;user-select:none;" onclick="toggleCombo(${id})">
               <div class="d-flex align-items-center gap-2 flex-wrap" style="flex:1;min-width:0;">
-                <span class="cb-display-${id} text-muted" style="font-size:0.82rem;">-- Select ${type === 'product' ? 'Product' : 'Service'} --</span>
+                <span class="cb-display-${id} text-muted" style="font-size:0.82rem;">-- Select Product --</span>
                 <span class="cb-badge-${id}"></span>
-                <span class="cb-serial-${id} text-muted" style="font-size:0.72rem;"></span>
               </div>
-              <i class="bi bi-chevron-down flex-shrink-0" style="font-size:0.7rem;color:#888;"></i>
+              <i class="bi bi-chevron-down" style="font-size:0.7rem;color:#888;flex-shrink:0;"></i>
             </div>
             <div class="cb-panel-${id} position-absolute w-100 bg-white border rounded shadow-sm"
                  style="display:none;z-index:9999;top:100%;left:0;max-height:260px;overflow:hidden;">
               <div class="p-2 border-bottom">
                 <input type="text" class="form-control form-control-sm cb-search-${id}"
-                       placeholder="🔍 Search…" oninput="searchCombo(${id})"
-                       onclick="event.stopPropagation()">
+                       placeholder="🔍 Search…" oninput="searchCombo(${id})" onclick="event.stopPropagation()">
               </div>
-              <div class="cb-list-${id}" style="max-height:200px;overflow-y:auto;">
-                ${cbOptions}
+              <div class="cb-list-${id}" style="max-height:200px;overflow-y:auto;">${opts}</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small fw-semibold mb-1">Unit Price</label>
+          <div class="bg-light rounded text-center fw-semibold px-1 py-1 text-danger"
+               id="price-display-${id}" style="font-size:0.82rem;height:31px;line-height:2;">₱—</div>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small fw-semibold mb-1">Line Total</label>
+          <div class="bg-light rounded text-center fw-bold text-primary px-1 py-1"
+               id="line-${id}" style="font-size:0.82rem;height:31px;line-height:2;">₱0.00</div>
+        </div>
+      </div>
+
+      {{-- Serial picker (shown after product selected) --}}
+      <div id="serial-section-${id}" style="display:none;">
+        <div class="border rounded p-2 mt-1" style="background:#f8faff;">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="small fw-semibold text-primary"><i class="bi bi-upc-scan"></i> Select Serial Numbers to Sell</span>
+            <span class="badge bg-secondary" id="serial-badge-${id}">0 selected</span>
+          </div>
+          <div id="serial-boxes-${id}" class="row g-1"></div>
+          <small class="text-muted mt-1 d-block">
+            <i class="bi bi-info-circle"></i> Check each unit being sold. Quantity = number checked.
+          </small>
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ─── SERVICE ROW ─── */
+function buildServiceRow(id) {
+    const opts = services.map(s =>
+        `<div class="cb-option px-3 py-2" style="cursor:pointer;font-size:0.82rem;"
+              data-value="${s.id}" data-price="${s.price}" data-label="${escHtml(s.label)}"
+              onmouseenter="this.style.background='#f0f4ff'"
+              onmouseleave="this.style.background=''"
+              onclick="pickService(${id},${s.id},${s.price},this.dataset.label)">
+           ${s.label} — ₱${s.price.toFixed(2)}
+         </div>`
+    ).join('');
+
+    return `
+    <div class="border rounded p-2 mb-2 item-row bg-white shadow-sm" id="item-${id}" data-type="service">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="badge bg-info text-dark"><i class="bi bi-tools"></i> Service</span>
+        <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeItem(${id})"
+                style="padding:1px 8px;font-size:0.78rem"><i class="bi bi-trash"></i> Remove</button>
+      </div>
+      <input type="hidden" name="items[${id}][type]"     value="service">
+      <input type="hidden" name="items[${id}][id]"       id="svc-id-${id}"  value="">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-5">
+          <label class="form-label small fw-semibold mb-1">Service <span class="text-danger">*</span></label>
+          <div class="combobox position-relative" id="cb-${id}">
+            <div class="form-control form-control-sm d-flex justify-content-between align-items-center gap-2"
+                 style="cursor:pointer;user-select:none;" onclick="toggleCombo(${id})">
+              <span class="cb-display-${id} text-muted" style="font-size:0.82rem;">-- Select Service --</span>
+              <i class="bi bi-chevron-down" style="font-size:0.7rem;color:#888;flex-shrink:0;"></i>
+            </div>
+            <div class="cb-panel-${id} position-absolute w-100 bg-white border rounded shadow-sm"
+                 style="display:none;z-index:9999;top:100%;left:0;max-height:260px;overflow:hidden;">
+              <div class="p-2 border-bottom">
+                <input type="text" class="form-control form-control-sm cb-search-${id}"
+                       placeholder="🔍 Search…" oninput="searchCombo(${id})" onclick="event.stopPropagation()">
               </div>
+              <div class="cb-list-${id}" style="max-height:200px;overflow-y:auto;">${opts}</div>
             </div>
           </div>
         </div>
         <div class="col-md-2">
           <label class="form-label small fw-semibold mb-1">Qty</label>
           <input type="number" class="form-control form-control-sm qty-input" min="1" value="1"
-                 name="items[${id}][quantity]" required oninput="calculateTotals()">
+                 name="items[${id}][quantity]" oninput="calculateTotals()">
         </div>
         <div class="col-md-2">
           <label class="form-label small fw-semibold mb-1">Price (₱)</label>
           <input type="number" step="0.01" class="form-control form-control-sm price-input"
-                 name="items[${id}][price]" id="price-${id}" required readonly
-                 style="background:#f8f9fa;">
+                 name="items[${id}][price]" id="price-${id}" readonly style="background:#f8f9fa;">
         </div>
-        <div class="col-md-2">
+        <div class="col-md-3">
           <label class="form-label small fw-semibold mb-1">Line Total</label>
           <div class="bg-light rounded text-center fw-bold text-primary px-1 py-1"
                id="line-${id}" style="font-size:0.82rem;height:31px;line-height:2;">₱0.00</div>
         </div>
       </div>
     </div>`;
-
-    document.getElementById('itemsContainer').insertAdjacentHTML('beforeend', html);
-    refreshDropdowns();
 }
 
-/* ── COMBOBOX: TOGGLE ── */
-function toggleCombo(id) {
-    const panel = document.querySelector(`.cb-panel-${id}`);
-    const isOpen = panel.style.display !== 'none';
-    closeAllCombos();
-    if (!isOpen) {
-        panel.style.display = '';
-        document.querySelector(`.cb-search-${id}`)?.focus();
-    }
-}
+/* ─── PICK PRODUCT → show serial checkboxes ─── */
+function pickProduct(id, productId, price, label, unitType) {
+    document.getElementById(`prod-id-${id}`).value      = productId;
+    document.getElementById(`price-${id}`).value        = price;
+    document.getElementById(`price-display-${id}`).textContent = '₱' + price.toFixed(2);
 
-/* ── COMBOBOX: SEARCH ── */
-function searchCombo(id) {
-    const term = document.querySelector(`.cb-search-${id}`).value.toLowerCase();
-    document.querySelectorAll(`#cb-${id} .cb-option`).forEach(opt => {
-        const text = opt.textContent.toLowerCase();
-        const sn   = (opt.getAttribute('data-serial') || '').toLowerCase();
-        opt.style.display = (text.includes(term) || sn.includes(term)) ? '' : 'none';
-    });
-}
-
-/* ── COMBOBOX: PICK ── */
-function pickCombo(id, value, price, label, unitType, serialNumber) {
-    // Set hidden select value
-    const sel = document.querySelector(`select[name="items[${id}][id]"]`);
-    sel.value = value;
-
-    // Update display label
     const disp = document.querySelector(`.cb-display-${id}`);
-    disp.textContent = label;
-    disp.style.color = '#212529';
-
-    // Update unit type badge
-    const badge = document.querySelector(`.cb-badge-${id}`);
-    badge.innerHTML = unitType ? unitTypeBadge(unitType) : '';
-
-    // Update serial number
-    const snEl = document.querySelector(`.cb-serial-${id}`);
-    snEl.textContent = serialNumber ? `S/N: ${serialNumber}` : '';
-
-    // Set price
-    document.getElementById(`price-${id}`).value = parseFloat(price).toFixed(2);
-
-    // Close panel + reset search
+    disp.textContent = label; disp.style.color = '#212529';
+    document.querySelector(`.cb-badge-${id}`).innerHTML = unitTypeBadge(unitType);
     document.querySelector(`.cb-panel-${id}`).style.display = 'none';
     document.querySelector(`.cb-search-${id}`).value = '';
     searchCombo(id);
 
+    const prod    = products.find(p => p.id === productId);
+    const serials = prod ? prod.serials : [];
+    const section = document.getElementById(`serial-section-${id}`);
+    const boxes   = document.getElementById(`serial-boxes-${id}`);
+
+    section.style.display = '';
+    if (serials.length === 0) {
+        boxes.innerHTML = `<div class="col-12 text-danger small"><i class="bi bi-exclamation-triangle"></i> No in-stock serials available.</div>`;
+    } else {
+        boxes.innerHTML = serials.map(s => `
+            <div class="col-md-4 col-sm-6 col-12">
+              <label class="d-flex align-items-center gap-2 border rounded px-2 py-1 mb-1 serial-card"
+                     for="sn-${id}-${s.id}"
+                     style="cursor:pointer;background:#fff;font-family:monospace;font-size:0.82rem;">
+                <input class="form-check-input serial-cb flex-shrink-0" type="checkbox"
+                       name="items[${id}][serial_ids][]"
+                       value="${s.id}" id="sn-${id}-${s.id}"
+                       onchange="onSerialChange(${id}, this)">
+                ${s.serial_number}
+              </label>
+            </div>`).join('');
+    }
+    updateSerialBadge(id);
     calculateTotals();
     refreshDropdowns();
 }
 
-/* ── COMBOBOX: CLOSE ALL ── */
-function closeAllCombos() {
-    document.querySelectorAll('.item-row').forEach(row => {
-        const id    = row.id.replace('item-', '');
-        const panel = document.querySelector(`.cb-panel-${id}`);
-        if (panel) panel.style.display = 'none';
-    });
+function onSerialChange(id, cb) {
+    const card = cb.closest('.serial-card');
+    card.style.background   = cb.checked ? '#e8f4fd' : '#fff';
+    card.style.borderColor  = cb.checked ? '#0d6efd' : '';
+    card.style.fontWeight   = cb.checked ? '700' : '';
+    updateSerialBadge(id);
+    calculateTotals();
 }
 
-/* ── REMOVE ── */
+function updateSerialBadge(id) {
+    const count = document.querySelectorAll(`#serial-boxes-${id} .serial-cb:checked`).length;
+    const badge = document.getElementById(`serial-badge-${id}`);
+    if (badge) {
+        badge.textContent = count + ' selected';
+        badge.className   = count > 0 ? 'badge bg-success' : 'badge bg-secondary';
+    }
+    const qtyHidden = document.getElementById(`qty-${id}`);
+    if (qtyHidden) qtyHidden.value = count;
+}
+
+/* ─── PICK SERVICE ─── */
+function pickService(id, serviceId, price, label) {
+    document.getElementById(`svc-id-${id}`).value  = serviceId;
+    document.getElementById(`price-${id}`).value   = price;
+    const disp = document.querySelector(`.cb-display-${id}`);
+    disp.textContent = label; disp.style.color = '#212529';
+    document.querySelector(`.cb-panel-${id}`).style.display = 'none';
+    document.querySelector(`.cb-search-${id}`).value = '';
+    searchCombo(id);
+    calculateTotals();
+    refreshDropdowns();
+}
+
+/* ─── COMBOBOX ─── */
+function toggleCombo(id) {
+    const panel = document.querySelector(`.cb-panel-${id}`);
+    const open  = panel.style.display !== 'none';
+    closeAllCombos();
+    if (!open) { panel.style.display = ''; document.querySelector(`.cb-search-${id}`)?.focus(); }
+}
+function searchCombo(id) {
+    const term = document.querySelector(`.cb-search-${id}`).value.toLowerCase();
+    document.querySelectorAll(`#cb-${id} .cb-option`).forEach(o => {
+        o.style.display = o.textContent.toLowerCase().includes(term) ? '' : 'none';
+    });
+}
+function closeAllCombos() {
+    document.querySelectorAll('[class*="cb-panel-"]').forEach(p => p.style.display = 'none');
+}
+document.addEventListener('click', e => { if (!e.target.closest('.combobox')) closeAllCombos(); });
+
+/* ─── REMOVE ─── */
 function removeItem(id) {
     document.getElementById(`item-${id}`)?.remove();
     if (!document.querySelector('.item-row')) {
@@ -427,41 +478,44 @@ function removeItem(id) {
               <p class="mb-0">No items yet. Click "Add Product" or "Add Service".</p>
             </div>`;
     }
-    refreshDropdowns();
-    calculateTotals();
+    refreshDropdowns(); calculateTotals();
 }
 
-/* ── PREVENT DUPLICATES ── */
+/* ─── GREY OUT USED PRODUCTS ─── */
 function refreshDropdowns() {
-    const usedP = new Set(), usedS = new Set();
-    document.querySelectorAll('.item-row').forEach(r => {
-        const s = r.querySelector('.item-select');
-        if (s?.value) (r.dataset.type === 'product' ? usedP : usedS).add(s.value);
+    const used = new Set();
+    document.querySelectorAll('.item-row[data-type="product"]').forEach(r => {
+        const v = document.getElementById(`prod-id-${r.id.replace('item-','')}`)?.value;
+        if (v) used.add(parseInt(v));
     });
-    document.querySelectorAll('.item-row').forEach(r => {
-        const s    = r.querySelector('.item-select');
-        const used = r.dataset.type === 'product' ? usedP : usedS;
-        const cur  = s.value;
-        const id   = r.id.replace('item-', '');
-        document.querySelectorAll(`#cb-${id} .cb-option`).forEach(opt => {
-            const val   = opt.getAttribute('data-value');
+    document.querySelectorAll('.item-row[data-type="product"]').forEach(r => {
+        const id  = r.id.replace('item-', '');
+        const cur = parseInt(document.getElementById(`prod-id-${id}`)?.value || 0);
+        document.querySelectorAll(`#cb-${id} .cb-option`).forEach(o => {
+            const val   = parseInt(o.dataset.value);
             const taken = val !== cur && used.has(val);
-            opt.style.opacity        = taken ? '0.35' : '1';
-            opt.style.textDecoration = taken ? 'line-through' : '';
-            opt.style.pointerEvents  = taken ? 'none' : '';
+            o.style.opacity        = taken ? '0.35' : '1';
+            o.style.textDecoration = taken ? 'line-through' : '';
+            o.style.pointerEvents  = taken ? 'none' : '';
         });
     });
 }
 
-/* ── TOTALS ── */
+/* ─── TOTALS ─── */
 function calculateTotals() {
     let sub = 0;
     document.querySelectorAll('.item-row').forEach(r => {
-        const qty   = parseFloat(r.querySelector('.qty-input').value)   || 0;
-        const price = parseFloat(r.querySelector('.price-input').value) || 0;
-        const line  = qty * price;
+        const id   = r.id.replace('item-', '');
+        const type = r.dataset.type;
+        const price = parseFloat(document.getElementById(`price-${id}`)?.value) || 0;
+        let   qty   = 0;
+        if (type === 'product') {
+            qty = document.querySelectorAll(`#serial-boxes-${id} .serial-cb:checked`).length;
+        } else {
+            qty = parseFloat(r.querySelector('.qty-input')?.value) || 0;
+        }
+        const line = qty * price;
         sub += line;
-        const id = r.id.replace('item-', '');
         const el = document.getElementById(`line-${id}`);
         if (el) el.textContent = '₱' + line.toFixed(2);
     });
@@ -473,31 +527,23 @@ function calculateTotals() {
     updateInstallmentSummary(total);
 }
 
-/* ── INSTALLMENT SUMMARY ── */
 function updateInstallmentSummary(total) {
-    if (total === undefined)
-        total = parseFloat(document.getElementById('totalDisplay').textContent) || 0;
+    if (total === undefined) total = parseFloat(document.getElementById('totalDisplay').textContent) || 0;
     const months  = parseInt(document.getElementById('installment_months')?.value) || 12;
     const down    = parseFloat(document.getElementById('down_payment')?.value) || 0;
     const balance = Math.max(0, total - down);
     const monthly = months > 0 ? balance / months : 0;
-
     document.getElementById('summaryDown').textContent    = '₱' + down.toFixed(2);
     document.getElementById('summaryBalance').textContent = '₱' + balance.toFixed(2);
     document.getElementById('summaryMonthly').textContent = '₱' + monthly.toFixed(2);
-
-    const note = down > 0
-        ? `Down = Month #1 (paid today). Then ${months} × ₱${monthly.toFixed(2)}/mo.`
+    document.getElementById('summaryNote').textContent    = down > 0
+        ? `Down = Month #1. Then ${months} × ₱${monthly.toFixed(2)}/mo.`
         : `${months} equal payments of ₱${monthly.toFixed(2)}/mo.`;
-    document.getElementById('summaryNote').textContent = note;
 }
 
-/* ── CLOSE COMBOS ON OUTSIDE CLICK ── */
-document.addEventListener('click', function(e) {
-    if (!e.target.closest('.combobox')) closeAllCombos();
-});
+function escHtml(s) { return s.replace(/"/g, '&quot;'); }
 
-/* ── INIT ── */
+/* ─── INIT ─── */
 document.addEventListener('DOMContentLoaded', function () {
     const payType = document.getElementById('payment_type');
     const instOpt = document.getElementById('installmentOptions');
@@ -509,15 +555,8 @@ document.addEventListener('DOMContentLoaded', function () {
         instSum.style.display = on ? '' : 'none';
         calculateTotals();
     });
-
     document.getElementById('installment_months')?.addEventListener('change', calculateTotals);
     document.getElementById('down_payment')?.addEventListener('input', calculateTotals);
-
-    document.addEventListener('input', e => {
-        if (e.target.classList.contains('qty-input') ||
-            e.target.classList.contains('price-input'))
-            calculateTotals();
-    });
 
     if (payType.value === 'installment') {
         instOpt.style.display = '';
@@ -527,14 +566,21 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.getElementById('saleForm').addEventListener('submit', function (e) {
         if (!document.querySelector('.item-row')) {
-            e.preventDefault(); alert('Please add at least one item.'); return;
+            e.preventDefault(); alert('Add at least one item.'); return;
         }
-        if (!payType.value) {
-            e.preventDefault(); alert('Please select a payment type.'); return;
-        }
-        if (!document.getElementById('payment_method').value) {
-            e.preventDefault(); alert('Please select a payment method.');
-        }
+        // Validate product items have serials selected
+        let valid = true;
+        document.querySelectorAll('.item-row[data-type="product"]').forEach(r => {
+            const id     = r.id.replace('item-', '');
+            const prodId = document.getElementById(`prod-id-${id}`)?.value;
+            if (!prodId) { valid = false; alert('Please select a product for all product rows.'); return; }
+            const count = document.querySelectorAll(`#serial-boxes-${id} .serial-cb:checked`).length;
+            if (count === 0) { valid = false; alert('Please select at least one serial number for each product item.'); }
+            // Sync qty
+            const qtyEl = document.getElementById(`qty-${id}`);
+            if (qtyEl) qtyEl.value = count;
+        });
+        if (!valid) e.preventDefault();
     });
 });
 </script>

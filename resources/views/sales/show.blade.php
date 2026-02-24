@@ -1,11 +1,8 @@
 @extends('layouts.app')
-
-@section('title', 'Sale — {{ $sale->invoice_number }}')
-
+@section('title', 'Sale — ' . $sale->invoice_number)
 @section('content')
 <div class="container-fluid">
 
-    {{-- Header --}}
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <nav aria-label="breadcrumb">
@@ -32,23 +29,21 @@
 
     @if(session('success'))
     <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-3">
-        {{ session('success') }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        {{ session('success') }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
     @endif
     @if(session('error'))
     <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-3">
-        {{ session('error') }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        {{ session('error') }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
     @endif
 
     <div class="row g-3">
 
-        {{-- LEFT: Customer + Items + Installment Schedule --}}
+        {{-- LEFT --}}
         <div class="col-md-8">
 
-            {{-- Customer Info --}}
+            {{-- Customer --}}
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-header bg-light border-0 py-2">
                     <h6 class="mb-0"><i class="bi bi-person"></i> Customer Information</h6>
@@ -89,8 +84,6 @@
                             <tr>
                                 <th class="px-3 py-2 border-0">#</th>
                                 <th class="px-3 py-2 border-0">Item</th>
-                                <th class="px-3 py-2 border-0">Unit Type</th>
-                                <th class="px-3 py-2 border-0">Serial No.</th>
                                 <th class="px-3 py-2 border-0 text-center">Qty</th>
                                 <th class="px-3 py-2 border-0 text-end">Unit Price</th>
                                 <th class="px-3 py-2 border-0 text-end">Total</th>
@@ -101,27 +94,34 @@
                             <tr>
                                 <td class="px-3 py-2 text-muted">{{ $loop->iteration }}</td>
                                 <td class="px-3 py-2">
-                                    <span class="fw-semibold">{{ $item->item_name }}</span>
-                                    @if(!$item->product_id)
-                                        <span class="badge bg-info text-dark ms-1" style="font-size:0.65rem;">Service</span>
-                                    @endif
-                                </td>
-                                <td class="px-3 py-2">
-                                    @if($item->product && $item->product->unit_type === 'indoor')
-                                        <span class="badge" style="background:#e8f0fe;color:#1a56db;border:1px solid #93c5fd;font-size:0.75rem;">❄️ Indoor</span>
-                                    @elseif($item->product && $item->product->unit_type === 'outdoor')
-                                        <span class="badge" style="background:#dcfce7;color:#166534;border:1px solid #86efac;font-size:0.75rem;">🌀 Outdoor</span>
-                                    @else
-                                        <span class="text-muted small">—</span>
-                                    @endif
-                                </td>
-                                <td class="px-3 py-2">
-                                    @if($item->product && $item->product->serial_number)
-                                        <code class="text-dark bg-light px-2 py-1 rounded" style="font-size:0.78rem;">
-                                            {{ $item->product->serial_number }}
-                                        </code>
-                                    @else
-                                        <span class="text-muted small">—</span>
+                                    <div class="fw-semibold d-flex align-items-center gap-2 flex-wrap">
+                                        {{ $item->item_name }}
+                                        @if(!$item->product_id)
+                                            <span class="badge bg-info text-dark" style="font-size:0.65rem;">Service</span>
+                                        @endif
+                                        @if($item->product)
+                                            @if($item->product->unit_type === 'indoor')
+                                                <span class="badge" style="background:#e8f0fe;color:#1a56db;border:1px solid #93c5fd;font-size:0.72rem;">❄️ Indoor</span>
+                                            @elseif($item->product->unit_type === 'outdoor')
+                                                <span class="badge" style="background:#dcfce7;color:#166534;border:1px solid #86efac;font-size:0.72rem;">🌀 Outdoor</span>
+                                            @endif
+                                        @endif
+                                    </div>
+                                    {{-- Serial numbers sold for this item --}}
+                                    @if($item->product_id && $item->serials && $item->serials->count() > 0)
+                                    <div class="mt-1 d-flex flex-wrap gap-1">
+                                        @foreach($item->serials as $serial)
+                                        <span class="badge d-inline-flex align-items-center gap-1"
+                                              style="background:#eff6ff;color:#1e40af;border:1px solid #93c5fd;font-family:monospace;font-size:0.72rem;font-weight:600;">
+                                            <i class="bi bi-upc-scan" style="font-size:0.65rem;"></i>
+                                            {{ $serial->serial_number }}
+                                        </span>
+                                        @endforeach
+                                    </div>
+                                    @elseif($item->product_id)
+                                    <div class="mt-1">
+                                        <span class="text-muted small"><i class="bi bi-dash"></i> No serials linked</span>
+                                    </div>
                                     @endif
                                 </td>
                                 <td class="px-3 py-2 text-center">
@@ -134,17 +134,17 @@
                         </tbody>
                         <tfoot class="bg-light">
                             <tr>
-                                <td colspan="6" class="px-3 py-2 text-end text-muted">Subtotal</td>
+                                <td colspan="4" class="px-3 py-2 text-end text-muted">Subtotal</td>
                                 <td class="px-3 py-2 text-end fw-semibold">₱{{ number_format($sale->subtotal, 2) }}</td>
                             </tr>
                             @if(($sale->discount ?? 0) > 0)
                             <tr>
-                                <td colspan="6" class="px-3 py-1 text-end text-danger">Discount</td>
+                                <td colspan="4" class="px-3 py-1 text-end text-danger">Discount</td>
                                 <td class="px-3 py-1 text-end text-danger fw-semibold">-₱{{ number_format($sale->discount, 2) }}</td>
                             </tr>
                             @endif
                             <tr class="border-top">
-                                <td colspan="6" class="px-3 py-2 text-end fw-bold">TOTAL</td>
+                                <td colspan="4" class="px-3 py-2 text-end fw-bold">TOTAL</td>
                                 <td class="px-3 py-2 text-end fw-bold text-primary" style="font-size:1.1rem;">
                                     ₱{{ number_format($sale->total, 2) }}
                                 </td>
@@ -180,58 +180,47 @@
                         </thead>
                         <tbody>
                         @foreach($sale->installmentPayments->sortBy('installment_number') as $inst)
-                            @php
-                                $isDownpayment = $inst->installment_number === 1 && $inst->status === 'paid' && $inst->notes === 'Downpayment';
-                                $rowClass = '';
-                                if ($inst->status === 'paid') $rowClass = 'table-success';
-                                elseif($inst->due_date && $inst->due_date->isPast()) $rowClass = 'table-danger';
-                                elseif($inst->due_date && $inst->due_date->diffInDays(now()) <= 7) $rowClass = 'table-warning';
-                            @endphp
-                            <tr class="{{ $rowClass }}">
-                                <td class="px-3 py-2">
-                                    {{ $inst->installment_number }}
-                                    @if($isDownpayment)
-                                        <span class="badge bg-primary ms-1" style="font-size:0.68rem;">Down</span>
-                                    @endif
-                                </td>
-                                <td class="px-3 py-2" style="white-space:nowrap">
-                                    {{ $inst->due_date ? $inst->due_date->format('M d, Y') : '—' }}
-                                </td>
-                                <td class="px-3 py-2 text-end fw-semibold">₱{{ number_format($inst->amount, 2) }}</td>
-                                <td class="px-3 py-2 text-end text-success fw-semibold">
-                                    {{ $inst->amount_paid > 0 ? '₱' . number_format($inst->amount_paid, 2) : '—' }}
-                                </td>
-                                <td class="px-3 py-2" style="white-space:nowrap">
-                                    @php
-                                        $icons = ['cash'=>'💵','gcash'=>'📱','bank_transfer'=>'🏦','cheque'=>'🧾'];
-                                        $m = $inst->payment_method;
-                                    @endphp
-                                    {{ $m ? ($icons[$m] ?? '') . ' ' . ucwords(str_replace('_',' ',$m)) : '—' }}
-                                </td>
-                                <td class="px-3 py-2" style="white-space:nowrap">
-                                    @if($inst->status === 'paid')
-                                        <span class="badge bg-success"><i class="bi bi-check-circle"></i> Paid</span>
-                                    @elseif($inst->due_date && $inst->due_date->isPast())
-                                        <span class="badge bg-danger">Overdue</span>
-                                    @elseif($inst->due_date && $inst->due_date->diffInDays(now()) <= 7)
-                                        <span class="badge bg-warning text-dark">Due Soon</span>
-                                    @else
-                                        <span class="badge bg-secondary">Pending</span>
-                                    @endif
-                                </td>
-                            </tr>
+                        @php
+                            $isDP = $inst->installment_number === 1 && $inst->status === 'paid' && $inst->notes === 'Downpayment';
+                            $rc   = $inst->status === 'paid' ? 'table-success'
+                                  : ($inst->due_date && $inst->due_date->isPast() ? 'table-danger'
+                                  : ($inst->due_date && $inst->due_date->diffInDays(now()) <= 7 ? 'table-warning' : ''));
+                        @endphp
+                        <tr class="{{ $rc }}">
+                            <td class="px-3 py-2">{{ $inst->installment_number }}
+                                @if($isDP)<span class="badge bg-primary ms-1" style="font-size:0.68rem;">Down</span>@endif
+                            </td>
+                            <td class="px-3 py-2" style="white-space:nowrap">{{ $inst->due_date?->format('M d, Y') ?? '—' }}</td>
+                            <td class="px-3 py-2 text-end fw-semibold">₱{{ number_format($inst->amount, 2) }}</td>
+                            <td class="px-3 py-2 text-end text-success fw-semibold">
+                                {{ $inst->amount_paid > 0 ? '₱' . number_format($inst->amount_paid, 2) : '—' }}
+                            </td>
+                            <td class="px-3 py-2" style="white-space:nowrap">
+                                @php $icons = ['cash'=>'💵','gcash'=>'📱','bank_transfer'=>'🏦','cheque'=>'🧾']; $m = $inst->payment_method; @endphp
+                                {{ $m ? ($icons[$m] ?? '') . ' ' . ucwords(str_replace('_',' ',$m)) : '—' }}
+                            </td>
+                            <td class="px-3 py-2">
+                                @if($inst->status === 'paid')
+                                    <span class="badge bg-success"><i class="bi bi-check-circle"></i> Paid</span>
+                                @elseif($inst->due_date && $inst->due_date->isPast())
+                                    <span class="badge bg-danger">Overdue</span>
+                                @elseif($inst->due_date && $inst->due_date->diffInDays(now()) <= 7)
+                                    <span class="badge bg-warning text-dark">Due Soon</span>
+                                @else
+                                    <span class="badge bg-secondary">Pending</span>
+                                @endif
+                            </td>
+                        </tr>
                         @endforeach
                         </tbody>
                     </table>
                 </div>
             </div>
             @endif
-
         </div>
 
-        {{-- RIGHT: Payment Summary --}}
+        {{-- RIGHT --}}
         <div class="col-md-4">
-
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-header bg-primary text-white border-0 py-2">
                     <h6 class="mb-0"><i class="bi bi-credit-card"></i> Payment Summary</h6>
@@ -286,14 +275,14 @@
 
                     @if($sale->payment_type === 'installment')
                     <hr class="my-2">
-                    <div class="d-flex justify-content-between mb-1">
-                        <span class="text-muted">Installment Plan</span>
-                        <span class="fw-semibold">{{ $sale->installmentPayments->count() }} months</span>
-                    </div>
                     @php
                         $paidMonths   = $sale->installmentPayments->where('status', 'paid')->count();
                         $unpaidMonths = $sale->installmentPayments->where('status', '!=', 'paid')->count();
                     @endphp
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">Installment Plan</span>
+                        <span class="fw-semibold">{{ $sale->installmentPayments->count() }} months</span>
+                    </div>
                     <div class="d-flex justify-content-between mb-1">
                         <span class="text-muted">Months Paid</span>
                         <span class="text-success fw-semibold">{{ $paidMonths }}</span>
@@ -321,7 +310,6 @@
                     <i class="bi bi-clock me-1"></i> {{ $sale->created_at->format('M d, Y h:i A') }}
                 </div>
             </div>
-
         </div>
     </div>
 </div>

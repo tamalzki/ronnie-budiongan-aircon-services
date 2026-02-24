@@ -165,6 +165,38 @@
             margin-bottom: 0.25rem;
         }
 
+        /* ── Fix Bootstrap tabs overridden by sidebar .nav-link styles ── */
+.nav-tabs .nav-link {
+    color: var(--text-light) !important;
+    background: transparent !important;
+    border: 1px solid transparent;
+    border-radius: 0;
+    font-weight: 500;
+    padding: 0.6rem 1.25rem;
+}
+
+.nav-tabs .nav-link:hover {
+    color: var(--primary-color) !important;
+    background: transparent !important;
+    border-color: var(--border-color) var(--border-color) transparent;
+    transform: none;
+}
+
+.nav-tabs .nav-link.active {
+    color: var(--primary-color) !important;
+    background: #fff !important;
+    border-color: var(--border-color) var(--border-color) #fff;
+    font-weight: 600;
+}
+
+.nav-tabs .nav-link.active::before {
+    display: none !important; /* remove sidebar's left accent bar */
+}
+
+.nav-tabs .nav-link .badge {
+    vertical-align: middle;
+}
+
         .nav-link {
             display: flex;
             align-items: center;

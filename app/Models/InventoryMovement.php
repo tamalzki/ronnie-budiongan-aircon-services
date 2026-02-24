@@ -22,10 +22,16 @@ class InventoryMovement extends Model
     ];
 
     protected $casts = [
-        'quantity' => 'integer',
+        'quantity'     => 'integer',
         'stock_before' => 'integer',
-        'stock_after' => 'integer',
+        'stock_after'  => 'integer',
     ];
+
+    /*
+    |--------------------------------------------------------------------------
+    | Relationships
+    |--------------------------------------------------------------------------
+    */
 
     public function product()
     {
@@ -35,5 +41,22 @@ class InventoryMovement extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Accessors
+    |--------------------------------------------------------------------------
+    */
+
+    public function getTypeBadgeAttribute(): string
+    {
+        return match($this->type) {
+            'stock_in'     => '<span class="badge bg-success">↑ Stock In</span>',
+            'stock_out'    => '<span class="badge bg-danger">↓ Stock Out</span>',
+            'adjustment'   => '<span class="badge bg-warning text-dark">⚙ Adjustment</span>',
+            'return'       => '<span class="badge bg-info text-dark">↩ Return</span>',
+            default        => '<span class="badge bg-secondary">' . ucfirst($this->type) . '</span>',
+        };
     }
 }

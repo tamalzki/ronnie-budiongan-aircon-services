@@ -30,7 +30,7 @@
     </div>
     @endif
 
-    {{-- Search & Filters (STICKY) --}}
+    {{-- Search & Filters --}}
     <div class="card border-0 shadow-sm mb-3 sticky-top" style="top:0;z-index:1020;">
         <div class="card-body py-2">
             <div class="row g-2 align-items-center">
@@ -75,37 +75,49 @@
                             <th class="border-0 px-3 py-2 bg-light">Brand</th>
                             <th class="border-0 px-3 py-2 bg-light">Model</th>
                             <th class="border-0 px-3 py-2 bg-light">Unit Type</th>
-                            <th class="border-0 px-3 py-2 bg-light">Serial #</th>
                             <th class="border-0 px-3 py-2 bg-light">Supplier</th>
                             <th class="border-0 px-3 py-2 bg-light" style="white-space:nowrap">Cost (PO)</th>
                             <th class="border-0 px-3 py-2 bg-light" style="white-space:nowrap">Selling Price</th>
                             <th class="border-0 px-3 py-2 bg-light">Profit</th>
-                            <th class="border-0 px-3 py-2 bg-light">Stock</th>
+                            <th class="border-0 px-3 py-2 bg-light">
+                                <i class="bi bi-upc-scan me-1"></i>Inventory
+                            </th>
                             <th class="border-0 px-3 py-2 bg-light">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="productsTableBody">
                         @forelse($products as $product)
                         @php
-                            $canSell   = $product->price > 0;
-                            $profit    = $product->price - $product->cost;
-                            $profitPct = $product->cost > 0 ? (($profit / $product->cost) * 100) : 0;
+                            $canSell    = $product->price > 0;
+                            $profit     = $product->price - $product->cost;
+                            $profitPct  = $product->cost > 0 ? (($profit / $product->cost) * 100) : 0;
+                            $inStock    = $product->in_stock_count ?? 0;
+                            $pending    = $product->pending_count  ?? 0;
+                            $stockLevel = $inStock == 0 ? 'out' : ($inStock <= 5 ? 'low' : 'in');
                         @endphp
                         <tr class="{{ !$canSell ? 'table-warning' : '' }} product-row"
                             data-search="{{ strtolower(($product->brand->name ?? '') . ' ' . ($product->model ?? '') . ' ' . ($product->supplier->name ?? '') . ' ' . ($product->unit_type ?? '')) }}"
-                            data-stock="{{ $product->stock_quantity == 0 ? 'out' : ($product->stock_quantity <= 5 ? 'low' : 'in') }}"
+                            data-stock="{{ $stockLevel }}"
                             data-price="{{ $canSell ? 'priced' : 'noprice' }}">
+
                             <td class="px-3 py-2" style="white-space:nowrap">
                                 <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary">
                                     {{ $product->brand->name ?? '—' }}
                                 </span>
                             </td>
-                            <td class="px-3 py-2 fw-semibold" style="white-space:nowrap">{{ $product->model ?? '—' }}</td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
-                                <span class="text-muted">{{ ucfirst($product->unit_type ?? '—') }}</span>
+                            <td class="px-3 py-2 fw-semibold" style="white-space:nowrap">
+                                <a href="{{ route('products.show', $product) }}" class="text-decoration-none text-dark">
+                                    {{ $product->model ?? '—' }}
+                                </a>
                             </td>
                             <td class="px-3 py-2" style="white-space:nowrap">
-                                <small class="text-muted">{{ $product->serial_number ?? '—' }}</small>
+                                @if($product->unit_type === 'indoor')
+                                    <span style="font-size:0.75rem;padding:2px 8px;border-radius:20px;background:#e8f0fe;color:#1a56db;border:1px solid #93c5fd;font-weight:600;">❄️ Indoor</span>
+                                @elseif($product->unit_type === 'outdoor')
+                                    <span style="font-size:0.75rem;padding:2px 8px;border-radius:20px;background:#dcfce7;color:#166534;border:1px solid #86efac;font-weight:600;">🌀 Outdoor</span>
+                                @else
+                                    <span class="text-muted">—</span>
+                                @endif
                             </td>
                             <td class="px-3 py-2" style="white-space:nowrap">
                                 <small class="text-muted">{{ $product->supplier->name ?? '—' }}</small>
@@ -143,27 +155,44 @@
                                     <span class="text-muted">—</span>
                                 @endif
                             </td>
+
+                            {{-- ── Inventory / Serial Count column ── --}}
                             <td class="px-3 py-2" style="white-space:nowrap">
-                                @if($product->stock_quantity == 0)
-                                    <span class="badge bg-danger">Out of Stock</span>
-                                @elseif($product->stock_quantity <= 5)
-                                    <span class="badge bg-warning text-dark">{{ $product->stock_quantity }} units</span>
-                                @else
-                                    <span class="badge bg-success">{{ $product->stock_quantity }} units</span>
-                                @endif
+                                <a href="{{ route('products.show', $product) }}"
+                                   class="text-decoration-none d-inline-flex align-items-center gap-1"
+                                   title="View serial numbers">
+                                    @if($inStock === 0)
+                                        <span class="badge bg-danger">Out of Stock</span>
+                                    @elseif($inStock <= 5)
+                                        <span class="badge bg-warning text-dark">{{ $inStock }} in stock</span>
+                                    @else
+                                        <span class="badge bg-success">{{ $inStock }} in stock</span>
+                                    @endif
+                                    @if($pending > 0)
+                                        <span class="badge bg-secondary" title="{{ $pending }} pending (not yet received)">
+                                            +{{ $pending }} pending
+                                        </span>
+                                    @endif
+                                    <i class="bi bi-chevron-right text-muted" style="font-size:0.7rem;"></i>
+                                </a>
                             </td>
+
                             <td class="px-3 py-2" style="white-space:nowrap">
                                 <div class="d-flex gap-1">
+                                    <a href="{{ route('products.show', $product) }}"
+                                       class="btn btn-outline-info btn-sm" style="font-size:0.78rem"
+                                       title="View serials">
+                                        <i class="bi bi-upc-scan">View Products</i>
+                                    </a>
                                     <a href="{{ route('products.edit', $product) }}"
-                                       class="btn btn-primary"
-                                       style="padding:2px 8px;font-size:0.78rem">
+                                       class="btn btn-primary btn-sm" style="font-size:0.78rem">
                                         <i class="bi bi-pencil"></i> Edit
                                     </a>
                                     <form action="{{ route('products.destroy', $product) }}" method="POST"
                                           class="d-inline" onsubmit="return confirm('Delete this product?')">
                                         @csrf @method('DELETE')
-                                        <button type="submit" class="btn btn-outline-danger"
-                                                style="padding:2px 8px;font-size:0.78rem">
+                                        <button type="submit" class="btn btn-outline-danger btn-sm"
+                                                style="font-size:0.78rem">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </form>
@@ -172,7 +201,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="10" class="text-center py-5 text-muted">
+                            <td colspan="9" class="text-center py-5 text-muted">
                                 <i class="bi bi-inbox fs-1 d-block mb-2"></i>
                                 No products yet
                             </td>
@@ -183,7 +212,6 @@
             </div>
         </div>
 
-        {{-- Pagination --}}
         @if(isset($products) && method_exists($products, 'hasPages') && $products->hasPages())
         <div class="d-flex justify-content-between align-items-center px-4 py-3 border-top bg-light">
             <small class="text-muted">
@@ -201,8 +229,8 @@
 <script>
 function clearFilters() {
     document.getElementById('productSearch').value = '';
-    document.getElementById('stockFilter').value = '';
-    document.getElementById('priceFilter').value = '';
+    document.getElementById('stockFilter').value   = '';
+    document.getElementById('priceFilter').value   = '';
     filterTable();
 }
 
@@ -215,15 +243,12 @@ function filterTable() {
 
     rows.forEach(row => {
         const matchSearch = !search || row.dataset.search.includes(search);
-        const matchStock  = !stock  || row.dataset.stock === stock;
-        const matchPrice  = !price  || row.dataset.price === price;
+        const matchStock  = !stock  || row.dataset.stock  === stock;
+        const matchPrice  = !price  || row.dataset.price  === price;
 
-        if (matchSearch && matchStock && matchPrice) {
-            row.style.display = '';
-            visible++;
-        } else {
-            row.style.display = 'none';
-        }
+        const show = matchSearch && matchStock && matchPrice;
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
     });
 
     let noResults = document.getElementById('noResultsRow');
@@ -231,7 +256,7 @@ function filterTable() {
         if (!noResults) {
             noResults = document.createElement('tr');
             noResults.id = 'noResultsRow';
-            noResults.innerHTML = '<td colspan="10" class="text-center py-5 text-muted"><i class="bi bi-search fs-1 d-block mb-2"></i>No results found</td>';
+            noResults.innerHTML = '<td colspan="9" class="text-center py-5 text-muted"><i class="bi bi-search fs-1 d-block mb-2"></i>No results found</td>';
             document.getElementById('productsTableBody').appendChild(noResults);
         }
         noResults.style.display = '';

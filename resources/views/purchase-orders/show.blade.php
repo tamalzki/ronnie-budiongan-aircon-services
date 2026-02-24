@@ -36,18 +36,17 @@
         </div>
     </div>
 
-    {{-- Flash message --}}
     @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-3">
-            {!! session('success') !!}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
+    <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-3">
+        {!! session('success') !!}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
     @endif
     @if(session('error'))
-        <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-3">
-            {!! session('error') !!}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
+    <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-3">
+        {!! session('error') !!}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
     @endif
 
     {{-- Deadline alerts --}}
@@ -66,7 +65,7 @@
     </div>
     @endif
 
-    {{-- Set price alert (after receiving stock) --}}
+    {{-- Set price alert --}}
     @if($purchaseOrder->status === 'received')
     @php $noPriceItems = $purchaseOrder->items->filter(fn($item) => $item->product->price == 0); @endphp
     @if($noPriceItems->count() > 0)
@@ -89,9 +88,6 @@
                     <tr>
                         <td class="px-4 py-3">
                             <span class="fw-semibold">{{ trim(($item->product->brand->name ?? '') . ' ' . $item->product->model) }}</span>
-                            @if($item->product->serial_number)
-                                <br><small class="text-muted"><i class="bi bi-upc-scan"></i> S/N: {{ $item->product->serial_number }}</small>
-                            @endif
                         </td>
                         <td class="px-4 py-3">
                             @if($item->product->unit_type === 'indoor')
@@ -104,7 +100,7 @@
                         </td>
                         <td class="px-4 py-3">
                             <strong class="text-danger">₱{{ number_format($item->discounted_cost ?? $item->unit_cost, 2) }}</strong>
-                            <br><small class="text-muted">Your cost — set price above this</small>
+                            <br><small class="text-muted">Set price above this</small>
                         </td>
                         <td class="px-4 py-3">
                             <form action="{{ route('products.set-price', $item->product) }}" method="POST" class="d-flex align-items-center gap-2">
@@ -130,12 +126,8 @@
     @endif
     @endif
 
-    {{-- ═══════════════════════════════════════════════════════
-         ROW 1: Supplier Info (left) + Payment Summary (right)
-    ════════════════════════════════════════════════════════ --}}
+    {{-- Row 1: Supplier Info + Payment Summary --}}
     <div class="row g-4 mb-4">
-
-        {{-- Supplier & Order Info --}}
         <div class="col-md-8">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-primary text-white border-0">
@@ -166,7 +158,7 @@
                             @if($purchaseOrder->delivery_number)
                                 <strong><i class="bi bi-truck text-success"></i> {{ $purchaseOrder->delivery_number }}</strong>
                             @else
-                                <span class="text-warning"><i class="bi bi-clock"></i> Pending — set when receiving stock</span>
+                                <span class="text-warning small"><i class="bi bi-clock"></i> Pending</span>
                             @endif
                         </div>
                         @if($purchaseOrder->received_date)
@@ -186,7 +178,7 @@
                         @if($purchaseOrder->notes)
                         <div class="col-12">
                             <small class="text-muted d-block">Notes</small>
-                            <span class="text-dark">{{ $purchaseOrder->notes }}</span>
+                            <span>{{ $purchaseOrder->notes }}</span>
                         </div>
                         @endif
                     </div>
@@ -194,7 +186,6 @@
             </div>
         </div>
 
-        {{-- Payment Summary --}}
         <div class="col-md-4">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-warning border-0">
@@ -215,9 +206,7 @@
                             <td class="px-4 py-2 text-muted small fw-semibold">Due Date</td>
                             <td class="px-4 py-2">
                                 <div class="d-flex align-items-center gap-2 flex-wrap">
-                                    <span id="dueDateDisplay">
-                                        {{ $purchaseOrder->payment_due_date ? $purchaseOrder->payment_due_date->format('M d, Y') : '—' }}
-                                    </span>
+                                    <span>{{ $purchaseOrder->payment_due_date ? $purchaseOrder->payment_due_date->format('M d, Y') : '—' }}</span>
                                     @if($daysRemaining !== null && $purchaseOrder->payment_status !== 'paid')
                                         @if($daysRemaining < 0)
                                             <span class="badge bg-danger">Overdue {{ abs((int)$daysRemaining) }}d</span>
@@ -230,24 +219,19 @@
                                     @if($purchaseOrder->payment_status !== 'paid')
                                     <button class="btn btn-outline-secondary btn-sm" style="padding:1px 7px;font-size:0.75rem"
                                             onclick="document.getElementById('editDueDateForm').classList.toggle('d-none')">
-                                        <i class="bi bi-pencil"></i> Edit
+                                        <i class="bi bi-pencil"></i>
                                     </button>
                                     @endif
                                 </div>
-                                {{-- Inline edit form --}}
                                 <form id="editDueDateForm" class="d-none mt-2 d-flex gap-2 align-items-center"
                                       action="{{ route('purchase-orders.update-due-date', $purchaseOrder) }}" method="POST">
                                     @csrf @method('PATCH')
                                     <input type="date" name="payment_due_date" class="form-control form-control-sm"
                                            value="{{ optional($purchaseOrder->payment_due_date)->format('Y-m-d') }}"
                                            style="max-width:160px" required>
-                                    <button type="submit" class="btn btn-primary btn-sm" style="padding:2px 10px;font-size:0.8rem">
-                                        <i class="bi bi-check"></i> Save
-                                    </button>
-                                    <button type="button" class="btn btn-light btn-sm" style="padding:2px 10px;font-size:0.8rem"
-                                            onclick="document.getElementById('editDueDateForm').classList.add('d-none')">
-                                        Cancel
-                                    </button>
+                                    <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                                    <button type="button" class="btn btn-light btn-sm"
+                                            onclick="document.getElementById('editDueDateForm').classList.add('d-none')">Cancel</button>
                                 </form>
                             </td>
                         </tr>
@@ -276,7 +260,7 @@
                                 </span>
                             </td>
                         </tr>
-                        <tr class="border-bottom">
+                        <tr>
                             <td class="px-4 py-2 text-muted small fw-semibold">Delivery Status</td>
                             <td class="px-4 py-2">
                                 <span class="badge bg-{{ $purchaseOrder->status == 'received' ? 'success' : 'warning text-dark' }}">
@@ -284,123 +268,133 @@
                                 </span>
                             </td>
                         </tr>
-                        <tr>
-                            <td class="px-4 py-2 text-muted small fw-semibold">DR Number</td>
-                            <td class="px-4 py-2">
-                                @if($purchaseOrder->delivery_number)
-                                    <strong class="text-success"><i class="bi bi-truck"></i> {{ $purchaseOrder->delivery_number }}</strong>
-                                @else
-                                    <span class="text-warning small"><i class="bi bi-clock"></i> Not yet received</span>
-                                @endif
-                            </td>
-                        </tr>
                     </table>
                 </div>
             </div>
         </div>
+    </div>
 
-    </div>{{-- end row 1 --}}
-
-    {{-- ═══════════════════════════════════════════════════════
-         ROW 2: Order Items (full width)
-    ════════════════════════════════════════════════════════ --}}
+    {{-- Order Items + Serials --}}
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-header border-0 bg-success text-white d-flex justify-content-between align-items-center">
-            <h5 class="mb-0"><i class="bi bi-box-seam"></i> Order Items</h5>
+            <h5 class="mb-0"><i class="bi bi-box-seam"></i> Order Items & Serial Numbers</h5>
             <span class="badge bg-white text-success">{{ $purchaseOrder->items->count() }} item(s)</span>
         </div>
         <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover mb-0" style="font-size:0.875rem;">
-                    <thead class="table-light">
-                        <tr>
-                            <th class="px-4 py-3">#</th>
-                            <th class="px-4 py-3">Product / Model</th>
-                            <th class="px-4 py-3">Unit Type</th>
-                            <th class="px-4 py-3">Serial Number</th>
-                            <th class="px-4 py-3 text-center" width="90">Ordered</th>
-                            <th class="px-4 py-3 text-center" width="90">Received</th>
-                            <th class="px-4 py-3 text-center" width="130">Unit Cost</th>
-                            <th class="px-4 py-3 text-center" width="80">Disc %</th>
-                            <th class="px-4 py-3 text-center" width="130">Net Cost</th>
-                            <th class="px-4 py-3 text-end" width="130">Line Total</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($purchaseOrder->items as $item)
-                        <tr>
-                            <td class="px-4 py-3 text-muted">{{ $loop->iteration }}</td>
-                            <td class="px-4 py-3">
-                                <span class="fw-semibold">{{ trim(($item->product->brand->name ?? '') . ' ' . $item->product->model) }}</span>
-                                @if($item->product->price == 0)
-                                    <span class="badge bg-warning text-dark ms-1 align-middle" style="font-size:0.65rem;">
-                                        <i class="bi bi-lock-fill"></i> No Price
-                                    </span>
+            @foreach($purchaseOrder->items as $item)
+            @php
+                $itemSerials = $purchaseOrder->serials->where('product_id', $item->product_id);
+                $pendingSerials  = $itemSerials->where('status', 'pending');
+                $inStockSerials  = $itemSerials->where('status', 'in_stock');
+                $soldSerials     = $itemSerials->where('status', 'sold');
+            @endphp
+            <div class="border-bottom {{ $loop->last ? 'border-0' : '' }}">
+
+                {{-- Item header row --}}
+                <div class="px-4 py-3 d-flex flex-wrap align-items-center gap-3 bg-light">
+                    <div style="flex:1;min-width:200px;">
+                        <span class="fw-semibold fs-6">{{ trim(($item->product->brand->name ?? '') . ' ' . $item->product->model) }}</span>
+                        @if($item->product->unit_type === 'indoor')
+                            <span class="badge ms-2" style="background:#e8f0fe;color:#1a56db;border:1px solid #93c5fd;">❄️ Indoor</span>
+                        @elseif($item->product->unit_type === 'outdoor')
+                            <span class="badge ms-2" style="background:#dcfce7;color:#166534;border:1px solid #86efac;">🌀 Outdoor</span>
+                        @endif
+                        @if($item->product->price == 0)
+                            <span class="badge bg-warning text-dark ms-1" style="font-size:0.65rem;"><i class="bi bi-lock-fill"></i> No Price</span>
+                        @endif
+                    </div>
+                    <div class="d-flex gap-3 text-center" style="font-size:0.82rem;">
+                        <div>
+                            <div class="text-muted small">Ordered</div>
+                            <span class="badge bg-primary rounded-pill px-3">{{ $item->quantity_ordered }}</span>
+                        </div>
+                        <div>
+                            <div class="text-muted small">Received</div>
+                            @if($item->quantity_received >= $item->quantity_ordered)
+                                <span class="badge bg-success rounded-pill px-3">{{ $item->quantity_received }}</span>
+                            @elseif($item->quantity_received > 0)
+                                <span class="badge bg-warning text-dark rounded-pill px-3">{{ $item->quantity_received }}</span>
+                            @else
+                                <span class="badge bg-secondary rounded-pill px-3">0</span>
+                            @endif
+                        </div>
+                        <div>
+                            <div class="text-muted small">Unit Cost</div>
+                            <span class="text-muted">₱{{ number_format($item->unit_cost, 2) }}</span>
+                        </div>
+                        @if($item->discount_percent > 0)
+                        <div>
+                            <div class="text-muted small">Discount</div>
+                            <span class="badge bg-success bg-opacity-10 text-success border border-success">{{ $item->discount_percent }}% off</span>
+                        </div>
+                        @endif
+                        <div>
+                            <div class="text-muted small">Net Cost</div>
+                            <strong class="text-danger">₱{{ number_format($item->discounted_cost ?? $item->unit_cost, 2) }}</strong>
+                        </div>
+                        <div>
+                            <div class="text-muted small">Line Total</div>
+                            <strong class="text-primary">₱{{ number_format($item->total_cost, 2) }}</strong>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Serial Numbers for this item --}}
+                <div class="px-4 py-3">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <i class="bi bi-upc-scan text-primary"></i>
+                        <span class="small fw-semibold text-primary">Serial Numbers</span>
+                        <span class="badge bg-secondary">{{ $itemSerials->count() }} / {{ $item->quantity_ordered }} entered</span>
+                        @if($itemSerials->count() === 0)
+                            <span class="badge bg-warning text-dark">Not yet entered</span>
+                        @elseif($inStockSerials->count() === $item->quantity_ordered)
+                            <span class="badge bg-success">All In Stock</span>
+                        @endif
+                    </div>
+
+                    @if($itemSerials->count() > 0)
+                    <div class="row g-2">
+                        @foreach($itemSerials->sortBy('serial_number') as $serial)
+                        <div class="col-md-3 col-sm-4 col-6">
+                            <div class="d-flex align-items-center gap-1 px-2 py-1 rounded border"
+                                 style="font-size:0.78rem;
+                                        background:{{ $serial->status === 'in_stock' ? '#f0fdf4' : ($serial->status === 'sold' ? '#eff6ff' : '#fffbeb') }};
+                                        border-color:{{ $serial->status === 'in_stock' ? '#86efac' : ($serial->status === 'sold' ? '#93c5fd' : '#fcd34d') }} !important;">
+                                <code style="font-size:0.78rem;flex:1;">{{ $serial->serial_number }}</code>
+                                @if($serial->status === 'pending')
+                                    <span title="Pending — not yet received" style="font-size:0.65rem;color:#b45309;">⏳</span>
+                                @elseif($serial->status === 'in_stock')
+                                    <span title="In Stock" style="font-size:0.65rem;color:#166534;">✅</span>
+                                @elseif($serial->status === 'sold')
+                                    <span title="Sold" style="font-size:0.65rem;color:#1d4ed8;">🛒</span>
                                 @endif
-                            </td>
-                            <td class="px-4 py-3">
-                                @if($item->product->unit_type === 'indoor')
-                                    <span class="badge" style="background:#e8f0fe;color:#1a56db;border:1px solid #93c5fd;font-size:0.75rem;">❄️ Indoor</span>
-                                @elseif($item->product->unit_type === 'outdoor')
-                                    <span class="badge" style="background:#dcfce7;color:#166534;border:1px solid #86efac;font-size:0.75rem;">🌀 Outdoor</span>
-                                @else
-                                    <span class="text-muted">—</span>
-                                @endif
-                            </td>
-                            <td class="px-4 py-3">
-                                @if($item->product->serial_number)
-                                    <code class="text-dark bg-light px-2 py-1 rounded" style="font-size:0.78rem;">
-                                        {{ $item->product->serial_number }}
-                                    </code>
-                                @else
-                                    <span class="text-muted small">Not set</span>
-                                @endif
-                            </td>
-                            <td class="px-4 py-3 text-center">
-                                <span class="badge bg-primary rounded-pill px-3">{{ $item->quantity_ordered }}</span>
-                            </td>
-                            <td class="px-4 py-3 text-center">
-                                @if($item->quantity_received >= $item->quantity_ordered)
-                                    <span class="badge bg-success rounded-pill px-3">{{ $item->quantity_received }}</span>
-                                @elseif($item->quantity_received > 0)
-                                    <span class="badge bg-warning text-dark rounded-pill px-3">{{ $item->quantity_received }}</span>
-                                @else
-                                    <span class="badge bg-secondary rounded-pill px-3">0</span>
-                                @endif
-                            </td>
-                            <td class="px-4 py-3 text-center text-muted">₱{{ number_format($item->unit_cost, 2) }}</td>
-                            <td class="px-4 py-3 text-center">
-                                @if($item->discount_percent > 0)
-                                    <span class="badge bg-success bg-opacity-10 text-success border border-success">
-                                        {{ $item->discount_percent }}% off
-                                    </span>
-                                @else
-                                    <span class="text-muted">—</span>
-                                @endif
-                            </td>
-                            <td class="px-4 py-3 text-center">
-                                <strong class="text-danger">₱{{ number_format($item->discounted_cost ?? $item->unit_cost, 2) }}</strong>
-                            </td>
-                            <td class="px-4 py-3 text-end fw-bold fs-6">₱{{ number_format($item->total_cost, 2) }}</td>
-                        </tr>
+                            </div>
+                        </div>
                         @endforeach
-                    </tbody>
-                    <tfoot>
-                        <tr class="table-light">
-                            <td colspan="9" class="text-end fw-bold px-4 py-3 fs-6">Grand Total:</td>
-                            <td class="text-end fw-bold text-primary fs-5 px-4 py-3">
-                                ₱{{ number_format($purchaseOrder->total, 2) }}
-                            </td>
-                        </tr>
-                    </tfoot>
-                </table>
+                    </div>
+                    @else
+                    <p class="text-muted small mb-0 fst-italic">
+                        @if($purchaseOrder->status === 'pending')
+                            No serial numbers entered yet. You can add them when editing this PO or when receiving stock.
+                        @else
+                            No serial numbers were recorded for this item.
+                        @endif
+                    </p>
+                    @endif
+                </div>
+
+            </div>
+            @endforeach
+
+            {{-- Grand Total footer --}}
+            <div class="px-4 py-3 bg-light border-top d-flex justify-content-end">
+                <span class="fw-bold me-3">Grand Total:</span>
+                <span class="fw-bold text-primary fs-5">₱{{ number_format($purchaseOrder->total, 2) }}</span>
             </div>
         </div>
     </div>
 
-    {{-- ═══════════════════════════════════════════════════════
-         ROW 3: Payment History (full width, if any)
-    ════════════════════════════════════════════════════════ --}}
+    {{-- Payment History --}}
     @if($purchaseOrder->payments->count() > 0)
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-info text-white border-0 d-flex justify-content-between align-items-center">
@@ -435,9 +429,7 @@
                             <td class="px-4 py-3">{{ $payment->payment_date->format('M d, Y') }}</td>
                             <td class="px-4 py-3 fw-bold text-success">₱{{ number_format($payment->amount, 2) }}</td>
                             <td class="px-4 py-3">
-                                @php
-                                    $methodIcons = ['cash' => '💵', 'gcash' => '📱', 'bank_transfer' => '🏦', 'cheque' => '🧾'];
-                                @endphp
+                                @php $methodIcons = ['cash'=>'💵','gcash'=>'📱','bank_transfer'=>'🏦','cheque'=>'🧾']; @endphp
                                 {{ $methodIcons[$payment->payment_method] ?? '' }} {{ ucfirst(str_replace('_', ' ', $payment->payment_method)) }}
                             </td>
                             <td class="px-4 py-3 text-muted">{{ $payment->reference_number ?? '—' }}</td>
@@ -457,7 +449,7 @@
                             <td class="fw-bold text-danger px-4 py-2">₱{{ number_format($purchaseOrder->balance, 2) }}</td>
                             <td colspan="3">
                                 @if($purchaseOrder->payment_due_date)
-                                    <small class="text-muted">Due: {{ $purchaseOrder->payment_due_date->format('M d, Y') }}</small>
+                                <small class="text-muted">Due: {{ $purchaseOrder->payment_due_date->format('M d, Y') }}</small>
                                 @endif
                             </td>
                         </tr>
@@ -469,95 +461,108 @@
     </div>
     @endif
 
-</div>{{-- end container-fluid --}}
+</div>
 
-{{-- ═══════════════════════════════════════════════
-     RECEIVE STOCK MODAL
-════════════════════════════════════════════════ --}}
+{{-- ═══════════════════════════════════════════
+     RECEIVE STOCK MODAL — with serial inputs
+════════════════════════════════════════════ --}}
 @if($purchaseOrder->status === 'pending')
 <div class="modal fade" id="receiveModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content border-0 shadow">
-            <form action="{{ route('purchase-orders.receive', $purchaseOrder) }}" method="POST">
+            <form action="{{ route('purchase-orders.receive', $purchaseOrder) }}" method="POST" id="receiveForm">
                 @csrf
                 <div class="modal-header bg-success text-white border-0">
                     <h5 class="modal-title"><i class="bi bi-box-arrow-in-down"></i> Receive Stock — {{ $purchaseOrder->po_number }}</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-4">
-                    <div class="alert alert-info border-0 mb-3">
-                        <i class="bi bi-info-circle"></i>
-                        Receiving stock will <strong>auto-update product cost</strong> from PO unit price.
-                        You will be prompted to set selling prices after.
+
+                    <div class="alert alert-info border-0 mb-4" style="font-size:0.875rem;">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Enter all serial numbers for each item before marking as received.
+                        Serial count <strong>must match</strong> the quantity received exactly.
                     </div>
-                    <div class="row g-3 mb-3">
+
+                    <div class="row g-3 mb-4">
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Received Date <span class="text-danger">*</span></label>
                             <input type="date" class="form-control" name="received_date" value="{{ date('Y-m-d') }}" required>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold">
-                                <i class="bi bi-truck"></i> DR / Delivery Receipt Number <span class="text-danger">*</span>
-                            </label>
-                            <input type="text" class="form-control" name="delivery_number" placeholder="e.g. DR-2026-00123" required>
+                            <label class="form-label fw-semibold"><i class="bi bi-truck"></i> DR / Delivery Receipt Number</label>
+                            <input type="text" class="form-control" name="delivery_number" placeholder="e.g. DR-2026-00123">
                         </div>
                     </div>
-                    <div class="table-responsive">
-                        <table class="table table-bordered">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Product</th>
-                                    <th>Unit Type</th>
-                                    <th>Serial No.</th>
-                                    <th class="text-center" width="80">Ordered</th>
-                                    <th class="text-center" width="80">Received</th>
-                                    <th class="text-center" width="110">Net Cost</th>
-                                    <th width="120">Receive Now</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($purchaseOrder->items as $item)
-                                <tr>
-                                    <td class="fw-medium">{{ trim(($item->product->brand->name ?? '') . ' ' . $item->product->model) }}</td>
-                                    <td>
-                                        @if($item->product->unit_type === 'indoor')
-                                            <span class="badge" style="background:#e8f0fe;color:#1a56db;border:1px solid #93c5fd;">❄️ Indoor</span>
-                                        @elseif($item->product->unit_type === 'outdoor')
-                                            <span class="badge" style="background:#dcfce7;color:#166534;border:1px solid #86efac;">🌀 Outdoor</span>
-                                        @else
-                                            <span class="text-muted small">—</span>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        @if($item->product->serial_number)
-                                            <code style="font-size:0.78rem;">{{ $item->product->serial_number }}</code>
-                                        @else
-                                            <span class="text-muted small">—</span>
-                                        @endif
-                                    </td>
-                                    <td class="text-center"><span class="badge bg-primary">{{ $item->quantity_ordered }}</span></td>
-                                    <td class="text-center"><span class="badge bg-success">{{ $item->quantity_received }}</span></td>
-                                    <td class="text-center">
-                                        <strong class="text-danger">₱{{ number_format($item->discounted_cost ?? $item->unit_cost, 2) }}</strong>
-                                        <br><small class="text-muted">→ updates cost</small>
-                                    </td>
-                                    <td>
-                                        <input type="hidden" name="items[{{ $loop->index }}][id]" value="{{ $item->id }}">
-                                        <input type="number" class="form-control form-control-sm"
-                                               name="items[{{ $loop->index }}][quantity_received]"
-                                               value="{{ $item->quantity_ordered - $item->quantity_received }}"
-                                               min="0" max="{{ $item->quantity_ordered - $item->quantity_received }}" required>
-                                    </td>
-                                </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
+
+                    {{-- One card per item --}}
+                    @foreach($purchaseOrder->items as $item)
+                    @php
+                        $remaining       = $item->quantity_ordered - $item->quantity_received;
+                        $pendingSerials  = $purchaseOrder->serials
+                            ->where('product_id', $item->product_id)
+                            ->where('status', 'pending')
+                            ->pluck('serial_number')
+                            ->toArray();
+                    @endphp
+                    <div class="card border shadow-sm mb-3" id="receive-card-{{ $loop->index }}">
+                        <div class="card-header bg-light py-2 d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="fw-semibold">{{ trim(($item->product->brand->name ?? '') . ' ' . $item->product->model) }}</span>
+                                @if($item->product->unit_type === 'indoor')
+                                    <span class="badge ms-2" style="background:#e8f0fe;color:#1a56db;border:1px solid #93c5fd;font-size:0.72rem;">❄️ Indoor</span>
+                                @elseif($item->product->unit_type === 'outdoor')
+                                    <span class="badge ms-2" style="background:#dcfce7;color:#166534;border:1px solid #86efac;font-size:0.72rem;">🌀 Outdoor</span>
+                                @endif
+                            </div>
+                            <div class="d-flex align-items-center gap-3" style="font-size:0.82rem;">
+                                <span>Ordered: <strong>{{ $item->quantity_ordered }}</strong></span>
+                                <span>Already received: <strong>{{ $item->quantity_received }}</strong></span>
+                                <span>Receiving now:
+                                    <input type="hidden" name="items[{{ $loop->index }}][id]" value="{{ $item->id }}">
+                                    <input type="number" class="form-control form-control-sm d-inline-block qty-receive-input"
+                                           name="items[{{ $loop->index }}][quantity_received]"
+                                           value="{{ $remaining }}"
+                                           min="0" max="{{ $remaining }}"
+                                           style="width:65px;"
+                                           data-idx="{{ $loop->index }}"
+                                           onchange="rebuildReceiveSerials({{ $loop->index }}, this.value)">
+                                </span>
+                                <span class="badge bg-secondary" id="receive-serial-count-{{ $loop->index }}">0 / {{ $remaining }}</span>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <i class="bi bi-upc-scan text-primary"></i>
+                                <span class="small fw-semibold text-primary">Serial Numbers <span class="text-danger">*</span></span>
+                                <span class="text-muted small">— must match quantity above exactly</span>
+                            </div>
+                            <div class="row g-1" id="receive-serials-{{ $loop->index }}">
+                                @for($s = 0; $s < $remaining; $s++)
+                                <div class="col-md-3 col-sm-4 col-6">
+                                    <div class="input-group input-group-sm mb-1">
+                                        <span class="input-group-text text-muted" style="font-size:0.72rem;min-width:36px;">#{{ $s+1 }}</span>
+                                        <input type="text"
+                                               class="form-control form-control-sm receive-serial-input"
+                                               name="items[{{ $loop->index }}][serials][]"
+                                               value="{{ $pendingSerials[$s] ?? '' }}"
+                                               placeholder="S/N #{{ $s+1 }}"
+                                               style="font-family:monospace;font-size:0.82rem;"
+                                               required
+                                               oninput="updateReceiveSerialCount({{ $loop->index }})">
+                                    </div>
+                                </div>
+                                @endfor
+                            </div>
+                        </div>
                     </div>
+                    @endforeach
+
                 </div>
                 <div class="modal-footer border-0 bg-light">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-success px-4">
-                        <i class="bi bi-check-circle"></i> Receive Stock
+                    <button type="submit" class="btn btn-success px-4" id="receiveSubmitBtn">
+                        <i class="bi bi-check-circle"></i> Confirm & Receive Stock
                     </button>
                 </div>
             </form>
@@ -566,9 +571,7 @@
 </div>
 @endif
 
-{{-- ═══════════════════════════════════════════════
-     PAYMENT MODAL
-════════════════════════════════════════════════ --}}
+{{-- PAYMENT MODAL --}}
 @if($purchaseOrder->payment_type === '45days' && $purchaseOrder->balance > 0)
 <div class="modal fade" id="paymentModal" tabindex="-1">
     <div class="modal-dialog">
@@ -644,5 +647,81 @@
     </div>
 </div>
 @endif
+
+@push('scripts')
+<script>
+// Rebuild serial inputs in receive modal when qty changes
+function rebuildReceiveSerials(idx, qty) {
+    qty = parseInt(qty) || 0;
+    const container = document.getElementById(`receive-serials-${idx}`);
+    const existing  = [...container.querySelectorAll('.receive-serial-input')].map(i => i.value);
+    container.innerHTML = '';
+
+    for (let s = 0; s < qty; s++) {
+        container.insertAdjacentHTML('beforeend', `
+            <div class="col-md-3 col-sm-4 col-6">
+                <div class="input-group input-group-sm mb-1">
+                    <span class="input-group-text text-muted" style="font-size:0.72rem;min-width:36px;">#${s+1}</span>
+                    <input type="text"
+                           class="form-control form-control-sm receive-serial-input"
+                           name="items[${idx}][serials][]"
+                           value="${existing[s] || ''}"
+                           placeholder="S/N #${s+1}"
+                           style="font-family:monospace;font-size:0.82rem;"
+                           required
+                           oninput="updateReceiveSerialCount(${idx})">
+                </div>
+            </div>`);
+    }
+    updateReceiveSerialCount(idx);
+}
+
+function updateReceiveSerialCount(idx) {
+    const inputs  = document.querySelectorAll(`#receive-serials-${idx} .receive-serial-input`);
+    const filled  = [...inputs].filter(i => i.value.trim() !== '').length;
+    const total   = inputs.length;
+    const counter = document.getElementById(`receive-serial-count-${idx}`);
+    if (counter) {
+        counter.textContent = `${filled} / ${total}`;
+        counter.className   = filled === total && total > 0
+            ? 'badge bg-success'
+            : filled > 0 ? 'badge bg-warning text-dark' : 'badge bg-secondary';
+    }
+}
+
+// Initialize counts on load
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[id^="receive-serials-"]').forEach(container => {
+        const idx = container.id.replace('receive-serials-', '');
+        updateReceiveSerialCount(idx);
+    });
+
+    // Submit guard for receive form
+    const receiveForm = document.getElementById('receiveForm');
+    if (receiveForm) {
+        receiveForm.addEventListener('submit', function (e) {
+            let allValid = true;
+            document.querySelectorAll('[id^="receive-serials-"]').forEach(container => {
+                const idx    = container.id.replace('receive-serials-', '');
+                const qtyEl  = document.querySelector(`input[name="items[${idx}][quantity_received]"]`);
+                const qty    = parseInt(qtyEl?.value) || 0;
+                const inputs = container.querySelectorAll('.receive-serial-input');
+                const filled = [...inputs].filter(i => i.value.trim() !== '').length;
+
+                if (qty > 0 && filled !== qty) {
+                    allValid = false;
+                    const counter = document.getElementById(`receive-serial-count-${idx}`);
+                    if (counter) { counter.className = 'badge bg-danger'; }
+                }
+            });
+            if (!allValid) {
+                e.preventDefault();
+                alert('All serial numbers must be filled in and match the quantity received for each item.');
+            }
+        });
+    }
+});
+</script>
+@endpush
 
 @endsection

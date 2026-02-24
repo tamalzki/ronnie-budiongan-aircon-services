@@ -100,14 +100,20 @@
     </div>
 
     {{-- Tabs --}}
-    <ul class="nav nav-tabs mb-0 border-bottom-0" id="poTabs" role="tablist" style="font-size:0.9rem;">
-        <li class="nav-item">
-            <button class="nav-link active px-4" data-bs-toggle="tab" data-bs-target="#tab-all-orders">
+    <ul class="nav nav-tabs mb-0" id="poTabs" role="tablist" style="font-size:0.9rem;">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active px-4" id="tab-all-orders-btn"
+                    type="button" role="tab"
+                    data-bs-toggle="tab" data-bs-target="#tab-all-orders"
+                    aria-controls="tab-all-orders" aria-selected="true">
                 <i class="bi bi-list-ul"></i> All Orders
             </button>
         </li>
-        <li class="nav-item">
-            <button class="nav-link px-4" data-bs-toggle="tab" data-bs-target="#tab-payments-due">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link px-4" id="tab-payments-due-btn"
+                    type="button" role="tab"
+                    data-bs-toggle="tab" data-bs-target="#tab-payments-due"
+                    aria-controls="tab-payments-due" aria-selected="false">
                 <i class="bi bi-calendar-event"></i> Payments Due
                 @if($paymentsDueCount > 0)
                     <span class="badge bg-danger ms-1">{{ $paymentsDueCount }}</span>
@@ -118,10 +124,8 @@
 
     <div class="tab-content border border-top-0 rounded-bottom bg-white shadow-sm mb-4" id="poTabContent">
 
-        {{-- ═══════════════════════════════════════════════════
-             TAB 1: ALL ORDERS
-        ════════════════════════════════════════════════════ --}}
-        <div class="tab-pane fade show active" id="tab-all-orders">
+        {{-- ═══ TAB 1: ALL ORDERS ═══ --}}
+        <div class="tab-pane fade show active" id="tab-all-orders" role="tabpanel" aria-labelledby="tab-all-orders-btn">
 
             {{-- Search & Filters --}}
             <div class="border-bottom py-3 px-3">
@@ -157,7 +161,6 @@
             </div>
 
             {{-- Table --}}
-            <div class="p-0">
             <div class="table-responsive">
                 <table class="table table-hover table-sm mb-0" id="poTable" style="font-size:0.875rem;">
                     <thead class="bg-light">
@@ -238,32 +241,28 @@
                                 @endif
                             </td>
                             <td class="px-3 py-2" style="white-space:nowrap">
-                                <div class="d-flex gap-1">
+                                <div class="d-flex gap-1 flex-wrap">
                                     <a href="{{ route('purchase-orders.show', $po) }}"
-                                       class="btn btn-outline-primary"
-                                       style="padding:2px 8px;font-size:0.78rem">
+                                       class="btn btn-outline-primary btn-sm" style="font-size:0.78rem">
                                         <i class="bi bi-eye"></i> View
                                     </a>
                                     @if($po->status == 'pending')
                                     <a href="{{ route('purchase-orders.edit', $po) }}"
-                                       class="btn btn-warning"
-                                       style="padding:2px 8px;font-size:0.78rem">
+                                       class="btn btn-warning btn-sm" style="font-size:0.78rem">
                                         <i class="bi bi-pencil"></i> Edit
                                     </a>
-                                    @endif
-                                    @if($po->status == 'pending')
-                                    <button class="btn btn-outline-success"
+                                    <button type="button" class="btn btn-outline-success btn-sm"
                                             data-bs-toggle="modal"
                                             data-bs-target="#receiveModal{{ $po->id }}"
-                                            style="padding:2px 8px;font-size:0.78rem">
+                                            style="font-size:0.78rem">
                                         <i class="bi bi-box-arrow-in-down"></i> Receive
                                     </button>
                                     @endif
                                     @if($po->payment_type === '45days' && $po->balance > 0)
-                                    <button class="btn btn-primary"
+                                    <button type="button" class="btn btn-primary btn-sm"
                                             data-bs-toggle="modal"
                                             data-bs-target="#paymentModal{{ $po->id }}"
-                                            style="padding:2px 8px;font-size:0.78rem">
+                                            style="font-size:0.78rem">
                                         <i class="bi bi-cash-coin"></i> Pay
                                     </button>
                                     @endif
@@ -271,9 +270,8 @@
                                     <form action="{{ route('purchase-orders.destroy', $po) }}" method="POST"
                                           class="d-inline" onsubmit="return confirm('Delete this purchase order?')">
                                         @csrf @method('DELETE')
-                                        <button type="submit" class="btn btn-outline-danger"
-                                                style="padding:2px 8px;font-size:0.78rem">
-                                            <i class="bi bi-trash">delete</i>
+                                        <button type="submit" class="btn btn-outline-danger btn-sm" style="font-size:0.78rem">
+                                            <i class="bi bi-trash"></i>
                                         </button>
                                     </form>
                                     @endif
@@ -305,10 +303,8 @@
 
         </div>{{-- end tab-all-orders --}}
 
-        {{-- ═══════════════════════════════════════════════════
-             TAB 2: PAYMENTS DUE (45-day terms only)
-        ════════════════════════════════════════════════════ --}}
-        <div class="tab-pane fade p-4" id="tab-payments-due">
+        {{-- ═══ TAB 2: PAYMENTS DUE ═══ --}}
+        <div class="tab-pane fade p-4" id="tab-payments-due" role="tabpanel" aria-labelledby="tab-payments-due-btn">
 
             <h6 class="fw-semibold mb-3">
                 <i class="bi bi-calendar-event text-primary"></i> Payment Schedule — 45-Day Terms Only
@@ -371,10 +367,10 @@
                             </td>
                             <td class="px-3 py-2" style="white-space:nowrap">
                                 @if($po->balance > 0)
-                                <button class="btn btn-primary"
+                                <button type="button" class="btn btn-primary btn-sm"
                                         data-bs-toggle="modal"
                                         data-bs-target="#paymentModal{{ $po->id }}"
-                                        style="padding:2px 8px;font-size:0.78rem">
+                                        style="font-size:0.78rem">
                                     <i class="bi bi-cash-coin"></i> Pay
                                 </button>
                                 @else
@@ -400,64 +396,125 @@
 
 </div>{{-- end container-fluid --}}
 
-{{-- Receive Stock Modals --}}
+{{-- ═══════════════════════════════════════════════════
+     RECEIVE STOCK MODALS — with serial number inputs
+════════════════════════════════════════════════════ --}}
 @foreach($purchaseOrders->getCollection()->where('status', 'pending') as $po)
 <div class="modal fade" id="receiveModal{{ $po->id }}" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content border-0 shadow">
-            <form action="{{ route('purchase-orders.receive', $po) }}" method="POST">
+            <form action="{{ route('purchase-orders.receive', $po) }}" method="POST"
+                  id="receiveForm{{ $po->id }}">
                 @csrf
                 <div class="modal-header bg-success text-white border-0">
-                    <h5 class="modal-title"><i class="bi bi-box-arrow-in-down"></i> Receive Stock — {{ $po->po_number }}</h5>
+                    <h5 class="modal-title">
+                        <i class="bi bi-box-arrow-in-down"></i> Receive Stock — {{ $po->po_number }}
+                    </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-4">
-                    <div class="row g-3 mb-3">
+
+                    <div class="alert alert-info border-0 mb-4" style="font-size:0.875rem;">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Enter all serial numbers for each item. Serial count
+                        <strong>must match</strong> the quantity received exactly.
+                    </div>
+
+                    <div class="row g-3 mb-4">
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Received Date <span class="text-danger">*</span></label>
                             <input type="date" class="form-control" name="received_date" value="{{ date('Y-m-d') }}" required>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold"><i class="bi bi-truck"></i> DR Number <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" name="delivery_number" placeholder="e.g. DR-2026-00123" required>
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-truck"></i> DR / Delivery Receipt Number
+                            </label>
+                            <input type="text" class="form-control" name="delivery_number"
+                                   placeholder="e.g. DR-2026-00123">
                         </div>
                     </div>
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-sm">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Product</th>
-                                    <th class="text-center" width="90">Ordered</th>
-                                    <th class="text-center" width="90">Received</th>
-                                    <th class="text-center" width="90">Net Cost</th>
-                                    <th width="120">Receive Now</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($po->items as $item)
-                                <tr>
-                                    <td class="fw-medium">
-                                        {{ $item->product->brand->name ?? 'No Brand' }} — {{ $item->product->model ?? 'No Model' }}
-                                    </td>
-                                    <td class="text-center"><span class="badge bg-primary">{{ $item->quantity_ordered }}</span></td>
-                                    <td class="text-center"><span class="badge bg-success">{{ $item->quantity_received }}</span></td>
-                                    <td class="text-center fw-semibold text-danger">₱{{ number_format($item->discounted_cost ?? $item->unit_cost, 2) }}</td>
-                                    <td>
-                                        <input type="hidden" name="items[{{ $loop->index }}][id]" value="{{ $item->id }}">
-                                        <input type="number" class="form-control form-control-sm"
-                                               name="items[{{ $loop->index }}][quantity_received]"
-                                               value="{{ $item->quantity_ordered - $item->quantity_received }}"
-                                               min="0" max="{{ $item->quantity_ordered - $item->quantity_received }}" required>
-                                    </td>
-                                </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
+
+                    {{-- One card per item --}}
+                    @foreach($po->items as $item)
+                    @php
+                        $remaining      = $item->quantity_ordered - $item->quantity_received;
+                        $pendingSerials = $po->serials
+                            ->where('product_id', $item->product_id)
+                            ->where('status', 'pending')
+                            ->pluck('serial_number')
+                            ->toArray();
+                    @endphp
+                    <div class="card border shadow-sm mb-3">
+                        <div class="card-header bg-light py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div>
+                                <span class="fw-semibold">
+                                    {{ trim(($item->product->brand->name ?? '') . ' ' . $item->product->model) }}
+                                </span>
+                                @if($item->product->unit_type === 'indoor')
+                                    <span class="badge ms-2" style="background:#e8f0fe;color:#1a56db;border:1px solid #93c5fd;font-size:0.72rem;">❄️ Indoor</span>
+                                @elseif($item->product->unit_type === 'outdoor')
+                                    <span class="badge ms-2" style="background:#dcfce7;color:#166534;border:1px solid #86efac;font-size:0.72rem;">🌀 Outdoor</span>
+                                @endif
+                            </div>
+                            <div class="d-flex align-items-center gap-3" style="font-size:0.82rem;">
+                                <span>Ordered: <strong>{{ $item->quantity_ordered }}</strong></span>
+                                <span>Received: <strong>{{ $item->quantity_received }}</strong></span>
+                                <span class="d-flex align-items-center gap-1">
+                                    Receiving now:
+                                    <input type="hidden"
+                                           name="items[{{ $loop->index }}][id]"
+                                           value="{{ $item->id }}">
+                                    <input type="number"
+                                           class="form-control form-control-sm d-inline-block"
+                                           name="items[{{ $loop->index }}][quantity_received]"
+                                           value="{{ $remaining }}"
+                                           min="0" max="{{ $remaining }}"
+                                           style="width:65px;"
+                                           onchange="rebuildIndexSerials('{{ $po->id }}', {{ $loop->index }}, this.value)">
+                                </span>
+                                <span class="badge bg-secondary"
+                                      id="idx-serial-count-{{ $po->id }}-{{ $loop->index }}">
+                                    0 / {{ $remaining }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <i class="bi bi-upc-scan text-primary"></i>
+                                <span class="small fw-semibold text-primary">
+                                    Serial Numbers <span class="text-danger">*</span>
+                                </span>
+                                <span class="text-muted small">— must match quantity above exactly</span>
+                            </div>
+                            <div class="row g-1"
+                                 id="idx-serials-{{ $po->id }}-{{ $loop->index }}">
+                                @for($s = 0; $s < $remaining; $s++)
+                                <div class="col-md-3 col-sm-4 col-6">
+                                    <div class="input-group input-group-sm mb-1">
+                                        <span class="input-group-text text-muted"
+                                              style="font-size:0.72rem;min-width:36px;">#{{ $s + 1 }}</span>
+                                        <input type="text"
+                                               class="form-control form-control-sm idx-serial-input"
+                                               name="items[{{ $loop->index }}][serials][]"
+                                               value="{{ $pendingSerials[$s] ?? '' }}"
+                                               placeholder="S/N #{{ $s + 1 }}"
+                                               style="font-family:monospace;font-size:0.82rem;"
+                                               required
+                                               oninput="updateIdxSerialCount('{{ $po->id }}', {{ $loop->index }})">
+                                    </div>
+                                </div>
+                                @endfor
+                            </div>
+                        </div>
                     </div>
+                    @endforeach
+
                 </div>
                 <div class="modal-footer border-0 bg-light">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-success px-4"><i class="bi bi-check-circle"></i> Receive Stock</button>
+                    <button type="submit" class="btn btn-success px-4">
+                        <i class="bi bi-check-circle"></i> Confirm & Receive Stock
+                    </button>
                 </div>
             </form>
         </div>
@@ -465,7 +522,7 @@
 </div>
 @endforeach
 
-{{-- Payment Modals --}}
+{{-- PAYMENT MODALS --}}
 @foreach($purchaseOrders->getCollection()->where('payment_type', '45days')->where('balance', '>', 0) as $po)
 <div class="modal fade" id="paymentModal{{ $po->id }}" tabindex="-1">
     <div class="modal-dialog">
@@ -514,8 +571,6 @@
                             <label class="form-label fw-semibold">Method <span class="text-danger">*</span></label>
                             <select class="form-select" name="payment_method" required>
                                 <option value="">-- Select Method --</option>
-                                <option value="cash">Cash</option>
-                                <option value="bank_transfer">Bank Transfer</option>
                                 <option value="cash">💵 Cash</option>
                                 <option value="gcash">📱 GCash</option>
                                 <option value="bank_transfer">🏦 Bank Transfer</option>
@@ -534,7 +589,9 @@
                 </div>
                 <div class="modal-footer border-0 bg-light">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary px-4"><i class="bi bi-check-circle"></i> Record Payment</button>
+                    <button type="submit" class="btn btn-primary px-4">
+                        <i class="bi bi-check-circle"></i> Record Payment
+                    </button>
                 </div>
             </form>
         </div>
@@ -544,6 +601,91 @@
 
 @push('scripts')
 <script>
+/* ── Serial helpers for index receive modals ── */
+function rebuildIndexSerials(poId, itemIdx, qty) {
+    qty = parseInt(qty) || 0;
+    const container = document.getElementById(`idx-serials-${poId}-${itemIdx}`);
+    const existing  = [...container.querySelectorAll('.idx-serial-input')].map(i => i.value);
+    container.innerHTML = '';
+
+    for (let s = 0; s < qty; s++) {
+        container.insertAdjacentHTML('beforeend', `
+            <div class="col-md-3 col-sm-4 col-6">
+                <div class="input-group input-group-sm mb-1">
+                    <span class="input-group-text text-muted" style="font-size:0.72rem;min-width:36px;">#${s+1}</span>
+                    <input type="text"
+                           class="form-control form-control-sm idx-serial-input"
+                           name="items[${itemIdx}][serials][]"
+                           value="${existing[s] || ''}"
+                           placeholder="S/N #${s+1}"
+                           style="font-family:monospace;font-size:0.82rem;"
+                           required
+                           oninput="updateIdxSerialCount('${poId}', ${itemIdx})">
+                </div>
+            </div>`);
+    }
+    updateIdxSerialCount(poId, itemIdx);
+}
+
+function updateIdxSerialCount(poId, itemIdx) {
+    const container = document.getElementById(`idx-serials-${poId}-${itemIdx}`);
+    const inputs    = container.querySelectorAll('.idx-serial-input');
+    const filled    = [...inputs].filter(i => i.value.trim() !== '').length;
+    const total     = inputs.length;
+    const counter   = document.getElementById(`idx-serial-count-${poId}-${itemIdx}`);
+    if (counter) {
+        counter.textContent = `${filled} / ${total}`;
+        counter.className   = filled === total && total > 0
+            ? 'badge bg-success'
+            : filled > 0 ? 'badge bg-warning text-dark' : 'badge bg-secondary';
+    }
+}
+
+/* ── Submit guard for each receive form ── */
+document.addEventListener('DOMContentLoaded', function () {
+    // Initialize serial counters
+    document.querySelectorAll('[id^="idx-serials-"]').forEach(container => {
+        const parts   = container.id.replace('idx-serials-', '').split('-');
+        const itemIdx = parts[parts.length - 1];
+        const poId    = parts.slice(0, -1).join('-');
+        updateIdxSerialCount(poId, itemIdx);
+    });
+
+    // Attach submit guards to all receive forms
+    document.querySelectorAll('[id^="receiveForm"]').forEach(form => {
+        form.addEventListener('submit', function (e) {
+            const poId      = form.id.replace('receiveForm', '');
+            let   allValid  = true;
+
+            form.querySelectorAll('[id^="idx-serials-"]').forEach(container => {
+                const parts   = container.id.replace('idx-serials-', '').split('-');
+                const itemIdx = parts[parts.length - 1];
+                const qtyEl   = form.querySelector(`input[name="items[${itemIdx}][quantity_received]"]`);
+                const qty     = parseInt(qtyEl?.value) || 0;
+                const inputs  = container.querySelectorAll('.idx-serial-input');
+                const filled  = [...inputs].filter(i => i.value.trim() !== '').length;
+
+                if (qty > 0 && filled !== qty) {
+                    allValid = false;
+                    const counter = document.getElementById(`idx-serial-count-${poId}-${itemIdx}`);
+                    if (counter) counter.className = 'badge bg-danger';
+                }
+            });
+
+            if (!allValid) {
+                e.preventDefault();
+                alert('All serial numbers must be filled and match the quantity received for each item.');
+            }
+        });
+    });
+
+    // Table filter
+    document.getElementById('poSearch').addEventListener('input', filterTable);
+    document.getElementById('statusFilter').addEventListener('change', filterTable);
+    document.getElementById('paymentFilter').addEventListener('change', filterTable);
+});
+
+/* ── Table filter ── */
 function filterTable() {
     const search  = document.getElementById('poSearch').value.toLowerCase();
     const status  = document.getElementById('statusFilter').value;
@@ -555,15 +697,12 @@ function filterTable() {
         const matchSearch  = !search  || row.dataset.po.includes(search)
                                       || row.dataset.supplier.includes(search)
                                       || row.dataset.dr.includes(search);
-        const matchStatus  = !status  || row.dataset.status === status;
+        const matchStatus  = !status  || row.dataset.status  === status;
         const matchPayment = !payment || row.dataset.payment === payment;
 
-        if (matchSearch && matchStatus && matchPayment) {
-            row.style.display = '';
-            visible++;
-        } else {
-            row.style.display = 'none';
-        }
+        const show = matchSearch && matchStatus && matchPayment;
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
     });
 
     let noResults = document.getElementById('noResultsRow');
@@ -581,17 +720,11 @@ function filterTable() {
 }
 
 function clearFilters() {
-    document.getElementById('poSearch').value = '';
-    document.getElementById('statusFilter').value = '';
-    document.getElementById('paymentFilter').value = '';
+    document.getElementById('poSearch').value        = '';
+    document.getElementById('statusFilter').value    = '';
+    document.getElementById('paymentFilter').value   = '';
     filterTable();
 }
-
-document.addEventListener('DOMContentLoaded', function () {
-    document.getElementById('poSearch').addEventListener('input', filterTable);
-    document.getElementById('statusFilter').addEventListener('change', filterTable);
-    document.getElementById('paymentFilter').addEventListener('change', filterTable);
-});
 </script>
 @endpush
 

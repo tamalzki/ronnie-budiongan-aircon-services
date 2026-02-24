@@ -68,4 +68,5 @@ Route::middleware('auth')->group(function () {
     Route::post('inventory/{product}/return', [InventoryController::class, 'returnStock'])->name('inventory.return');
 
     Route::post('products/{product}/set-price', [ProductController::class, 'setPrice'])->name('products.set-price');
+    Route::get('products/{product}', [ProductController::class, 'show'])->name('products.show');
 });

@@ -5,9 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\Product;
+use App\Models\ProductSerial;
 use App\Models\Service;
 use App\Models\InstallmentPayment;
-use App\Models\InventoryMovement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -22,27 +22,29 @@ class SaleController extends Controller
 
     public function create()
     {
-        // Count locked products to show warning tip in the view
         $lockedCount = Product::where('is_active', true)->where('price', 0)->count();
 
-        $products = Product::with('brand')
+        $products = Product::with([
+                'brand',
+                'serials' => fn($q) => $q->where('status', 'in_stock')->orderBy('serial_number'),
+            ])
             ->where('is_active', true)
             ->where('price', '>', 0)
+            ->whereHas('serials', fn($q) => $q->where('status', 'in_stock'))
             ->orderBy('brand_id')
             ->orderBy('model')
             ->get()
             ->map(function ($p) {
-                $parts = array_filter([
-                    $p->brand->name ?? null,
-                    $p->model        ?? null,
-                ]);
                 return [
-                    'id'            => $p->id,
-                    'label'         => implode(' · ', $parts) ?: 'Unknown Product',
-                    'unit_type'     => $p->unit_type,
-                    'serial_number' => $p->serial_number,
-                    'price'         => (float) $p->price,
-                    'stock'         => (int)   $p->stock_quantity,
+                    'id'        => $p->id,
+                    'label'     => trim(($p->brand->name ?? '') . ' · ' . $p->model) ?: 'Unknown',
+                    'unit_type' => $p->unit_type,
+                    'price'     => (float) $p->price,
+                    'stock'     => $p->serials->count(),
+                    'serials'   => $p->serials->map(fn($s) => [
+                        'id'            => $s->id,
+                        'serial_number' => $s->serial_number,
+                    ])->values()->toArray(),
                 ];
             })
             ->values()
@@ -63,66 +65,59 @@ class SaleController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'customer_name'      => 'required|string|max:255',
-            'customer_contact'   => 'nullable|string|max:255',
-            'customer_address'   => 'nullable|string',
-            'sale_date'          => 'required|date',
-            'payment_type'       => 'required|in:cash,installment',
-            'items'              => 'required|array|min:1',
-            'items.*.type'       => 'required|in:product,service',
-            'items.*.id'         => 'required|integer',
-            'items.*.quantity'   => 'required|integer|min:1',
-            'items.*.price'      => 'required|numeric|min:0',
-            'notes'               => 'nullable|string',
-            'discount'            => 'nullable|numeric|min:0',
-            'payment_method'      => 'required|in:cash,gcash,bank_transfer,cheque',
-            'down_payment'        => 'nullable|numeric|min:0',
-            'down_payment_method' => 'nullable|in:cash,gcash,bank_transfer,cheque',
-            'installment_months'  => 'nullable|integer|min:1|max:24',
+        $request->validate([
+            'customer_name'        => 'required|string|max:255',
+            'customer_contact'     => 'nullable|string|max:255',
+            'customer_address'     => 'nullable|string',
+            'sale_date'            => 'required|date',
+            'payment_type'         => 'required|in:cash,installment',
+            'payment_method'       => 'required|in:cash,gcash,bank_transfer,cheque',
+            'items'                => 'required|array|min:1',
+            'items.*.type'         => 'required|in:product,service',
+            'items.*.id'           => 'required|integer',
+            'items.*.quantity'     => 'required|integer|min:1',
+            'items.*.price'        => 'required|numeric|min:0',
+            'items.*.serial_ids'   => 'nullable|array',
+            'items.*.serial_ids.*' => 'nullable|integer|exists:product_serials,id',
+            'notes'                => 'nullable|string',
+            'discount'             => 'nullable|numeric|min:0',
+            'down_payment'         => 'nullable|numeric|min:0',
+            'down_payment_method'  => 'nullable|in:cash,gcash,bank_transfer,cheque',
+            'installment_months'   => 'nullable|integer|min:1|max:24',
         ]);
 
-        // ── Server-side guard: block products with no selling price ──
-        $blockedProducts = [];
+        // Guard: no price
         foreach ($request->items as $item) {
             if ($item['type'] === 'product') {
-                $product = Product::with('brand')->find($item['id']);
-                if ($product && $product->price == 0) {
-                    $blockedProducts[] = ($product->brand->name ?? '') . ' ' . $product->model;
+                $p = Product::with('brand')->find($item['id']);
+                if ($p && $p->price == 0) {
+                    return back()->withInput()->withErrors([
+                        'items' => 'No selling price for: ' . ($p->brand->name ?? '') . ' ' . $p->model,
+                    ]);
                 }
             }
         }
 
-        if (!empty($blockedProducts)) {
-            return back()->withInput()->withErrors([
-                'items' => 'The following product(s) have no selling price set and cannot be sold: ' .
-                           implode(', ', $blockedProducts) .
-                           '. Go to Products → Set Price first.',
-            ]);
+        // Guard: serial count must match quantity
+        foreach ($request->items as $idx => $item) {
+            if ($item['type'] === 'product') {
+                $serialIds = array_filter($item['serial_ids'] ?? []);
+                $qty       = (int) $item['quantity'];
+                if (count($serialIds) !== $qty) {
+                    return back()->withInput()->withErrors([
+                        'items' => 'Item #' . ($idx + 1) . ': select exactly ' . $qty . ' serial(s). Got ' . count($serialIds) . '.',
+                    ]);
+                }
+            }
         }
 
         DB::beginTransaction();
-
         try {
-            $subtotal = 0;
-            foreach ($request->items as $item) {
-                $subtotal += $item['quantity'] * $item['price'];
-            }
-
-            $discount = (float) ($request->discount ?? 0);
-            $tax      = 0;
-            $total    = max(0, $subtotal - $discount + $tax);
-
-            $paidAmount = 0;
-            $balance    = $total;
-
-            if ($request->payment_type === 'installment' && $request->filled('down_payment') && $request->down_payment > 0) {
-                $paidAmount = (float) $request->down_payment;
-                $balance    = max(0, $total - $paidAmount);
-            } elseif ($request->payment_type === 'cash') {
-                $paidAmount = $total;
-                $balance    = 0;
-            }
+            $subtotal   = collect($request->items)->sum(fn($i) => $i['quantity'] * $i['price']);
+            $discount   = (float) ($request->discount ?? 0);
+            $total      = max(0, $subtotal - $discount);
+            $paidAmount = $request->payment_type === 'cash' ? $total : (float) ($request->down_payment ?? 0);
+            $balance    = max(0, $total - $paidAmount);
 
             $sale = Sale::create([
                 'customer_name'    => $request->customer_name,
@@ -131,7 +126,7 @@ class SaleController extends Controller
                 'sale_date'        => $request->sale_date,
                 'subtotal'         => $subtotal,
                 'discount'         => $discount,
-                'tax'              => $tax,
+                'tax'              => 0,
                 'total'            => $total,
                 'payment_type'     => $request->payment_type,
                 'paid_amount'      => $paidAmount,
@@ -143,142 +138,114 @@ class SaleController extends Controller
             ]);
 
             foreach ($request->items as $item) {
-                $itemName  = '';
-                $productId = null;
-
                 if ($item['type'] === 'product') {
-                    $product   = Product::with('brand')->findOrFail($item['id']);
-                    $itemName  = trim(($product->brand->name ?? '') . ' ' . $product->model);
-                    $productId = $product->id;
-
-                    $stockBefore = $product->stock_quantity;
-                    $product->decrement('stock_quantity', $item['quantity']);
-                    $stockAfter = $product->stock_quantity;
-
-                    InventoryMovement::create([
-                        'product_id'     => $product->id,
-                        'type'           => 'stock_out',
-                        'quantity'       => -$item['quantity'],
-                        'stock_before'   => $stockBefore,
-                        'stock_after'    => $stockAfter,
-                        'reference_type' => 'Sale',
-                        'reference_id'   => $sale->id,
-                        'notes'          => 'Sold via invoice: ' . $sale->invoice_number,
-                        'user_id'        => auth()->id(),
+                    $product  = Product::with('brand')->findOrFail($item['id']);
+                    $saleItem = SaleItem::create([
+                        'sale_id'     => $sale->id,
+                        'product_id'  => $product->id,
+                        'item_name'   => trim(($product->brand->name ?? '') . ' ' . $product->model),
+                        'quantity'    => $item['quantity'],
+                        'unit_price'  => $item['price'],
+                        'total_price' => $item['quantity'] * $item['price'],
                     ]);
-                } else {
-                    $service  = Service::findOrFail($item['id']);
-                    $itemName = $service->name;
-                }
 
-                SaleItem::create([
-                    'sale_id'     => $sale->id,
-                    'product_id'  => $productId,
-                    'item_name'   => $itemName,
-                    'quantity'    => $item['quantity'],
-                    'unit_price'  => $item['price'],
-                    'total_price' => $item['quantity'] * $item['price'],
-                ]);
+                    // Flip serials: in_stock → sold
+                    $serialIds = array_filter($item['serial_ids'] ?? []);
+                    ProductSerial::whereIn('id', $serialIds)
+                        ->where('product_id', $product->id)
+                        ->where('status', 'in_stock')
+                        ->update([
+                            'status'       => 'sold',
+                            'sale_id'      => $sale->id,
+                            'sale_item_id' => $saleItem->id,
+                            'sold_date'    => $request->sale_date,
+                        ]);
+
+                } else {
+                    $service = Service::findOrFail($item['id']);
+                    SaleItem::create([
+                        'sale_id'     => $sale->id,
+                        'product_id'  => null,
+                        'item_name'   => $service->name,
+                        'quantity'    => $item['quantity'],
+                        'unit_price'  => $item['price'],
+                        'total_price' => $item['quantity'] * $item['price'],
+                    ]);
+                }
             }
 
+            // Installment schedule
             if ($request->payment_type === 'installment') {
-                $installmentMonths = (int) ($request->installment_months ?? 12);
-                $downPayment       = (float) ($request->down_payment ?? 0);
-                $saleDate          = Carbon::parse($request->sale_date);
+                $months   = (int) ($request->installment_months ?? 12);
+                $down     = (float) ($request->down_payment ?? 0);
+                $saleDate = Carbon::parse($request->sale_date);
+                $num      = 1;
 
-                $num = 1;
-
-                if ($downPayment > 0) {
+                if ($down > 0) {
                     InstallmentPayment::create([
                         'sale_id'            => $sale->id,
-                        'installment_number' => $num,
-                        'amount'             => $downPayment,
-                        'amount_paid'        => $downPayment,
+                        'installment_number' => $num++,
+                        'amount'             => $down,
+                        'amount_paid'        => $down,
                         'due_date'           => $saleDate,
                         'paid_date'          => $saleDate,
                         'status'             => 'paid',
-                        'payment_method'     => $request->down_payment_method
-                                               ?: $request->payment_method,
+                        'payment_method'     => $request->down_payment_method ?: $request->payment_method,
                         'notes'              => 'Downpayment',
                     ]);
-                    $num++;
                 }
 
-                $monthly = $installmentMonths > 0
-                    ? round($balance / $installmentMonths, 2)
-                    : $balance;
-
-                for ($i = 0; $i < $installmentMonths; $i++) {
+                $monthly = $months > 0 ? round($balance / $months, 2) : $balance;
+                for ($i = 0; $i < $months; $i++) {
                     InstallmentPayment::create([
                         'sale_id'            => $sale->id,
-                        'installment_number' => $num,
+                        'installment_number' => $num++,
                         'amount'             => $monthly,
                         'amount_paid'        => 0,
                         'due_date'           => $saleDate->copy()->addMonths($i + 1),
                         'status'             => 'unpaid',
                     ]);
-                    $num++;
                 }
             }
 
             DB::commit();
-
             return redirect()->route('sales.index')
-                ->with('success', 'Sale created successfully. Invoice: ' . $sale->invoice_number);
+                ->with('success', 'Sale created. Invoice: ' . $sale->invoice_number);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->withInput()
-                ->with('error', 'Error creating sale: ' . $e->getMessage());
+            return back()->withInput()->with('error', 'Error: ' . $e->getMessage());
         }
     }
 
     public function show(Sale $sale)
     {
-        $sale->load(['items.product.brand', 'user', 'installmentPayments']);
+        $sale->load(['items.product.brand', 'items.serials', 'user', 'installmentPayments']);
         return view('sales.show', compact('sale'));
     }
 
     public function destroy(Sale $sale)
     {
         DB::beginTransaction();
-
         try {
-            foreach ($sale->items as $item) {
-                if ($item->product_id) {
-                    $product = Product::find($item->product_id);
-                    if ($product) {
-                        $stockBefore = $product->stock_quantity;
-                        $product->increment('stock_quantity', $item->quantity);
-                        $stockAfter = $product->fresh()->stock_quantity;
-
-                        InventoryMovement::create([
-                            'product_id'     => $product->id,
-                            'type'           => 'stock_in',
-                            'quantity'       => $item->quantity,
-                            'stock_before'   => $stockBefore,
-                            'stock_after'    => $stockAfter,
-                            'reference_type' => 'Sale',
-                            'reference_id'   => $sale->id,
-                            'notes'          => 'Stock reversed — Sale deleted: ' . $sale->invoice_number,
-                            'user_id'        => auth()->id(),
-                        ]);
-                    }
-                }
-            }
+            // Restore serials sold → in_stock
+            ProductSerial::where('sale_id', $sale->id)->update([
+                'status'       => 'in_stock',
+                'sale_id'      => null,
+                'sale_item_id' => null,
+                'sold_date'    => null,
+            ]);
 
             $sale->installmentPayments()->delete();
             $sale->items()->delete();
             $sale->delete();
 
             DB::commit();
-
             return redirect()->route('sales.index')
-                ->with('success', 'Sale deleted successfully and stock restored.');
-
+                ->with('success', 'Sale deleted and serials restored to stock.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Error deleting sale: ' . $e->getMessage());
+            return back()->with('error', 'Error: ' . $e->getMessage());
         }
     }
 }
