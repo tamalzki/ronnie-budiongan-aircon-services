@@ -30,8 +30,8 @@
     </div>
     @endif
 
-    {{-- Search & Filters --}}
-    <div class="card border-0 shadow-sm mb-3">
+    {{-- Search & Filters (STICKY) --}}
+    <div class="card border-0 shadow-sm mb-3 sticky-top" style="top:0;z-index:1020;">
         <div class="card-body py-2">
             <div class="row g-2 align-items-center">
                 <div class="col-md-4">
@@ -68,18 +68,20 @@
     {{-- Table --}}
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
-            <div class="table-responsive">
+            <div class="table-responsive" style="max-height:calc(100vh - 280px);overflow-y:auto;">
                 <table class="table table-hover table-sm mb-0" id="productsTable" style="font-size:0.875rem;">
-                    <thead class="bg-light">
+                    <thead class="bg-light" style="position:sticky;top:0;z-index:10;">
                         <tr>
-                            <th class="border-0 px-3 py-2">Brand</th>
-                            <th class="border-0 px-3 py-2">Model</th>
-                            <th class="border-0 px-3 py-2">Supplier</th>
-                            <th class="border-0 px-3 py-2" style="white-space:nowrap">Cost (PO)</th>
-                            <th class="border-0 px-3 py-2" style="white-space:nowrap">Selling Price</th>
-                            <th class="border-0 px-3 py-2">Profit</th>
-                            <th class="border-0 px-3 py-2">Stock</th>
-                            <th class="border-0 px-3 py-2">Actions</th>
+                            <th class="border-0 px-3 py-2 bg-light">Brand</th>
+                            <th class="border-0 px-3 py-2 bg-light">Model</th>
+                            <th class="border-0 px-3 py-2 bg-light">Unit Type</th>
+                            <th class="border-0 px-3 py-2 bg-light">Serial #</th>
+                            <th class="border-0 px-3 py-2 bg-light">Supplier</th>
+                            <th class="border-0 px-3 py-2 bg-light" style="white-space:nowrap">Cost (PO)</th>
+                            <th class="border-0 px-3 py-2 bg-light" style="white-space:nowrap">Selling Price</th>
+                            <th class="border-0 px-3 py-2 bg-light">Profit</th>
+                            <th class="border-0 px-3 py-2 bg-light">Stock</th>
+                            <th class="border-0 px-3 py-2 bg-light">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="productsTableBody">
@@ -90,7 +92,7 @@
                             $profitPct = $product->cost > 0 ? (($profit / $product->cost) * 100) : 0;
                         @endphp
                         <tr class="{{ !$canSell ? 'table-warning' : '' }} product-row"
-                            data-search="{{ strtolower(($product->brand->name ?? '') . ' ' . ($product->model ?? '') . ' ' . ($product->supplier->name ?? '')) }}"
+                            data-search="{{ strtolower(($product->brand->name ?? '') . ' ' . ($product->model ?? '') . ' ' . ($product->supplier->name ?? '') . ' ' . ($product->unit_type ?? '')) }}"
                             data-stock="{{ $product->stock_quantity == 0 ? 'out' : ($product->stock_quantity <= 5 ? 'low' : 'in') }}"
                             data-price="{{ $canSell ? 'priced' : 'noprice' }}">
                             <td class="px-3 py-2" style="white-space:nowrap">
@@ -99,6 +101,12 @@
                                 </span>
                             </td>
                             <td class="px-3 py-2 fw-semibold" style="white-space:nowrap">{{ $product->model ?? '—' }}</td>
+                            <td class="px-3 py-2" style="white-space:nowrap">
+                                <span class="text-muted">{{ ucfirst($product->unit_type ?? '—') }}</span>
+                            </td>
+                            <td class="px-3 py-2" style="white-space:nowrap">
+                                <small class="text-muted">{{ $product->serial_number ?? '—' }}</small>
+                            </td>
                             <td class="px-3 py-2" style="white-space:nowrap">
                                 <small class="text-muted">{{ $product->supplier->name ?? '—' }}</small>
                             </td>
@@ -156,7 +164,7 @@
                                         @csrf @method('DELETE')
                                         <button type="submit" class="btn btn-outline-danger"
                                                 style="padding:2px 8px;font-size:0.78rem">
-                                            <i class="bi bi-trash">Delete</i>
+                                            <i class="bi bi-trash"></i>
                                         </button>
                                     </form>
                                 </div>
@@ -164,7 +172,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="8" class="text-center py-5 text-muted">
+                            <td colspan="10" class="text-center py-5 text-muted">
                                 <i class="bi bi-inbox fs-1 d-block mb-2"></i>
                                 No products yet
                             </td>
@@ -223,7 +231,7 @@ function filterTable() {
         if (!noResults) {
             noResults = document.createElement('tr');
             noResults.id = 'noResultsRow';
-            noResults.innerHTML = '<td colspan="8" class="text-center py-5 text-muted"><i class="bi bi-search fs-1 d-block mb-2"></i>No results found</td>';
+            noResults.innerHTML = '<td colspan="10" class="text-center py-5 text-muted"><i class="bi bi-search fs-1 d-block mb-2"></i>No results found</td>';
             document.getElementById('productsTableBody').appendChild(noResults);
         }
         noResults.style.display = '';

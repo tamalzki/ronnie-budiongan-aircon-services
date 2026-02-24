@@ -5,7 +5,7 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2 class="mb-1"><i class="bi bi-plus-circle text-primary"></i> Add Product</h2>
-            <p class="text-muted mb-0">Products are identified by Brand + Model</p>
+            <p class="text-muted mb-0">Products are identified by Brand + Model + Unit Type</p>
         </div>
         <a href="{{ route('products.index') }}" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left"></i> Back
@@ -19,7 +19,7 @@
             <div class="alert alert-info border-0 shadow-sm mb-4">
                 <i class="bi bi-lightbulb-fill me-2"></i>
                 <strong>Recommended workflow:</strong>
-                Add product here → Create Purchase Order → Receive Stock (cost auto-sets) → Set Selling Price → Sell
+                Add product here → Create Purchase Order (cost auto-fills) → Receive Stock → Sell
             </div>
 
             <div class="card border-0 shadow-sm">
@@ -50,9 +50,31 @@
                                 <input type="text" name="model"
                                        class="form-control @error('model') is-invalid @enderror"
                                        value="{{ old('model') }}"
-                                       placeholder="e.g. Inverter 1.5HP" required>
+                                       placeholder="e.g. FTKC60BVAF" required>
                                 @error('model')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                                <small class="text-muted">Brand + Model = product identity</small>
+                            </div>
+                        </div>
+
+                        {{-- Unit Type & Serial Number --}}
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Unit Type <span class="text-danger">*</span></label>
+                                <select class="form-select @error('unit_type') is-invalid @enderror"
+                                        name="unit_type" required>
+                                    <option value="">-- Select Type --</option>
+                                    <option value="indoor" {{ old('unit_type') == 'indoor' ? 'selected' : '' }}>🏠 Indoor Unit</option>
+                                    <option value="outdoor" {{ old('unit_type') == 'outdoor' ? 'selected' : '' }}>🌤️ Outdoor Unit</option>
+                                </select>
+                                @error('unit_type')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Serial Number</label>
+                                <input type="text" name="serial_number"
+                                       class="form-control @error('serial_number') is-invalid @enderror"
+                                       value="{{ old('serial_number') }}"
+                                       placeholder="Optional">
+                                @error('serial_number')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                <small class="text-muted">For inventory tracking</small>
                             </div>
                         </div>
 
@@ -76,19 +98,34 @@
                                       placeholder="Optional">{{ old('description') }}</textarea>
                         </div>
 
-                        {{-- Selling Price (required) --}}
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">
-                                Selling Price <span class="text-danger">*</span>
-                            </label>
-                            <div class="input-group">
-                                <span class="input-group-text">₱</span>
-                                <input type="number" step="0.01" min="0.01"
-                                       class="form-control @error('price') is-invalid @enderror"
-                                       name="price" value="{{ old('price', '') }}"
-                                       placeholder="e.g. 35000.00" required>
+                        {{-- Cost & Selling Price --}}
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Cost</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">₱</span>
+                                    <input type="number" step="0.01" min="0"
+                                           class="form-control @error('cost') is-invalid @enderror"
+                                           name="cost" value="{{ old('cost', 0) }}"
+                                           placeholder="e.g. 28000.00">
+                                </div>
+                                @error('cost')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                <small class="text-muted">Used as default in PO</small>
                             </div>
-                            @error('price')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">
+                                    Selling Price <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text">₱</span>
+                                    <input type="number" step="0.01" min="0.01"
+                                           class="form-control @error('price') is-invalid @enderror"
+                                           name="price" value="{{ old('price', '') }}"
+                                           placeholder="e.g. 35000.00" required>
+                                </div>
+                                @error('price')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                <small class="text-muted">What customers pay</small>
+                            </div>
                         </div>
 
                         {{-- Stock --}}

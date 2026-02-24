@@ -5,11 +5,12 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use App\Models\Product;
 
-class ProductUnifiedSeeder extends Seeder
+class ProductSplitSeeder extends Seeder
 {
     public function run(): void
     {
         $products = [
+
             // COOLING KING SERIES
             ['indoor' => 'FTNE20AXVL9', 'outdoor' => 'RNE20AGXVL9', 'description' => 'Cooling King Series – Premium Wall Mounted (Non-Inverter) – 0.8HP', 'price' => 23800],
             ['indoor' => 'FTN25AXVL9', 'outdoor' => 'RN25AGXVL9', 'description' => 'Cooling King Series – Premium Wall Mounted (Non-Inverter) – 1.0HP', 'price' => 28400],
@@ -58,14 +59,13 @@ class ProductUnifiedSeeder extends Seeder
         $insertData = [];
 
         foreach ($products as $product) {
-            // Create Indoor Unit
+
+            // Indoor
             $insertData[] = [
-                'name' => 'Daikin ' . $product['indoor'],
+                'name' => 'Daikin',
                 'brand_id' => 1,
                 'supplier_id' => 1,
                 'model' => $product['indoor'],
-                'unit_type' => 'indoor',
-                'serial_number' => null,
                 'description' => $product['description'],
                 'price' => $product['price'],
                 'cost' => 0,
@@ -75,14 +75,12 @@ class ProductUnifiedSeeder extends Seeder
                 'updated_at' => now(),
             ];
 
-            // Create Outdoor Unit
+            // Outdoor
             $insertData[] = [
-                'name' => 'Daikin ' . $product['outdoor'],
+                'name' => 'Daikin',
                 'brand_id' => 1,
                 'supplier_id' => 1,
                 'model' => $product['outdoor'],
-                'unit_type' => 'outdoor',
-                'serial_number' => null,
                 'description' => $product['description'],
                 'price' => $product['price'],
                 'cost' => 0,
@@ -94,7 +92,5 @@ class ProductUnifiedSeeder extends Seeder
         }
 
         Product::insert($insertData);
-        
-        $this->command->info('✅ Created ' . count($insertData) . ' Daikin products (' . (count($insertData)/2) . ' indoor + ' . (count($insertData)/2) . ' outdoor)');
     }
 }

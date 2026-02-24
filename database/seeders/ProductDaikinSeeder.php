@@ -3,22 +3,48 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 use App\Models\Product;
 
-class ProductUnifiedSeeder extends Seeder
+class ProductDaikinSeeder extends Seeder
 {
     public function run(): void
     {
-        $products = [
-            // COOLING KING SERIES
-            ['indoor' => 'FTNE20AXVL9', 'outdoor' => 'RNE20AGXVL9', 'description' => 'Cooling King Series – Premium Wall Mounted (Non-Inverter) – 0.8HP', 'price' => 23800],
-            ['indoor' => 'FTN25AXVL9', 'outdoor' => 'RN25AGXVL9', 'description' => 'Cooling King Series – Premium Wall Mounted (Non-Inverter) – 1.0HP', 'price' => 28400],
-            ['indoor' => 'FTN35AXVL9', 'outdoor' => 'RN35AGXVL9', 'description' => 'Cooling King Series – Premium Wall Mounted (Non-Inverter) – 1.5HP', 'price' => 32100],
-            ['indoor' => 'FTN50AXVL9', 'outdoor' => 'RN50AGXVL9', 'description' => 'Cooling King Series – Premium Wall Mounted (Non-Inverter) – 2.0HP', 'price' => 45200],
-            ['indoor' => 'FTN60AXVL9', 'outdoor' => 'RN60AGXVL9', 'description' => 'Cooling King Series – Premium Wall Mounted (Non-Inverter) – 2.5HP', 'price' => 53700],
-            ['indoor' => 'FTN71AXVL', 'outdoor' => 'RN71AGXVL', 'description' => 'Cooling King Series – Premium Wall Mounted (Non-Inverter) – 3.0HP', 'price' => 78300],
+        // ----------------------------------------------------------------
+        // Ensure Brand & Supplier exist before inserting products
+        // ----------------------------------------------------------------
+        $brandId = DB::table('brands')->insertGetId([
+            'name'       => 'Daikin',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
 
-            // D-SMART SERIES
+        // If brand already exists, grab its ID instead
+        // Comment out the block above and use this if re-running:
+        // $brandId = DB::table('brands')->where('name', 'Daikin')->value('id');
+
+        $supplierId = DB::table('suppliers')->insertGetId([
+            'name'       => 'Daikin Philippines',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // $supplierId = DB::table('suppliers')->where('name', 'Daikin Philippines')->value('id');
+
+        // ----------------------------------------------------------------
+        // Product data: [indoor model, outdoor model, description, price]
+        // ----------------------------------------------------------------
+        $products = [
+
+            // COOLING KING SERIES (Non-Inverter)
+            ['indoor' => 'FTNE20AXVL9', 'outdoor' => 'RNE20AGXVL9', 'description' => 'Cooling King Series – Premium Wall Mounted (Non-Inverter) – 0.8HP', 'price' => 23800],
+            ['indoor' => 'FTN25AXVL9',  'outdoor' => 'RN25AGXVL9',  'description' => 'Cooling King Series – Premium Wall Mounted (Non-Inverter) – 1.0HP', 'price' => 28400],
+            ['indoor' => 'FTN35AXVL9',  'outdoor' => 'RN35AGXVL9',  'description' => 'Cooling King Series – Premium Wall Mounted (Non-Inverter) – 1.5HP', 'price' => 32100],
+            ['indoor' => 'FTN50AXVL9',  'outdoor' => 'RN50AGXVL9',  'description' => 'Cooling King Series – Premium Wall Mounted (Non-Inverter) – 2.0HP', 'price' => 45200],
+            ['indoor' => 'FTN60AXVL9',  'outdoor' => 'RN60AGXVL9',  'description' => 'Cooling King Series – Premium Wall Mounted (Non-Inverter) – 2.5HP', 'price' => 53700],
+            ['indoor' => 'FTN71AXVL',   'outdoor' => 'RN71AGXVL',   'description' => 'Cooling King Series – Premium Wall Mounted (Non-Inverter) – 3.0HP', 'price' => 78300],
+
+            // D-SMART SERIES (Inverter)
             ['indoor' => 'FTKQ20CVAF', 'outdoor' => 'RKQ20CVA', 'description' => 'D-Smart Series – Wall Mounted – 0.8HP', 'price' => 32500],
             ['indoor' => 'FTKQ25CVAF', 'outdoor' => 'RKQ25CVA', 'description' => 'D-Smart Series – Wall Mounted – 1.0HP', 'price' => 36700],
             ['indoor' => 'FTKQ35CVAF', 'outdoor' => 'RKQ35CVA', 'description' => 'D-Smart Series – Wall Mounted – 1.5HP', 'price' => 41200],
@@ -55,46 +81,53 @@ class ProductUnifiedSeeder extends Seeder
             ['indoor' => 'FTKE50AVA', 'outdoor' => 'RKE50AVA', 'description' => 'Daikin Amihan – Wall Mounted – 2.0HP', 'price' => 48700],
         ];
 
+        // ----------------------------------------------------------------
+        // Build insert array — columns match DB schema exactly
+        // ----------------------------------------------------------------
         $insertData = [];
 
         foreach ($products as $product) {
-            // Create Indoor Unit
+
+            // Indoor Unit
             $insertData[] = [
-                'name' => 'Daikin ' . $product['indoor'],
-                'brand_id' => 1,
-                'supplier_id' => 1,
-                'model' => $product['indoor'],
-                'unit_type' => 'indoor',
+                'name'          => 'Daikin ' . $product['indoor'],
+                'brand_id'      => $brandId,
+                'supplier_id'   => $supplierId,
+                'model'         => $product['indoor'],
+                'unit_type'     => 'indoor',
                 'serial_number' => null,
-                'description' => $product['description'],
-                'price' => $product['price'],
-                'cost' => 0,
-                'stock_quantity' => 0,
-                'is_active' => 1,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'description'   => $product['description'],
+                'price'         => $product['price'],
+                'cost'          => 0.00,
+                'stock_quantity'=> 0,
+                'is_active'     => 1,
+                'created_at'    => now(),
+                'updated_at'    => now(),
             ];
 
-            // Create Outdoor Unit
+            // Outdoor Unit
             $insertData[] = [
-                'name' => 'Daikin ' . $product['outdoor'],
-                'brand_id' => 1,
-                'supplier_id' => 1,
-                'model' => $product['outdoor'],
-                'unit_type' => 'outdoor',
+                'name'          => 'Daikin ' . $product['outdoor'],
+                'brand_id'      => $brandId,
+                'supplier_id'   => $supplierId,
+                'model'         => $product['outdoor'],
+                'unit_type'     => 'outdoor',
                 'serial_number' => null,
-                'description' => $product['description'],
-                'price' => $product['price'],
-                'cost' => 0,
-                'stock_quantity' => 0,
-                'is_active' => 1,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'description'   => $product['description'],
+                'price'         => $product['price'],
+                'cost'          => 0.00,
+                'stock_quantity'=> 0,
+                'is_active'     => 1,
+                'created_at'    => now(),
+                'updated_at'    => now(),
             ];
         }
 
         Product::insert($insertData);
-        
-        $this->command->info('✅ Created ' . count($insertData) . ' Daikin products (' . (count($insertData)/2) . ' indoor + ' . (count($insertData)/2) . ' outdoor)');
+
+        $total   = count($insertData);
+        $perType = $total / 2;
+
+        $this->command->info("✅ Seeded {$total} Daikin products ({$perType} indoor + {$perType} outdoor)");
     }
 }

@@ -12,18 +12,29 @@ class Product extends Model
     protected $fillable = [
         'name',
         'brand_id',
-        'supplier_id',
         'model',
+        'unit_type',        // NEW
+        'serial_number',    // NEW
+        'hp',
+        'supplier_id',
         'description',
+        'cost',
         'price',
         'stock_quantity',
         'is_active',
     ];
 
     protected $casts = [
-        'price' => 'decimal:2',
         'is_active' => 'boolean',
+        'cost' => 'decimal:2',
+        'price' => 'decimal:2',
     ];
+
+    /*
+    |--------------------------------------------------------------------------
+    | Relationships
+    |--------------------------------------------------------------------------
+    */
 
     public function brand()
     {
@@ -35,19 +46,50 @@ class Product extends Model
         return $this->belongsTo(Supplier::class);
     }
 
-    public function saleItems()
+    public function inventoryMovements()
     {
-        return $this->hasMany(SaleItem::class);
-        
+        return $this->hasMany(InventoryMovement::class);
     }
 
     public function purchaseOrderItems()
-{
-    return $this->hasMany(PurchaseOrderItem::class);
-}
+    {
+        return $this->hasMany(PurchaseOrderItem::class);
+    }
 
-public function inventoryMovements()
-{
-    return $this->hasMany(InventoryMovement::class);
-}
+    public function saleItems()
+    {
+        return $this->hasMany(SaleItem::class);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Accessors
+    |--------------------------------------------------------------------------
+    */
+
+    // Clean display: FTKC50BVAF (Indoor)
+    public function getDisplayModelAttribute()
+    {
+        if ($this->unit_type) {
+            return $this->model . ' (' . ucfirst($this->unit_type) . ')';
+        }
+
+        return $this->model;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Query Scopes
+    |--------------------------------------------------------------------------
+    */
+
+    public function scopeIndoor($query)
+    {
+        return $query->where('unit_type', 'indoor');
+    }
+
+    public function scopeOutdoor($query)
+    {
+        return $query->where('unit_type', 'outdoor');
+    }
 }

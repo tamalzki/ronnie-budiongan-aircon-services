@@ -130,19 +130,22 @@
                             <small class="text-muted">45-Day: balance due in 45 days</small>
                         </div>
 
-                        {{-- 45-day deadline --}}
+                        {{-- 45-day Payment Due Date (EDITABLE) --}}
                         <div id="deadlinePreview" style="display:none;" class="mb-3">
-                            <div class="alert alert-warning py-2 mb-0" style="font-size:0.85rem;">
-                                <div class="fw-semibold mb-1"><i class="bi bi-calendar-event"></i> Payment Due:</div>
-                                <div class="fw-bold text-dark" id="deadlineDate">—</div>
-                                <small class="text-muted">(45 days from order date)</small>
-                            </div>
+                            <label class="form-label small fw-semibold">
+                                <i class="bi bi-calendar-event"></i> Payment Due Date
+                            </label>
+                            <input type="date" class="form-control form-control-sm"
+                                name="payment_due_date"
+                                id="paymentDueDate"
+                                value="{{ old('payment_due_date', optional($purchaseOrder->payment_due_date)->format('Y-m-d')) }}">
+                            <small class="text-muted">Auto-calculated from order date, but you can override</small>
                         </div>
 
                         {{-- Downpayment (45days only) --}}
                         <div id="downpaymentSection" style="display:none;" class="border-top pt-3">
                             <h6 class="small fw-semibold text-muted mb-2">Downpayment (Optional)</h6>
-                            
+
                             <div class="mb-2">
                                 <label class="form-label small fw-semibold">Amount</label>
                                 <div class="input-group input-group-sm">
@@ -161,8 +164,6 @@
                             <div class="mb-2">
                                 <label class="form-label small fw-semibold">Method</label>
                                 <select class="form-select form-select-sm" name="downpayment_method">
-                                    <option value="cash">Cash</option>
-                                    <option value="bank_transfer">Bank Transfer</option>
                                     <option value="cash">💵 Cash</option>
                                     <option value="gcash">📱 GCash</option>
                                     <option value="bank_transfer">🏦 Bank Transfer</option>
@@ -213,29 +214,41 @@
 const products = {!! json_encode($productsJson) !!};
 let rowIndex = 0;
 
+// Build unit_type badge HTML
+function unitTypeBadge(unitType) {
+    if (!unitType) return '';
+    const isIndoor = unitType === 'indoor';
+    const color    = isIndoor ? '#0d6efd' : '#198754';
+    const icon     = isIndoor ? '❄️' : '🌀';
+    return `<span style="font-size:0.7rem;padding:1px 6px;border-radius:20px;background:${color}15;color:${color};border:1px solid ${color}40;font-weight:600;white-space:nowrap;">${icon} ${isIndoor ? 'Indoor' : 'Outdoor'}</span>`;
+}
+
 function addItem() {
-    // Hide empty state
     document.getElementById('emptyState')?.remove();
-    
+
     rowIndex++;
     const container = document.getElementById('itemsContainer');
-    
-    // Combobox options
+
     const cbOpts = products.map(p => {
-        const costStr = p.cost > 0 ? ` — ₱${parseFloat(p.cost).toFixed(2)}` : ' — No cost';
+        const costStr   = p.cost > 0 ? ` — ₱${parseFloat(p.cost).toFixed(2)}` : ' — No cost';
+        const badgeHtml = p.unit_type ? unitTypeBadge(p.unit_type) : '';
+        const snHtml    = p.serial_number ? `<span style="font-size:0.7rem;color:#888;"> · S/N: ${p.serial_number}</span>` : '';
         return `<div class="cb-option px-3 py-2" style="cursor:pointer;font-size:0.82rem;"
                      data-value="${p.id}" data-cost="${p.cost}" data-label="${p.label}"
+                     data-unit-type="${p.unit_type || ''}" data-serial="${p.serial_number || ''}"
                      onmouseenter="this.style.background='#f0f4ff'"
                      onmouseleave="this.style.background=''"
-                     onclick="pickPOCombo(${rowIndex}, '${p.id}', '${p.cost}', this.getAttribute('data-label'))">
-                  ${p.label}${costStr}
+                     onclick="pickPOCombo(${rowIndex}, '${p.id}', '${p.cost}', this.getAttribute('data-label'), this.getAttribute('data-unit-type'), this.getAttribute('data-serial'))">
+                  <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <span>${p.label}${costStr}</span>
+                    ${badgeHtml}${snHtml}
+                  </div>
                 </div>`;
     }).join('');
 
     const html = `
         <div class="border rounded p-2 mb-2 item-row bg-light" id="row-${rowIndex}">
             <div class="row g-2 align-items-end">
-                {{-- Hidden select for form submission --}}
                 <select name="items[${rowIndex}][product_id]" class="product-select d-none" data-row="${rowIndex}" required>
                     <option value="">-- Select --</option>
                     ${products.map(p => `<option value="${p.id}" data-cost="${p.cost}">${p.label}</option>`).join('')}
@@ -244,11 +257,15 @@ function addItem() {
                 <div class="col-md-12 mb-1">
                     <label class="form-label small fw-semibold mb-1">Product <span class="text-danger">*</span></label>
                     <div class="combobox position-relative" id="pocb-${rowIndex}">
-                        <div class="form-control form-control-sm d-flex justify-content-between align-items-center"
+                        <div class="form-control form-control-sm d-flex justify-content-between align-items-center gap-2"
                              style="cursor:pointer;user-select:none;background:#fff;"
                              onclick="togglePOCombo(${rowIndex})">
-                            <span class="pocb-display-${rowIndex} text-muted" style="font-size:0.82rem;">-- Select Product --</span>
-                            <i class="bi bi-chevron-down" style="font-size:0.7rem;color:#888;"></i>
+                            <div class="d-flex align-items-center gap-2 flex-wrap" style="flex:1;min-width:0;">
+                                <span class="pocb-display-${rowIndex} text-muted" style="font-size:0.82rem;">-- Select Product --</span>
+                                <span class="pocb-badge-${rowIndex}"></span>
+                                <span class="pocb-serial-${rowIndex} text-muted" style="font-size:0.72rem;"></span>
+                            </div>
+                            <i class="bi bi-chevron-down flex-shrink-0" style="font-size:0.7rem;color:#888;"></i>
                         </div>
                         <div class="pocb-panel-${rowIndex} position-absolute w-100 bg-white border rounded shadow-sm"
                              style="display:none;z-index:9999;top:100%;left:0;">
@@ -258,19 +275,19 @@ function addItem() {
                                        oninput="searchPOCombo(${rowIndex})"
                                        onclick="event.stopPropagation()">
                             </div>
-                            <div class="pocb-list-${rowIndex}" style="max-height:200px;overflow-y:auto;">
+                            <div class="pocb-list-${rowIndex}" style="max-height:220px;overflow-y:auto;">
                                 ${cbOpts}
                             </div>
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="col-md-3">
                     <label class="form-label small fw-semibold mb-1">Qty</label>
                     <input type="number" class="form-control form-control-sm qty-input" name="items[${rowIndex}][quantity]"
                            value="1" min="1" required onchange="calcRow(${rowIndex})">
                 </div>
-                
+
                 <div class="col-md-3">
                     <label class="form-label small fw-semibold mb-1">Unit Cost</label>
                     <div class="input-group input-group-sm">
@@ -279,18 +296,18 @@ function addItem() {
                                value="" min="0" required onchange="calcRow(${rowIndex})">
                     </div>
                 </div>
-                
+
                 <div class="col-md-2">
                     <label class="form-label small fw-semibold mb-1">Disc %</label>
-                    <input type="number" step="0.01" class="form-control form-control-sm disc-input" 
+                    <input type="number" step="0.01" class="form-control form-control-sm disc-input"
                            name="items[${rowIndex}][discount_percent]" value="0" min="0" max="100" onchange="calcRow(${rowIndex})">
                 </div>
-                
+
                 <div class="col-md-2">
                     <label class="form-label small fw-semibold mb-1">Net Cost</label>
                     <input type="text" class="form-control form-control-sm net-cost-display" id="net-${rowIndex}" readonly value="0.00">
                 </div>
-                
+
                 <div class="col-md-2">
                     <button type="button" class="btn btn-outline-danger btn-sm w-100" onclick="removeRow(${rowIndex})">
                         <i class="bi bi-trash"></i> Remove
@@ -322,24 +339,29 @@ function togglePOCombo(idx) {
 function searchPOCombo(idx) {
     const term = document.querySelector(`.pocb-search-${idx}`).value.toLowerCase();
     document.querySelectorAll(`#pocb-${idx} .cb-option`).forEach(opt => {
-        opt.style.display = opt.textContent.toLowerCase().includes(term) ? '' : 'none';
+        const text = opt.textContent.toLowerCase();
+        const sn   = (opt.getAttribute('data-serial') || '').toLowerCase();
+        opt.style.display = (text.includes(term) || sn.includes(term)) ? '' : 'none';
     });
 }
 
-function pickPOCombo(idx, value, cost, label) {
-    // Update hidden select
+function pickPOCombo(idx, value, cost, label, unitType, serialNumber) {
     const sel = document.querySelector(`select[name="items[${idx}][product_id]"]`);
     sel.value = value;
 
-    // Update display
-    document.querySelector(`.pocb-display-${idx}`).textContent = label;
-    document.querySelector(`.pocb-display-${idx}`).style.color = '#212529';
+    const disp = document.querySelector(`.pocb-display-${idx}`);
+    disp.textContent = label;
+    disp.style.color = '#212529';
 
-    // Set cost
+    const badge = document.querySelector(`.pocb-badge-${idx}`);
+    badge.innerHTML = unitType ? unitTypeBadge(unitType) : '';
+
+    const snEl = document.querySelector(`.pocb-serial-${idx}`);
+    snEl.textContent = serialNumber ? `S/N: ${serialNumber}` : '';
+
     const row = document.getElementById(`row-${idx}`);
     row.querySelector('.cost-input').value = parseFloat(cost).toFixed(2);
 
-    // Close panel + reset search
     document.querySelector(`.pocb-panel-${idx}`).style.display = 'none';
     document.querySelector(`.pocb-search-${idx}`).value = '';
     searchPOCombo(idx);
@@ -354,10 +376,6 @@ function closeAllPOCombos() {
         const p = document.querySelector(`.pocb-panel-${idx}`);
         if (p) p.style.display = 'none';
     });
-}
-
-function onProductChange(select) {
-    // kept for compatibility — combobox handles it now
 }
 
 function calcRow(idx) {
@@ -388,8 +406,7 @@ function calcGrandTotal() {
 function removeRow(idx) {
     const row = document.getElementById(`row-${idx}`);
     if (row) row.remove();
-    
-    // Show empty state if no items
+
     if (document.querySelectorAll('.item-row').length === 0) {
         document.getElementById('itemsContainer').innerHTML = `
             <div class="text-center text-muted py-4" id="emptyState">
@@ -398,7 +415,7 @@ function removeRow(idx) {
             </div>
         `;
     }
-    
+
     refreshDropdowns();
     calcGrandTotal();
 }
@@ -417,19 +434,17 @@ function refreshDropdowns() {
         document.querySelectorAll(`#pocb-${idx} .cb-option`).forEach(opt => {
             const val   = opt.getAttribute('data-value');
             const taken = val !== cur && usedIds.has(val);
-            opt.style.opacity       = taken ? '0.3' : '1';
+            opt.style.opacity        = taken ? '0.3' : '1';
             opt.style.textDecoration = taken ? 'line-through' : '';
             opt.style.pointerEvents  = taken ? 'none' : '';
         });
     });
 }
 
-// Close PO combos on outside click
 document.addEventListener('click', function(e) {
     if (!e.target.closest('.combobox')) closeAllPOCombos();
 });
 
-// Payment type toggle
 document.getElementById('paymentType').addEventListener('change', function () {
     const is45 = this.value === '45days';
     document.getElementById('downpaymentSection').style.display = is45 ? '' : 'none';
@@ -438,26 +453,23 @@ document.getElementById('paymentType').addEventListener('change', function () {
     updateBalancePreview();
 });
 
-// Deadline from order date
 document.getElementById('orderDate').addEventListener('change', updateDeadline);
 
 function updateDeadline() {
-    const orderDate = document.getElementById('orderDate').value;
-    const paymentType = document.getElementById('paymentType').value;
-    
-    if (!orderDate || paymentType !== '45days') return;
-
-    const due = new Date(orderDate);
-    due.setDate(due.getDate() + 45);
-
-    const options = { year: 'numeric', month: 'long', day: 'numeric' };
-    document.getElementById('deadlineDate').textContent = due.toLocaleDateString('en-PH', options);
+    const orderDate     = document.getElementById('orderDate').value;
+    const paymentType   = document.getElementById('paymentType').value;
+    const dueDateInput  = document.getElementById('paymentDueDate');
+    if (!orderDate || paymentType !== '45days' || !dueDateInput) return;
+    if (!dueDateInput.value) {
+        const due = new Date(orderDate);
+        due.setDate(due.getDate() + 45);
+        dueDateInput.value = due.toISOString().split('T')[0];
+    }
 }
 
 function updateBalancePreview() {
-    const is45 = document.getElementById('paymentType').value === '45days';
+    const is45      = document.getElementById('paymentType').value === '45days';
     const previewEl = document.getElementById('balancePreview');
-
     if (!is45) { previewEl.style.display = 'none'; return; }
 
     const total = parseFloat(document.getElementById('grandTotal').textContent) || 0;
@@ -467,50 +479,51 @@ function updateBalancePreview() {
     document.getElementById('previewTotal').textContent   = total.toFixed(2);
     document.getElementById('previewDown').textContent    = down.toFixed(2);
     document.getElementById('previewBalance').textContent = bal.toFixed(2);
-
     previewEl.style.display = '';
 }
 
 document.getElementById('downpaymentAmount').addEventListener('input', updateBalancePreview);
 
-// Submit guard
 document.getElementById('poForm').addEventListener('submit', function (e) {
-    const rows = document.querySelectorAll('.item-row').length;
-    if (rows === 0) {
+    if (document.querySelectorAll('.item-row').length === 0) {
         e.preventDefault();
         alert('Please add at least one product.');
         return false;
     }
-    
-    const paymentType = document.getElementById('paymentType').value;
-    if (!paymentType) {
+    if (!document.getElementById('paymentType').value) {
         e.preventDefault();
         alert('Please select a payment type.');
         return false;
     }
 });
 
-// Pre-fill existing items from PO
+// ── Pre-fill existing items from PO ──
 const existingItems = {!! json_encode($purchaseOrder->items->map(fn($i) => [
-    'product_id'   => $i->product_id,
-    'quantity'     => $i->quantity_ordered,
-    'unit_cost'    => $i->unit_cost,
-    'discount'     => $i->discount_percent ?? 0,
-    'label'        => optional(optional($i->product)->brand)->name . ' · ' . optional($i->product)->model,
+    'product_id'  => $i->product_id,
+    'quantity'    => $i->quantity_ordered,
+    'unit_cost'   => $i->unit_cost,
+    'discount'    => $i->discount_percent ?? 0,
+    'label'       => trim((optional(optional($i->product)->brand)->name ?? '') . ' · ' . (optional($i->product)->model ?? '')),
+    'unit_type'   => optional($i->product)->unit_type,
+    'serial_number' => optional($i->product)->serial_number,
 ])) !!};
 
 existingItems.forEach(item => {
     addItem();
-    const idx  = rowIndex;
-    const row  = document.getElementById(`row-${idx}`);
-    const sel  = row.querySelector('.product-select');
+    const idx = rowIndex;
+    const row = document.getElementById(`row-${idx}`);
+    const sel = row.querySelector('.product-select');
 
-    // Set hidden select
     sel.value = item.product_id;
 
-    // Update combobox display
     const disp = document.querySelector(`.pocb-display-${idx}`);
     if (disp) { disp.textContent = item.label; disp.style.color = '#212529'; }
+
+    const badge = document.querySelector(`.pocb-badge-${idx}`);
+    if (badge && item.unit_type) badge.innerHTML = unitTypeBadge(item.unit_type);
+
+    const snEl = document.querySelector(`.pocb-serial-${idx}`);
+    if (snEl) snEl.textContent = item.serial_number ? `S/N: ${item.serial_number}` : '';
 
     row.querySelector('.qty-input').value  = item.quantity;
     row.querySelector('.cost-input').value = parseFloat(item.unit_cost).toFixed(2);

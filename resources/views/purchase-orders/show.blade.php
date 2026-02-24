@@ -21,6 +21,9 @@
                 <i class="bi bi-arrow-left"></i> Back
             </a>
             @if($purchaseOrder->status === 'pending')
+            <a href="{{ route('purchase-orders.edit', $purchaseOrder) }}" class="btn btn-warning">
+                <i class="bi bi-pencil"></i> Edit
+            </a>
             <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#receiveModal">
                 <i class="bi bi-box-arrow-in-down"></i> Receive Stock
             </button>
@@ -37,6 +40,12 @@
     @if(session('success'))
         <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-3">
             {!! session('success') !!}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-3">
+            {!! session('error') !!}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     @endif
@@ -70,6 +79,7 @@
                 <thead class="table-light">
                     <tr>
                         <th class="px-4 py-2">Product</th>
+                        <th class="px-4 py-2">Unit Type</th>
                         <th class="px-4 py-2">Cost (from this PO)</th>
                         <th class="px-4 py-2" width="300">Set Selling Price</th>
                     </tr>
@@ -77,7 +87,21 @@
                 <tbody>
                     @foreach($noPriceItems as $item)
                     <tr>
-                        <td class="px-4 py-3 fw-semibold">{{ trim(($item->product->brand->name ?? '') . ' ' . $item->product->model) }}</td>
+                        <td class="px-4 py-3">
+                            <span class="fw-semibold">{{ trim(($item->product->brand->name ?? '') . ' ' . $item->product->model) }}</span>
+                            @if($item->product->serial_number)
+                                <br><small class="text-muted"><i class="bi bi-upc-scan"></i> S/N: {{ $item->product->serial_number }}</small>
+                            @endif
+                        </td>
+                        <td class="px-4 py-3">
+                            @if($item->product->unit_type === 'indoor')
+                                <span class="badge" style="background:#e8f0fe;color:#1a56db;border:1px solid #93c5fd;">❄️ Indoor</span>
+                            @elseif($item->product->unit_type === 'outdoor')
+                                <span class="badge" style="background:#dcfce7;color:#166534;border:1px solid #86efac;">🌀 Outdoor</span>
+                            @else
+                                <span class="text-muted">—</span>
+                            @endif
+                        </td>
                         <td class="px-4 py-3">
                             <strong class="text-danger">₱{{ number_format($item->discounted_cost ?? $item->unit_cost, 2) }}</strong>
                             <br><small class="text-muted">Your cost — set price above this</small>
@@ -124,9 +148,19 @@
                             <strong>{{ $purchaseOrder->supplier->name }}</strong>
                         </div>
                         <div class="col-sm-6">
+                            <small class="text-muted d-block">PO Number</small>
+                            <strong class="text-primary">{{ $purchaseOrder->po_number }}</strong>
+                        </div>
+                        <div class="col-sm-6">
                             <small class="text-muted d-block">Order Date</small>
                             <strong>{{ $purchaseOrder->order_date->format('F d, Y') }}</strong>
                         </div>
+                        @if($purchaseOrder->expected_delivery_date)
+                        <div class="col-sm-6">
+                            <small class="text-muted d-block">Expected Delivery</small>
+                            <strong>{{ $purchaseOrder->expected_delivery_date->format('F d, Y') }}</strong>
+                        </div>
+                        @endif
                         <div class="col-sm-6">
                             <small class="text-muted d-block">DR / Delivery Receipt No.</small>
                             @if($purchaseOrder->delivery_number)
@@ -135,22 +169,24 @@
                                 <span class="text-warning"><i class="bi bi-clock"></i> Pending — set when receiving stock</span>
                             @endif
                         </div>
-                        @if($purchaseOrder->expected_delivery_date)
-                        <div class="col-sm-6">
-                            <small class="text-muted d-block">Expected Delivery</small>
-                            <strong>{{ $purchaseOrder->expected_delivery_date->format('F d, Y') }}</strong>
-                        </div>
-                        @endif
                         @if($purchaseOrder->received_date)
                         <div class="col-sm-6">
                             <small class="text-muted d-block">Received Date</small>
                             <strong class="text-success"><i class="bi bi-check-circle"></i> {{ $purchaseOrder->received_date->format('F d, Y') }}</strong>
                         </div>
                         @endif
+                        <div class="col-sm-6">
+                            <small class="text-muted d-block">Created By</small>
+                            <strong>{{ optional($purchaseOrder->user)->name ?? 'System' }}</strong>
+                        </div>
+                        <div class="col-sm-6">
+                            <small class="text-muted d-block">Created At</small>
+                            <strong>{{ $purchaseOrder->created_at->format('M d, Y h:i A') }}</strong>
+                        </div>
                         @if($purchaseOrder->notes)
                         <div class="col-12">
                             <small class="text-muted d-block">Notes</small>
-                            <span>{{ $purchaseOrder->notes }}</span>
+                            <span class="text-dark">{{ $purchaseOrder->notes }}</span>
                         </div>
                         @endif
                     </div>
@@ -166,16 +202,6 @@
                 </div>
                 <div class="card-body p-0">
                     <table class="table table-borderless mb-0">
-                        <tr class="border-bottom">
-                            <td class="px-4 py-2 text-muted small fw-semibold">DR Number</td>
-                            <td class="px-4 py-2">
-                                @if($purchaseOrder->delivery_number)
-                                    <strong class="text-success"><i class="bi bi-truck"></i> {{ $purchaseOrder->delivery_number }}</strong>
-                                @else
-                                    <span class="text-warning small"><i class="bi bi-clock"></i> Not yet received</span>
-                                @endif
-                            </td>
-                        </tr>
                         <tr class="border-bottom">
                             <td class="px-4 py-2 text-muted small fw-semibold">Payment Type</td>
                             <td class="px-4 py-2">
@@ -245,17 +271,27 @@
                         <tr class="border-bottom">
                             <td class="px-4 py-2 text-muted small fw-semibold">Payment Status</td>
                             <td class="px-4 py-2">
-                                <span class="badge bg-{{ $purchaseOrder->payment_status == 'paid' ? 'success' : ($purchaseOrder->payment_status == 'partial' ? 'info text-dark' : 'danger') }}">
+                                <span class="badge bg-{{ $purchaseOrder->payment_status == 'paid' ? 'success' : ($purchaseOrder->payment_status == 'partial' ? 'warning text-dark' : 'danger') }}">
                                     {{ ucfirst($purchaseOrder->payment_status) }}
                                 </span>
                             </td>
                         </tr>
-                        <tr>
+                        <tr class="border-bottom">
                             <td class="px-4 py-2 text-muted small fw-semibold">Delivery Status</td>
                             <td class="px-4 py-2">
                                 <span class="badge bg-{{ $purchaseOrder->status == 'received' ? 'success' : 'warning text-dark' }}">
-                                    {{ $purchaseOrder->status == 'received' ? 'Received' : 'Pending' }}
+                                    {{ $purchaseOrder->status == 'received' ? '✓ Received' : '⏳ Pending' }}
                                 </span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="px-4 py-2 text-muted small fw-semibold">DR Number</td>
+                            <td class="px-4 py-2">
+                                @if($purchaseOrder->delivery_number)
+                                    <strong class="text-success"><i class="bi bi-truck"></i> {{ $purchaseOrder->delivery_number }}</strong>
+                                @else
+                                    <span class="text-warning small"><i class="bi bi-clock"></i> Not yet received</span>
+                                @endif
                             </td>
                         </tr>
                     </table>
@@ -269,32 +305,55 @@
          ROW 2: Order Items (full width)
     ════════════════════════════════════════════════════════ --}}
     <div class="card border-0 shadow-sm mb-4">
-        <div class="card-header border-0 bg-success text-white">
+        <div class="card-header border-0 bg-success text-white d-flex justify-content-between align-items-center">
             <h5 class="mb-0"><i class="bi bi-box-seam"></i> Order Items</h5>
+            <span class="badge bg-white text-success">{{ $purchaseOrder->items->count() }} item(s)</span>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover mb-0">
+                <table class="table table-hover mb-0" style="font-size:0.875rem;">
                     <thead class="table-light">
                         <tr>
-                            <th class="px-4 py-3">Product</th>
+                            <th class="px-4 py-3">#</th>
+                            <th class="px-4 py-3">Product / Model</th>
+                            <th class="px-4 py-3">Unit Type</th>
+                            <th class="px-4 py-3">Serial Number</th>
                             <th class="px-4 py-3 text-center" width="90">Ordered</th>
                             <th class="px-4 py-3 text-center" width="90">Received</th>
-                            <th class="px-4 py-3 text-center" width="140">Unit Cost</th>
-                            <th class="px-4 py-3 text-center" width="90">Disc %</th>
-                            <th class="px-4 py-3 text-center" width="140">Net Cost</th>
-                            <th class="px-4 py-3 text-end" width="140">Line Total</th>
+                            <th class="px-4 py-3 text-center" width="130">Unit Cost</th>
+                            <th class="px-4 py-3 text-center" width="80">Disc %</th>
+                            <th class="px-4 py-3 text-center" width="130">Net Cost</th>
+                            <th class="px-4 py-3 text-end" width="130">Line Total</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach($purchaseOrder->items as $item)
                         <tr>
+                            <td class="px-4 py-3 text-muted">{{ $loop->iteration }}</td>
                             <td class="px-4 py-3">
                                 <span class="fw-semibold">{{ trim(($item->product->brand->name ?? '') . ' ' . $item->product->model) }}</span>
                                 @if($item->product->price == 0)
-                                    <span class="badge bg-warning text-dark ms-2 align-middle">
+                                    <span class="badge bg-warning text-dark ms-1 align-middle" style="font-size:0.65rem;">
                                         <i class="bi bi-lock-fill"></i> No Price
                                     </span>
+                                @endif
+                            </td>
+                            <td class="px-4 py-3">
+                                @if($item->product->unit_type === 'indoor')
+                                    <span class="badge" style="background:#e8f0fe;color:#1a56db;border:1px solid #93c5fd;font-size:0.75rem;">❄️ Indoor</span>
+                                @elseif($item->product->unit_type === 'outdoor')
+                                    <span class="badge" style="background:#dcfce7;color:#166534;border:1px solid #86efac;font-size:0.75rem;">🌀 Outdoor</span>
+                                @else
+                                    <span class="text-muted">—</span>
+                                @endif
+                            </td>
+                            <td class="px-4 py-3">
+                                @if($item->product->serial_number)
+                                    <code class="text-dark bg-light px-2 py-1 rounded" style="font-size:0.78rem;">
+                                        {{ $item->product->serial_number }}
+                                    </code>
+                                @else
+                                    <span class="text-muted small">Not set</span>
                                 @endif
                             </td>
                             <td class="px-4 py-3 text-center">
@@ -328,7 +387,7 @@
                     </tbody>
                     <tfoot>
                         <tr class="table-light">
-                            <td colspan="6" class="text-end fw-bold px-4 py-3 fs-6">Grand Total:</td>
+                            <td colspan="9" class="text-end fw-bold px-4 py-3 fs-6">Grand Total:</td>
                             <td class="text-end fw-bold text-primary fs-5 px-4 py-3">
                                 ₱{{ number_format($purchaseOrder->total, 2) }}
                             </td>
@@ -344,8 +403,9 @@
     ════════════════════════════════════════════════════════ --}}
     @if($purchaseOrder->payments->count() > 0)
     <div class="card border-0 shadow-sm">
-        <div class="card-header bg-info text-white border-0">
+        <div class="card-header bg-info text-white border-0 d-flex justify-content-between align-items-center">
             <h5 class="mb-0"><i class="bi bi-receipt"></i> Payment History</h5>
+            <span class="badge bg-white text-info">{{ $purchaseOrder->payments->count() }} payment(s)</span>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -358,6 +418,7 @@
                             <th class="px-4 py-3">Amount</th>
                             <th class="px-4 py-3">Method</th>
                             <th class="px-4 py-3">Reference</th>
+                            <th class="px-4 py-3">Notes</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -368,13 +429,19 @@
                                 @if(str_contains(strtolower($payment->payment_number), 'downpayment'))
                                     <span class="badge bg-warning text-dark"><i class="bi bi-cash"></i> Downpayment</span>
                                 @else
-                                    <span class="badge bg-info text-dark"><i class="bi bi-cash-coin"></i> Payment</span>
+                                    <span class="badge bg-info text-dark"><i class="bi bi-cash-coin"></i> {{ $payment->payment_number }}</span>
                                 @endif
                             </td>
                             <td class="px-4 py-3">{{ $payment->payment_date->format('M d, Y') }}</td>
                             <td class="px-4 py-3 fw-bold text-success">₱{{ number_format($payment->amount, 2) }}</td>
-                            <td class="px-4 py-3">{{ ucfirst(str_replace('_', ' ', $payment->payment_method)) }}</td>
+                            <td class="px-4 py-3">
+                                @php
+                                    $methodIcons = ['cash' => '💵', 'gcash' => '📱', 'bank_transfer' => '🏦', 'cheque' => '🧾'];
+                                @endphp
+                                {{ $methodIcons[$payment->payment_method] ?? '' }} {{ ucfirst(str_replace('_', ' ', $payment->payment_method)) }}
+                            </td>
                             <td class="px-4 py-3 text-muted">{{ $payment->reference_number ?? '—' }}</td>
+                            <td class="px-4 py-3 text-muted small">{{ $payment->notes ?? '—' }}</td>
                         </tr>
                         @endforeach
                     </tbody>
@@ -382,14 +449,16 @@
                         <tr>
                             <td colspan="3" class="text-end fw-bold px-4 py-3">Total Paid:</td>
                             <td class="fw-bold text-success px-4 py-3">₱{{ number_format($purchaseOrder->amount_paid, 2) }}</td>
-                            <td colspan="2"></td>
+                            <td colspan="3"></td>
                         </tr>
                         @if($purchaseOrder->balance > 0)
                         <tr class="table-danger">
                             <td colspan="3" class="text-end fw-bold px-4 py-2">Balance Due:</td>
                             <td class="fw-bold text-danger px-4 py-2">₱{{ number_format($purchaseOrder->balance, 2) }}</td>
-                            <td colspan="2">
-                                <small class="text-muted">Due: {{ $purchaseOrder->payment_due_date->format('M d, Y') }}</small>
+                            <td colspan="3">
+                                @if($purchaseOrder->payment_due_date)
+                                    <small class="text-muted">Due: {{ $purchaseOrder->payment_due_date->format('M d, Y') }}</small>
+                                @endif
                             </td>
                         </tr>
                         @endif
@@ -438,16 +507,34 @@
                             <thead class="table-light">
                                 <tr>
                                     <th>Product</th>
-                                    <th class="text-center" width="90">Ordered</th>
-                                    <th class="text-center" width="90">Received</th>
-                                    <th class="text-center" width="120">Net Cost</th>
-                                    <th width="140">Receive Now</th>
+                                    <th>Unit Type</th>
+                                    <th>Serial No.</th>
+                                    <th class="text-center" width="80">Ordered</th>
+                                    <th class="text-center" width="80">Received</th>
+                                    <th class="text-center" width="110">Net Cost</th>
+                                    <th width="120">Receive Now</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach($purchaseOrder->items as $item)
                                 <tr>
                                     <td class="fw-medium">{{ trim(($item->product->brand->name ?? '') . ' ' . $item->product->model) }}</td>
+                                    <td>
+                                        @if($item->product->unit_type === 'indoor')
+                                            <span class="badge" style="background:#e8f0fe;color:#1a56db;border:1px solid #93c5fd;">❄️ Indoor</span>
+                                        @elseif($item->product->unit_type === 'outdoor')
+                                            <span class="badge" style="background:#dcfce7;color:#166534;border:1px solid #86efac;">🌀 Outdoor</span>
+                                        @else
+                                            <span class="text-muted small">—</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if($item->product->serial_number)
+                                            <code style="font-size:0.78rem;">{{ $item->product->serial_number }}</code>
+                                        @else
+                                            <span class="text-muted small">—</span>
+                                        @endif
+                                    </td>
                                     <td class="text-center"><span class="badge bg-primary">{{ $item->quantity_ordered }}</span></td>
                                     <td class="text-center"><span class="badge bg-success">{{ $item->quantity_received }}</span></td>
                                     <td class="text-center">
@@ -530,8 +617,6 @@
                             <label class="form-label fw-semibold">Method <span class="text-danger">*</span></label>
                             <select class="form-select" name="payment_method" required>
                                 <option value="">-- Select Method --</option>
-                                <option value="cash">Cash</option>
-                                <option value="bank_transfer">Bank Transfer</option>
                                 <option value="cash">💵 Cash</option>
                                 <option value="gcash">📱 GCash</option>
                                 <option value="bank_transfer">🏦 Bank Transfer</option>

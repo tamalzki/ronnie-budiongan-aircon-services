@@ -9,8 +9,9 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            AdminUserSeeder::class,
-            DaikinFullProductSeeder::class,
+             BrandSeeder::class,      // must run before ProductSplitSeeder
+               SupplierSeeder::class,   // must run before ProductSplitSeeder
+                 ProductSplitSeeder::class,
         ]);
     }
 }

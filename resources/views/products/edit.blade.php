@@ -1,4 +1,3 @@
-{{-- resources/views/products/edit.blade.php --}}
 @extends('layouts.app')
 
 @section('title', 'Edit Product')
@@ -11,7 +10,7 @@
                 <i class="bi bi-pencil text-primary"></i>
                 Edit: {{ $product->brand->name ?? '' }} {{ $product->model }}
             </h2>
-            <p class="text-muted mb-0">Products are identified by Brand + Model</p>
+            <p class="text-muted mb-0">Products are identified by Brand + Model + Unit Type</p>
         </div>
         <a href="{{ route('products.index') }}" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left"></i> Back
@@ -53,11 +52,40 @@
                                        class="form-control @error('model') is-invalid @enderror"
                                        name="model"
                                        value="{{ old('model', $product->model) }}"
-                                       placeholder="e.g. Inverter 1.5HP"
+                                       placeholder="e.g. FTKC60BVAF"
                                        required>
                                 @error('model')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
+                            </div>
+                        </div>
+
+                        {{-- Unit Type & Serial Number --}}
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Unit Type <span class="text-danger">*</span></label>
+                                <select class="form-select @error('unit_type') is-invalid @enderror"
+                                        name="unit_type" required>
+                                    <option value="">-- Select Type --</option>
+                                    <option value="indoor" {{ old('unit_type', $product->unit_type) == 'indoor' ? 'selected' : '' }}>🏠 Indoor Unit</option>
+                                    <option value="outdoor" {{ old('unit_type', $product->unit_type) == 'outdoor' ? 'selected' : '' }}>🌤️ Outdoor Unit</option>
+                                </select>
+                                @error('unit_type')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Serial Number</label>
+                                <input type="text"
+                                       class="form-control @error('serial_number') is-invalid @enderror"
+                                       name="serial_number"
+                                       value="{{ old('serial_number', $product->serial_number) }}"
+                                       placeholder="">
+                                @error('serial_number')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                                <small class="text-muted">For inventory tracking</small>
                             </div>
                         </div>
 
@@ -90,7 +118,7 @@
                                     <input type="number" step="0.01"
                                            class="form-control @error('price') is-invalid @enderror"
                                            name="price" value="{{ old('price', $product->price) }}"
-                                           required min="0" id="priceInput">
+                                           required min="0.01" id="priceInput">
                                 </div>
                                 @error('price')
                                     <div class="invalid-feedback">{{ $message }}</div>
@@ -99,23 +127,26 @@
                             </div>
 
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Cost (from last PO)</label>
+                                <label class="form-label fw-semibold">Cost</label>
                                 <div class="input-group">
                                     <span class="input-group-text">₱</span>
-                                    <input type="text" class="form-control bg-light"
-                                           value="{{ number_format($product->cost, 2) }}" readonly>
+                                    <input type="number" step="0.01" min="0"
+                                           class="form-control @error('cost') is-invalid @enderror"
+                                           name="cost" value="{{ old('cost', $product->cost) }}"
+                                           id="costInput">
                                 </div>
-                                <small class="text-muted">Auto-updated when receiving purchase orders</small>
+                                @error('cost')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                <small class="text-muted">Manual entry or auto-updated from PO</small>
                             </div>
                         </div>
 
                         {{-- Live profit display --}}
-                        @if($product->cost > 0)
+                        @if($product->cost > 0 || old('cost'))
                         <div class="alert alert-info mb-3" id="profitAlert">
                             <i class="bi bi-bar-chart"></i>
                             <strong>Profit Margin:</strong>
                             ₱<span id="profitAmount">{{ number_format($product->price - $product->cost, 2) }}</span>
-                            (<span id="profitPct">{{ number_format((($product->price - $product->cost) / $product->cost) * 100, 1) }}</span>%)
+                            (<span id="profitPct">{{ $product->cost > 0 ? number_format((($product->price - $product->cost) / $product->cost) * 100, 1) : '0.0' }}</span>%)
                         </div>
                         @endif
 
@@ -153,21 +184,26 @@
 
 @push('scripts')
 <script>
-const cost = {{ $product->cost ?? 0 }};
 const priceInput = document.getElementById('priceInput');
+const costInput = document.getElementById('costInput');
 const profitAlert = document.getElementById('profitAlert');
 
-if (priceInput && cost > 0 && profitAlert) {
-    priceInput.addEventListener('input', function () {
-        const price   = parseFloat(this.value) || 0;
+if (priceInput && costInput) {
+    function updateProfit() {
+        const price   = parseFloat(priceInput.value) || 0;
+        const cost    = parseFloat(costInput.value) || 0;
         const profit  = price - cost;
         const pct     = cost > 0 ? (profit / cost * 100) : 0;
 
-        document.getElementById('profitAmount').textContent = profit.toFixed(2);
-        document.getElementById('profitPct').textContent    = pct.toFixed(1);
+        if (profitAlert) {
+            document.getElementById('profitAmount').textContent = profit.toFixed(2);
+            document.getElementById('profitPct').textContent    = pct.toFixed(1);
+            profitAlert.className = 'alert mb-3 ' + (profit >= 0 ? 'alert-info' : 'alert-danger');
+        }
+    }
 
-        profitAlert.className = 'alert mb-3 ' + (profit >= 0 ? 'alert-info' : 'alert-danger');
-    });
+    priceInput.addEventListener('input', updateProfit);
+    costInput.addEventListener('input', updateProfit);
 }
 </script>
 @endpush

@@ -61,21 +61,23 @@ class PurchaseOrderController extends Controller
     {
         $suppliers = Supplier::where('is_active', true)->orderBy('name')->get();
 
-        // Pre-map for JavaScript — avoids complex closure in Blade @json()
         $productsJson = Product::with('brand')
             ->where('is_active', true)
             ->orderBy('brand_id')
             ->get()
             ->map(function ($p) {
+                $unitTypeLabel = $p->unit_type ? ucfirst($p->unit_type) : null;
                 $parts = array_filter([
                     $p->brand->name ?? null,
                     $p->model        ?? null,
-                    $p->hp           ? $p->hp . ' HP' : null,
                 ]);
                 return [
-                    'id'    => $p->id,
-                    'label' => implode(' · ', $parts) ?: 'Unknown Product',
-                    'cost'  => (float) ($p->cost ?? 0),
+                    'id'            => $p->id,
+                    'label'         => implode(' · ', $parts) ?: 'Unknown Product',
+                    'unit_type'     => $p->unit_type,
+                    'unit_type_label' => $unitTypeLabel,
+                    'serial_number' => $p->serial_number,
+                    'cost'          => (float) ($p->cost ?? 0),
                 ];
             })
             ->values()
@@ -348,12 +350,14 @@ class PurchaseOrderController extends Controller
                 $parts = array_filter([
                     $p->brand->name ?? null,
                     $p->model        ?? null,
-                    $p->hp           ? $p->hp . ' HP' : null,
                 ]);
                 return [
-                    'id'    => $p->id,
-                    'label' => implode(' · ', $parts) ?: 'Unknown Product',
-                    'cost'  => (float) ($p->cost ?? 0),
+                    'id'              => $p->id,
+                    'label'           => implode(' · ', $parts) ?: 'Unknown Product',
+                    'unit_type'       => $p->unit_type,
+                    'unit_type_label' => $p->unit_type ? ucfirst($p->unit_type) : null,
+                    'serial_number'   => $p->serial_number,
+                    'cost'            => (float) ($p->cost ?? 0),
                 ];
             })
             ->values()
@@ -393,9 +397,21 @@ class PurchaseOrderController extends Controller
 
             $paymentDueDate = $purchaseOrder->payment_due_date;
             if ($request->payment_type === '45days') {
-                $paymentDueDate = $paymentDueDate ?? Carbon::parse($request->order_date)->addDays(45);
+                if (!$paymentDueDate) {
+                    $paymentDueDate = Carbon::parse($request->order_date)->addDays(45);
+                }
             } else {
                 $paymentDueDate = null;
+            }
+
+            $newBalance = $total - $purchaseOrder->amount_paid;
+            $paymentStatus = 'unpaid';
+
+            if ($purchaseOrder->amount_paid >= $total) {
+                $paymentStatus = 'paid';
+                $newBalance = 0;
+            } elseif ($purchaseOrder->amount_paid > 0) {
+                $paymentStatus = 'partial';
             }
 
             $purchaseOrder->update([
@@ -404,12 +420,13 @@ class PurchaseOrderController extends Controller
                 'expected_delivery_date' => $request->expected_delivery_date,
                 'subtotal'               => $subtotal,
                 'total'                  => $total,
+                'balance'                => max(0, $newBalance),
                 'payment_type'           => $request->payment_type,
                 'payment_due_date'       => $paymentDueDate,
+                'payment_status'         => $paymentStatus,
                 'notes'                  => $request->notes,
             ]);
 
-            // Replace items
             $purchaseOrder->items()->delete();
             foreach ($request->items as $item) {
                 $disc    = $item['discount_percent'] ?? 0;
@@ -447,9 +464,8 @@ class PurchaseOrderController extends Controller
             Carbon::parse($request->payment_due_date)->format('M d, Y') . '.');
     }
 
-        public function destroy(PurchaseOrder $purchaseOrder)
+    public function destroy(PurchaseOrder $purchaseOrder)
     {
-        // Block deletion of received POs — stock has already been added
         if ($purchaseOrder->status === 'received') {
             return back()->with('error',
                 'Cannot delete a received purchase order — stock has already been added to inventory. ' .

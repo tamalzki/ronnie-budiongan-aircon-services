@@ -30,14 +30,17 @@ class ProductController extends Controller
         $validated = $request->validate([
             'brand_id'       => 'required|exists:brands,id',
             'model'          => 'required|string|max:255',
+            'unit_type'      => 'required|in:indoor,outdoor',
+            'serial_number'  => 'nullable|string|max:255',
             'supplier_id'    => 'nullable|exists:suppliers,id',
             'description'    => 'nullable|string',
+            'cost'           => 'nullable|numeric|min:0',
             'price'          => 'required|numeric|min:0.01',
             'stock_quantity' => 'required|integer|min:0',
         ]);
 
         $validated['is_active'] = $request->has('is_active');
-        $validated['cost']      = 0;
+        $validated['cost']      = $validated['cost'] ?? 0;
 
         $brand = Brand::find($validated['brand_id']);
         $validated['name'] = $brand->name . ' ' . $validated['model'];
@@ -60,14 +63,17 @@ class ProductController extends Controller
         $validated = $request->validate([
             'brand_id'       => 'required|exists:brands,id',
             'model'          => 'required|string|max:255',
+            'unit_type'      => 'required|in:indoor,outdoor',
+            'serial_number'  => 'nullable|string|max:255',
             'supplier_id'    => 'nullable|exists:suppliers,id',
             'description'    => 'nullable|string',
+            'cost'           => 'nullable|numeric|min:0',
             'price'          => 'required|numeric|min:0.01',
             'stock_quantity' => 'required|integer|min:0',
         ]);
 
         $validated['is_active'] = $request->has('is_active');
-        $validated['price']     = $validated['price'] ?? 0;
+        $validated['cost']      = $validated['cost'] ?? 0;
 
         $brand = Brand::find($validated['brand_id']);
         $validated['name'] = $brand->name . ' ' . $validated['model'];
