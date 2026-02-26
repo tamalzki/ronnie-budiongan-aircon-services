@@ -382,7 +382,6 @@ function rebuildSerialInputs(idx, qty, existingValues) {
                    name="items[${idx}][serials][]"
                    value="${val}"
                    placeholder="Serial #${i+1}"
-                   required
                    style="font-family:monospace;font-size:0.82rem;"
                    oninput="updateSerialCount(${idx})">
                 </div>

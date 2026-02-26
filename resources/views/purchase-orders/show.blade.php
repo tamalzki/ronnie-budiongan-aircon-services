@@ -36,12 +36,7 @@
         </div>
     </div>
 
-    @if(session('success'))
-    <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-3">
-        {!! session('success') !!}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    @endif
+    
     @if(session('error'))
     <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-3">
         {!! session('error') !!}
@@ -322,12 +317,25 @@
                             <div class="text-muted small">Unit Cost</div>
                             <span class="text-muted">₱{{ number_format($item->unit_cost, 2) }}</span>
                         </div>
-                        @if($item->discount_percent > 0)
-                        <div>
-                            <div class="text-muted small">Discount</div>
-                            <span class="badge bg-success bg-opacity-10 text-success border border-success">{{ $item->discount_percent }}% off</span>
-                        </div>
-                        @endif
+                        
+                        @if($item->discount_percent > 0 || $item->discount_amount > 0)
+                            <div>
+                                <div class="text-muted small">Discount</div>
+
+                                @if($item->discount_percent > 0)
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success">
+                                        {{ number_format($item->discount_percent, 2) }}%
+                                    </span>
+                                @endif
+
+                                @if($item->discount_amount > 0)
+                                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary ms-1">
+                                        ₱{{ number_format($item->discount_amount, 2) }}
+                                    </span>
+                                @endif
+                            </div>
+                            @endif
+
                         <div>
                             <div class="text-muted small">Net Cost</div>
                             <strong class="text-danger">₱{{ number_format($item->discounted_cost ?? $item->unit_cost, 2) }}</strong>

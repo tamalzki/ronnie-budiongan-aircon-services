@@ -271,11 +271,26 @@ function addItem(prefill) {
                                value="" min="0" required onchange="calcRow(${idx})">
                     </div>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label small fw-semibold mb-1">Disc %</label>
-                    <input type="number" step="0.01" class="form-control form-control-sm disc-input"
-                           name="items[${idx}][discount_percent]" value="0" min="0" max="100" onchange="calcRow(${idx})">
+               <div class="col-md-2">
+    <label class="form-label small fw-semibold mb-1">Disc %</label>
+    <input type="number" step="0.01"
+           class="form-control form-control-sm disc-percent-input"
+           name="items[${idx}][discount_percent]"
+           value="0" min="0" max="100"
+           onchange="calcRow(${idx})">
+</div>
+
+            <div class="col-md-2">
+                <label class="form-label small fw-semibold mb-1">Disc ₱</label>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text">₱</span>
+                    <input type="number" step="0.01"
+                        class="form-control disc-amount-input"
+                        name="items[${idx}][discount_amount]"
+                        value="0" min="0"
+                        onchange="calcRow(${idx})">
                 </div>
+            </div>
                 <div class="col-md-2">
                     <label class="form-label small fw-semibold mb-1">Net Cost</label>
                     <input type="text" class="form-control form-control-sm" id="net-${idx}" readonly value="0.00" style="background:#f8f9fa;">
@@ -320,7 +335,8 @@ function addItem(prefill) {
         const row = document.getElementById(`row-${idx}`);
         row.querySelector('.qty-input').value  = prefill.quantity;
         row.querySelector('.cost-input').value = parseFloat(prefill.unit_cost).toFixed(2);
-        row.querySelector('.disc-input').value = prefill.discount ?? 0;
+        row.querySelector('.disc-percent-input').value = prefill.discount_percent ?? 0;
+        row.querySelector('.disc-amount-input').value  = prefill.discount_amount ?? 0;
 
         // Load existing serials for this product from the controller-provided map
         const productSerials = existingSerials[prefill.product_id] || [];
@@ -409,19 +425,36 @@ function closeAllPOCombos() {
 function calcRow(idx) {
     const row = document.getElementById(`row-${idx}`);
     if (!row) return;
-    const qty     = parseFloat(row.querySelector('.qty-input').value)  || 0;
-    const cost    = parseFloat(row.querySelector('.cost-input').value) || 0;
-    const disc    = parseFloat(row.querySelector('.disc-input').value) || 0;
-    const netCost = cost * (1 - disc / 100);
-    document.getElementById(`net-${idx}`).value = netCost.toFixed(2);
-    document.getElementById(`total-${idx}`).textContent = (qty * netCost).toFixed(2);
+
+    const qty      = parseFloat(row.querySelector('.qty-input').value) || 0;
+    const cost     = parseFloat(row.querySelector('.cost-input').value) || 0;
+    const discPct  = parseFloat(row.querySelector('.disc-percent-input')?.value) || 0;
+    const discAmt  = parseFloat(row.querySelector('.disc-amount-input')?.value) || 0;
+
+    // Apply percentage first
+    let netCost = cost * (1 - discPct / 100);
+
+    // Apply peso discount distributed per quantity
+    if (qty > 0 && discAmt > 0) {
+        netCost -= (discAmt / qty);
+    }
+
+    netCost = Math.max(0, netCost);
+
+    document.getElementById(`net-${idx}`).value =
+        netCost.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    document.getElementById(`total-${idx}`).textContent =
+        (qty * netCost).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
     calcGrandTotal();
 }
 
 function calcGrandTotal() {
     let grand = 0;
     document.querySelectorAll('.total-display').forEach(el => grand += parseFloat(el.textContent) || 0);
-    document.getElementById('grandTotal').textContent = grand.toFixed(2);
+    document.getElementById('grandTotal').textContent =
+    grand.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     updateBalancePreview();
 }
 
@@ -517,7 +550,8 @@ const existingItems = {!! json_encode($purchaseOrder->items->map(fn($i) => [
     'product_id' => $i->product_id,
     'quantity'   => $i->quantity_ordered,
     'unit_cost'  => $i->unit_cost,
-    'discount'   => $i->discount_percent ?? 0,
+    'discount_percent' => $i->discount_percent ?? 0,
+    'discount_amount'  => $i->discount_amount ?? 0,
     'label'      => trim((optional(optional($i->product)->brand)->name ?? '') . ' · ' . (optional($i->product)->model ?? '')),
     'unit_type'  => optional($i->product)->unit_type,
 ])) !!};
