@@ -18,6 +18,7 @@ class PurchaseOrderItem extends Model
         'discount_percent',
         'discounted_cost',
         'total_cost',
+        'discount_amount',
     ];
 
     protected $casts = [
@@ -27,6 +28,7 @@ class PurchaseOrderItem extends Model
         'discounted_cost'   => 'decimal:2',
         'total_cost'        => 'decimal:2',
         'discount_percent'  => 'decimal:2',
+        'discount_amount' => 'decimal:2',
     ];
 
     /*

@@ -95,6 +95,7 @@ class PurchaseOrderController extends Controller
             'items.*.quantity'         => 'required|integer|min:1',
             'items.*.unit_cost'        => 'required|numeric|min:0',
             'items.*.discount_percent' => 'nullable|numeric|min:0|max:100',
+            'items.*.discount_amount'  => 'nullable|numeric|min:0',
             'items.*.serials'          => 'nullable|array',
             'items.*.serials.*'        => 'nullable|string|max:255',
             'downpayment_amount'       => 'nullable|numeric|min:0',
@@ -139,11 +140,27 @@ class PurchaseOrderController extends Controller
         try {
             // ── Calculate totals ──
             $subtotal = 0;
+
             foreach ($request->items as $item) {
+
                 $discountPercent = $item['discount_percent'] ?? 0;
-                $discountedCost  = $item['unit_cost'] * (1 - ($discountPercent / 100));
-                $subtotal       += $item['quantity'] * $discountedCost;
+                $discountAmount  = $item['discount_amount'] ?? 0;
+
+                // Apply percent first
+                $netCost = $item['unit_cost'] * (1 - ($discountPercent / 100));
+
+                // Apply fixed discount distributed per quantity
+                if ($item['quantity'] > 0 && $discountAmount > 0) {
+                    $netCost -= ($discountAmount / $item['quantity']);
+                }
+
+                // Prevent negative pricing
+                $netCost = max(0, $netCost);
+
+                $subtotal += $item['quantity'] * $netCost;
+
             }
+            $total = $subtotal;
 
             $tax   = 0;
             $total = $subtotal + $tax;
@@ -187,17 +204,29 @@ class PurchaseOrderController extends Controller
             // ── Create PO items + save optional serials as pending ──
             foreach ($request->items as $item) {
                 $discountPercent = $item['discount_percent'] ?? 0;
-                $discountedCost  = $item['unit_cost'] * (1 - ($discountPercent / 100));
+                    $discountAmount  = $item['discount_amount'] ?? 0;
 
-                PurchaseOrderItem::create([
-                    'purchase_order_id' => $po->id,
-                    'product_id'        => $item['product_id'],
-                    'quantity_ordered'  => $item['quantity'],
-                    'unit_cost'         => $item['unit_cost'],
-                    'discount_percent'  => $discountPercent,
-                    'discounted_cost'   => $discountedCost,
-                    'total_cost'        => $item['quantity'] * $discountedCost,
-                ]);
+                    // Apply percent first
+                    $netCost = $item['unit_cost'] * (1 - ($discountPercent / 100));
+
+                    // Apply fixed discount
+                    if ($item['quantity'] > 0 && $discountAmount > 0) {
+                        $netCost -= ($discountAmount / $item['quantity']);
+                    }
+
+                    // Prevent negative
+                    $netCost = max(0, $netCost);
+
+                    PurchaseOrderItem::create([
+                        'purchase_order_id' => $po->id,
+                        'product_id'        => $item['product_id'],
+                        'quantity_ordered'  => $item['quantity'],
+                        'unit_cost'         => $item['unit_cost'],
+                        'discount_percent'  => $discountPercent,
+                        'discount_amount'   => $discountAmount,
+                        'discounted_cost'   => $netCost,
+                        'total_cost'        => $item['quantity'] * $netCost,
+                    ]);
 
                 // Save serials as 'pending' — not yet in stock
                 $serials = collect($item['serials'] ?? [])->filter()->values();
@@ -500,6 +529,7 @@ class PurchaseOrderController extends Controller
             'items.*.product_id'       => 'required|exists:products,id',
             'items.*.quantity'         => 'required|integer|min:1',
             'items.*.unit_cost'        => 'required|numeric|min:0',
+            'items.*.discount_amount' => 'nullable|numeric|min:0',
             'items.*.discount_percent' => 'nullable|numeric|min:0|max:100',
             'items.*.serials'          => 'nullable|array',
             'items.*.serials.*'        => 'nullable|string|max:255',
@@ -518,12 +548,25 @@ class PurchaseOrderController extends Controller
         DB::beginTransaction();
         try {
             $subtotal = 0;
-            foreach ($request->items as $item) {
-                $disc     = $item['discount_percent'] ?? 0;
-                $netCost  = $item['unit_cost'] * (1 - $disc / 100);
-                $subtotal += $item['quantity'] * $netCost;
-            }
-            $total = $subtotal;
+
+                foreach ($request->items as $item) {
+
+                    $discountPercent = $item['discount_percent'] ?? 0;
+                    $discountAmount  = $item['discount_amount'] ?? 0;
+
+                    $netCost = $item['unit_cost'] * (1 - ($discountPercent / 100));
+
+                    if ($item['quantity'] > 0 && $discountAmount > 0) {
+                        $netCost -= ($discountAmount / $item['quantity']);
+                    }
+
+                    $netCost = max(0, $netCost);
+
+                    $subtotal += $item['quantity'] * $netCost;
+                }
+
+                $tax = 0;
+                $total = $subtotal + $tax;
 
             $paymentDueDate = $purchaseOrder->payment_due_date;
             if ($request->payment_type === '45days') {
@@ -534,13 +577,14 @@ class PurchaseOrderController extends Controller
                 $paymentDueDate = null;
             }
 
-            $newBalance    = $total - $purchaseOrder->amount_paid;
-            $paymentStatus = 'unpaid';
+            $newBalance = max(0, $total - $purchaseOrder->amount_paid);
+
             if ($purchaseOrder->amount_paid >= $total) {
                 $paymentStatus = 'paid';
-                $newBalance    = 0;
             } elseif ($purchaseOrder->amount_paid > 0) {
                 $paymentStatus = 'partial';
+            } else {
+                $paymentStatus = 'unpaid';
             }
 
             $purchaseOrder->update([
@@ -564,18 +608,27 @@ class PurchaseOrderController extends Controller
 
             // Recreate items + serials
             foreach ($request->items as $item) {
-                $disc    = $item['discount_percent'] ?? 0;
-                $netCost = $item['unit_cost'] * (1 - $disc / 100);
+                $discountPercent = $item['discount_percent'] ?? 0;
+            $discountAmount  = $item['discount_amount'] ?? 0;
 
-                PurchaseOrderItem::create([
-                    'purchase_order_id' => $purchaseOrder->id,
-                    'product_id'        => $item['product_id'],
-                    'quantity_ordered'  => $item['quantity'],
-                    'unit_cost'         => $item['unit_cost'],
-                    'discount_percent'  => $disc,
-                    'discounted_cost'   => $netCost,
-                    'total_cost'        => $item['quantity'] * $netCost,
-                ]);
+            $netCost = $item['unit_cost'] * (1 - ($discountPercent / 100));
+
+            if ($item['quantity'] > 0 && $discountAmount > 0) {
+                $netCost -= ($discountAmount / $item['quantity']);
+            }
+
+            $netCost = max(0, $netCost);
+
+            PurchaseOrderItem::create([
+                'purchase_order_id' => $purchaseOrder->id,
+                'product_id'        => $item['product_id'],
+                'quantity_ordered'  => $item['quantity'],
+                'unit_cost'         => $item['unit_cost'],
+                'discount_percent'  => $discountPercent,
+                'discount_amount'   => $discountAmount,
+                'discounted_cost'   => $netCost,
+                'total_cost'        => $item['quantity'] * $netCost,
+            ]);
 
                 $serials = collect($item['serials'] ?? [])->filter()->values();
                 foreach ($serials as $serialNumber) {

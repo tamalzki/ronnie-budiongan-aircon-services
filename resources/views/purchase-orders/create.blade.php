@@ -185,9 +185,12 @@
                     </div>
                 </div>
 
-                <button type="submit" class="btn btn-primary btn-lg w-100 shadow-sm">
-                    <i class="bi bi-check-circle"></i> Create Purchase Order
-                </button>
+                <button type="submit"
+                    class="btn btn-success btn-lg w-100 shadow"
+                    style="font-size:1.05rem;padding:12px 0;">
+                <i class="bi bi-check-circle-fill"></i>
+                CREATE PURCHASE ORDER
+            </button>
 
             </div>
         </div>
@@ -292,6 +295,18 @@ function addItem(prefill) {
                     <input type="number" step="0.01" class="form-control form-control-sm disc-input"
                            name="items[${idx}][discount_percent]" value="0" min="0" max="100" onchange="calcRow(${idx})">
                 </div>
+
+                <div class="col-md-2">
+                    <label class="form-label small fw-semibold mb-1">Discount (₱)</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">₱</span>
+                        <input type="number" step="0.01"
+                            class="form-control discount-amount-input"
+                            name="items[${idx}][discount_amount]"
+                            value="0" min="0"
+                            onchange="calcRow(${idx})">
+                    </div>
+                </div>
                 <div class="col-md-2">
                     <label class="form-label small fw-semibold mb-1">Net Cost</label>
                     <input type="text" class="form-control form-control-sm" id="net-${idx}" readonly value="0.00"
@@ -359,16 +374,17 @@ function rebuildSerialInputs(idx, qty, existingValues) {
     for (let i = 0; i < qty; i++) {
         const val = existingValues[i] || '';
         container.insertAdjacentHTML('beforeend', `
-            <div class="col-md-4 col-sm-6">
-                <div class="input-group input-group-sm mb-1">
-                    <span class="input-group-text text-muted" style="font-size:0.72rem;min-width:36px;">#${i+1}</span>
-                    <input type="text"
-                           class="form-control form-control-sm serial-input"
-                           name="items[${idx}][serials][]"
-                           value="${val}"
-                           placeholder="Serial #${i+1}"
-                           style="font-family:monospace;font-size:0.82rem;"
-                           oninput="updateSerialCount(${idx})">
+    <div class="col-md-4 col-sm-6">
+        <div class="input-group input-group-sm mb-1">
+            <span class="input-group-text text-muted" style="font-size:0.72rem;min-width:36px;">#${i+1}</span>
+            <input type="text"
+                   class="form-control form-control-sm serial-input"
+                   name="items[${idx}][serials][]"
+                   value="${val}"
+                   placeholder="Serial #${i+1}"
+                   required
+                   style="font-family:monospace;font-size:0.82rem;"
+                   oninput="updateSerialCount(${idx})">
                 </div>
             </div>
         `);
@@ -451,24 +467,62 @@ function closeAllPOCombos() {
 }
 
 function calcRow(idx) {
+
     const row = document.getElementById(`row-${idx}`);
     if (!row) return;
-    const qty     = parseFloat(row.querySelector('.qty-input').value)  || 0;
+
+    const qty     = parseFloat(row.querySelector('.qty-input').value) || 0;
     const cost    = parseFloat(row.querySelector('.cost-input').value) || 0;
-    const disc    = parseFloat(row.querySelector('.disc-input').value) || 0;
-    const netCost = cost * (1 - disc / 100);
-    const total   = qty * netCost;
+    const discInput    = row.querySelector('.disc-input');
+    const discAmtInput = row.querySelector('.discount-amount-input');
+
+    let discPct = parseFloat(discInput.value) || 0;
+    let discAmt = parseFloat(discAmtInput.value) || 0;
+
+    // 🔥 Prevent using both discount types at same time
+    if (discPct > 0 && discAmt > 0) {
+        if (document.activeElement === discInput) {
+            discAmtInput.value = 0;
+            discAmt = 0;
+        } else if (document.activeElement === discAmtInput) {
+            discInput.value = 0;
+            discPct = 0;
+        }
+    }
+
+    let netCost = cost;
+
+    // Apply percentage first
+    netCost = netCost * (1 - discPct / 100);
+
+    // Apply fixed discount distributed per quantity
+    if (qty > 0 && discAmt > 0) {
+        netCost -= (discAmt / qty);
+    }
+
+    if (netCost < 0) netCost = 0;
+
+    const total = qty * netCost;
+
     document.getElementById(`net-${idx}`).value = netCost.toFixed(2);
-    document.getElementById(`total-${idx}`).textContent = total.toFixed(2);
+    document.getElementById(`total-${idx}`).textContent = formatMoney(total);
+
     calcGrandTotal();
+}
+
+function formatMoney(value) {
+    return parseFloat(value || 0).toLocaleString('en-PH', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
 }
 
 function calcGrandTotal() {
     let grand = 0;
     document.querySelectorAll('.total-display').forEach(el => {
-        grand += parseFloat(el.textContent) || 0;
+        grand += parseFloat(el.textContent.replace(/,/g, '')) || 0;
     });
-    document.getElementById('grandTotal').textContent = grand.toFixed(2);
+    document.getElementById('grandTotal').textContent = formatMoney(grand);
     updateBalancePreview();
 }
 
@@ -533,12 +587,13 @@ function updateBalancePreview() {
     const is45      = document.getElementById('paymentType').value === '45days';
     const previewEl = document.getElementById('balancePreview');
     if (!is45) { previewEl.style.display = 'none'; return; }
-    const total = parseFloat(document.getElementById('grandTotal').textContent) || 0;
+    const totalText = document.getElementById('grandTotal').textContent.replace(/,/g, '');
+    const total = parseFloat(totalText) || 0;
     const down  = parseFloat(document.getElementById('downpaymentAmount').value) || 0;
     const bal   = Math.max(0, total - down);
-    document.getElementById('previewTotal').textContent   = total.toFixed(2);
-    document.getElementById('previewDown').textContent    = down.toFixed(2);
-    document.getElementById('previewBalance').textContent = bal.toFixed(2);
+    document.getElementById('previewTotal').textContent   = formatMoney(total);
+    document.getElementById('previewDown').textContent    = formatMoney(down);
+    document.getElementById('previewBalance').textContent = formatMoney(bal);
     previewEl.style.display = '';
 }
 
@@ -575,6 +630,7 @@ if (document.getElementById('paymentType').value === '45days') {
     document.getElementById('downpaymentSection').style.display = '';
     document.getElementById('deadlinePreview').style.display    = '';
     updateDeadline();
+    updateBalancePreview(); 
 }
 </script>
 @endpush
