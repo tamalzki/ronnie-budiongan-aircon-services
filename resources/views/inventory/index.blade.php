@@ -135,11 +135,11 @@
                         @forelse($products as $product)
                         @php
                             $rowClass = '';
-                            if ($product->stock_quantity == 0)     $rowClass = 'table-danger';
-                            elseif ($product->stock_quantity <= 5)  $rowClass = 'table-warning';
+                            if ($product->stock_count == 0)     $rowClass = 'table-danger';
+                            elseif ($product->stock_count <= 5)  $rowClass = 'table-warning';
                         @endphp
                         <tr class="{{ $rowClass }}"
-                            data-stock="{{ $product->stock_quantity }}"
+                            data-stock="{{ $product->stock_count }}"
                             data-brand="{{ $product->brand_id ?? 'none' }}"
                             data-name="{{ strtolower($product->name . ' ' . ($product->model ?? '')) }}">
                             <td class="px-3 py-2" style="white-space:nowrap">
@@ -168,22 +168,22 @@
                                 ₱{{ number_format($product->price, 2) }}
                             </td>
                             <td class="px-3 py-2" style="white-space:nowrap">
-                                @if($product->stock_quantity == 0)
+                                @if($product->stock_count == 0)
                                     <span class="badge bg-danger">
                                         <i class="bi bi-x-circle"></i> Out of Stock
                                     </span>
-                                @elseif($product->stock_quantity <= 5)
+                                @elseif($product->stock_count <= 5)
                                     <span class="badge bg-warning text-dark">
-                                        <i class="bi bi-exclamation-triangle"></i> {{ $product->stock_quantity }} units
+                                        <i class="bi bi-exclamation-triangle"></i> {{ $product->stock_count }} units
                                     </span>
                                 @else
                                     <span class="badge bg-success">
-                                        <i class="bi bi-check-circle"></i> {{ $product->stock_quantity }} units
+                                        <i class="bi bi-check-circle"></i> {{ $product->stock_count }} units
                                     </span>
                                 @endif
                             </td>
                             <td class="px-3 py-2 text-success fw-semibold" style="white-space:nowrap">
-                                ₱{{ number_format($product->stock_quantity * $product->price, 2) }}
+                                ₱{{ number_format($product->stock_count * $product->price, 2) }}
                             </td>
                             <td class="px-3 py-2" style="white-space:nowrap">
                                 <span class="badge bg-primary bg-opacity-10 text-primary border border-primary">
@@ -198,14 +198,7 @@
        title="Manage">
         <i class="bi bi-box-arrow-in-right"></i> Manage
     </a>
-    <button class="btn btn-warning"
-            style="padding:2px 8px;font-size:0.78rem"
-            data-bs-toggle="modal"
-            data-bs-target="#adjustModal{{ $product->id }}"
-            title="Adjust stock">
-        <i class="bi bi-gear"></i> Adjust
-    </button>
-</div>
+   
                             </td>
                         </tr>
                         @empty
@@ -224,45 +217,7 @@
 
 </div>
 
-{{-- Adjustment Modals --}}
-@foreach($products as $product)
-<div class="modal fade" id="adjustModal{{ $product->id }}" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content border-0 shadow">
-            <form action="{{ route('inventory.adjust', $product) }}" method="POST">
-                @csrf
-                <div class="modal-header bg-warning border-0">
-                    <h5 class="modal-title"><i class="bi bi-gear"></i> Adjust Stock — {{ $product->name }}</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body p-4">
-                    <div class="alert alert-info border-0 mb-3">
-                        <i class="bi bi-info-circle"></i>
-                        Current stock: <strong>{{ $product->stock_quantity }} units</strong>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">New Stock Quantity <span class="text-danger">*</span></label>
-                        <input type="number" class="form-control" name="quantity"
-                               value="{{ $product->stock_quantity }}" min="0" required>
-                        <small class="text-muted">Enter the new total stock quantity</small>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Reason for Adjustment <span class="text-danger">*</span></label>
-                        <textarea class="form-control" name="notes" rows="3" required
-                                  placeholder="e.g., Stock count discrepancy, damaged items..."></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer border-0 bg-light">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-warning px-4">
-                        <i class="bi bi-check-circle"></i> Adjust Stock
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-@endforeach
+
 
 @push('scripts')
 <script>

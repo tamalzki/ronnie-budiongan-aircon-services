@@ -7,6 +7,7 @@ use App\Models\InventoryMovement;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\ProductSerial;
 
 class InventoryController extends Controller
 {
@@ -19,11 +20,12 @@ class InventoryController extends Controller
 
         // Calculate stats
         $totalProducts = $products->count();
-        $lowStock = $products->where('stock_quantity', '<=', 5)->count();
-        $outOfStock = $products->where('stock_quantity', 0)->count();
-        $totalValue = $products->sum(function($product) {
-            return $product->stock_quantity * $product->price;
-        });
+            $lowStock = $products->filter(fn($p) => $p->stock_count <= 5)->count();
+            $outOfStock = $products->filter(fn($p) => $p->stock_count === 0)->count();
+
+            $totalValue = $products->sum(function($p) {
+                return $p->stock_count * $p->price;
+            });
 
         return view('inventory.index', compact('products', 'totalProducts', 'lowStock', 'outOfStock', 'totalValue'));
     }
@@ -50,73 +52,101 @@ class InventoryController extends Controller
     }
 
     public function adjust(Request $request, Product $product)
-    {
-        $validated = $request->validate([
-            'quantity' => 'required|integer|min:0',
-            'notes' => 'required|string',
+{
+    $validated = $request->validate([
+        'new_quantity' => 'required|integer|min:0',
+        'notes' => 'required|string',
+    ]);
+
+    DB::beginTransaction();
+
+    try {
+
+        $stockBefore = $product->stock_count;
+        $difference = $validated['new_quantity'] - $stockBefore;
+
+        if ($difference > 0) {
+            throw new \Exception("To increase stock, use Stock In and encode serial numbers.");
+        }
+
+        if ($difference < 0) {
+            $toRemove = abs($difference);
+
+            $serials = $product->inStockSerials()
+                ->orderBy('received_date')
+                ->limit($toRemove)
+                ->get();
+
+            // ✅ Correct safety check
+            if ($serials->count() < $toRemove) {
+                throw new \Exception('Not enough available serials to adjust.');
+            }
+
+            foreach ($serials as $serial) {
+                $serial->update([
+                    'status' => 'lost',
+                ]);
+            }
+        }
+
+        $stockAfter = $product->fresh()->stock_count;
+
+        InventoryMovement::create([
+            'product_id' => $product->id,
+            'type' => 'adjustment',
+            'quantity' => $difference,
+            'stock_before' => $stockBefore,
+            'stock_after' => $stockAfter,
+            'reference_type' => 'Manual Adjustment',
+            'notes' => $validated['notes'],
+            'user_id' => auth()->id(),
         ]);
 
-        DB::beginTransaction();
+        DB::commit();
 
-        try {
-            $stockBefore = $product->stock_quantity;
-            $product->stock_quantity = $validated['quantity'];
-            $product->save();
-            $stockAfter = $product->stock_quantity;
+        return redirect()->route('inventory.show', $product)
+            ->with('success', 'Inventory adjusted successfully.');
 
-            InventoryMovement::create([
-                'product_id' => $product->id,
-                'type' => 'adjustment',
-                'quantity' => $stockAfter - $stockBefore,
-                'stock_before' => $stockBefore,
-                'stock_after' => $stockAfter,
-                'reference_type' => 'Manual Adjustment',
-                'notes' => $validated['notes'],
-                'user_id' => auth()->id(),
-            ]);
-
-            DB::commit();
-
-            return redirect()->route('inventory.show', $product)
-                ->with('success', 'Inventory adjusted successfully.');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->with('error', 'Error adjusting inventory: ' . $e->getMessage());
-        }
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return back()->with('error', $e->getMessage());
     }
+}
 
-    public function stockIn(Request $request, Product $product)
+        public function stockIn(Request $request, Product $product)
     {
         $validated = $request->validate([
-            'quantity' => 'required|integer|min:1',
+            'serial_numbers' => 'required|array|min:1',
+            'serial_numbers.*' => 'required|string|distinct|unique:product_serials,serial_number',
             'supplier_id' => 'nullable|exists:suppliers,id',
-            'cost_per_unit' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string',
         ]);
 
         DB::beginTransaction();
 
         try {
-            $stockBefore = $product->stock_quantity;
-            $product->increment('stock_quantity', $validated['quantity']);
-            $stockAfter = $product->stock_quantity;
 
-            $supplier = isset($validated['supplier_id']) ? Supplier::find($validated['supplier_id']) : null;
-            $notes = $validated['notes'] ?? 'Manual stock in';
-            
-            if ($supplier) {
-                $notes = "Stock received from " . $supplier->name . ". " . $notes;
+            $stockBefore = $product->stock_count;
+
+            foreach ($validated['serial_numbers'] as $serial) {
+                ProductSerial::create([
+                    'product_id' => $product->id,
+                    'serial_number' => $serial,
+                    'status' => 'in_stock',
+                    'received_date' => now(),
+                ]);
             }
+
+            $stockAfter = $product->fresh()->stock_count;
 
             InventoryMovement::create([
                 'product_id' => $product->id,
                 'type' => 'stock_in',
-                'quantity' => $validated['quantity'],
+                'quantity' => count($validated['serial_numbers']),
                 'stock_before' => $stockBefore,
                 'stock_after' => $stockAfter,
                 'reference_type' => 'Manual Stock In',
-                'notes' => $notes,
+                'notes' => $validated['notes'] ?? 'Manual stock in',
                 'user_id' => auth()->id(),
             ]);
 
@@ -127,14 +157,51 @@ class InventoryController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Error adding stock: ' . $e->getMessage());
+            return back()->with('error', $e->getMessage());
         }
     }
+
+    public function encodeSerials(Request $request, Product $product)
+{
+    $expectedCount = $product->stock_count;
+
+    $validated = $request->validate([
+        'serial_numbers' => 'required|array|size:' . $expectedCount,
+        'serial_numbers.*' => 'required|string|distinct|unique:product_serials,serial_number',
+    ]);
+
+    DB::beginTransaction();
+
+    try {
+
+        // Prevent duplicate encoding
+        if ($product->inStockSerials()->count() > 0) {
+            throw new \Exception('Serials already exist for this product.');
+        }
+
+        foreach ($validated['serial_numbers'] as $serial) {
+            ProductSerial::create([
+                'product_id'   => $product->id,
+                'serial_number'=> $serial,
+                'status'       => 'in_stock',
+                'received_date'=> now(),
+            ]);
+        }
+
+        DB::commit();
+
+        return back()->with('success', 'Existing serials encoded successfully.');
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return back()->with('error', $e->getMessage());
+    }
+}
 
     public function returnStock(Request $request, Product $product)
     {
         $validated = $request->validate([
-            'quantity' => 'required|integer|min:1|max:' . $product->stock_quantity,
+            'quantity' => 'required|integer|min:1|max:' . $product->stock_count,
             'supplier_id' => 'nullable|exists:suppliers,id',
             'reason' => 'required|string',
             'notes' => 'nullable|string',
@@ -143,9 +210,24 @@ class InventoryController extends Controller
         DB::beginTransaction();
 
         try {
-            $stockBefore = $product->stock_quantity;
-            $product->decrement('stock_quantity', $validated['quantity']);
-            $stockAfter = $product->stock_quantity;
+            $stockBefore = $product->stock_count;
+
+            $serials = $product->inStockSerials()
+            ->orderBy('received_date')
+            ->limit($validated['quantity'])
+            ->get();
+
+            if ($serials->count() < $validated['quantity']) {
+                throw new \Exception('Not enough available serials to return.');
+            }
+
+            foreach ($serials as $serial) {
+                $serial->update([
+                    'status' => 'returned',
+                ]);
+            }
+
+            $stockAfter = $product->fresh()->stock_count;
 
             $supplier = isset($validated['supplier_id']) ? Supplier::find($validated['supplier_id']) : null;
             $notes = "Reason: " . $validated['reason'];

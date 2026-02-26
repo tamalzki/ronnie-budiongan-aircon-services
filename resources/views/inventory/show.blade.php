@@ -77,20 +77,20 @@
         <div class="col-md-4">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header border-0 py-2"
-                     style="background:{{ $product->stock_quantity == 0 ? '#dc3545' : ($product->stock_quantity <= 5 ? '#ffc107' : '#198754') }}">
+                     style="background:{{ $product->stock_count == 0 ? '#dc3545' : ($product->stock_count <= 5 ? '#ffc107' : '#198754') }}">
                     <h6 class="mb-0 text-white"><i class="bi bi-box"></i> Current Stock</h6>
                 </div>
                 <div class="card-body text-center d-flex flex-column justify-content-center py-4">
-                    <div class="fw-bold mb-1" style="font-size:3.5rem;line-height:1;color:{{ $product->stock_quantity == 0 ? '#dc3545' : ($product->stock_quantity <= 5 ? '#e0a800' : '#198754') }}">
-                        {{ $product->stock_quantity }}
+                    <div class="fw-bold mb-1" style="font-size:3.5rem;line-height:1;color:{{ $product->stock_count == 0 ? '#dc3545' : ($product->stock_count <= 5 ? '#e0a800' : '#198754') }}">
+                        {{ $product->stock_count }}
                     </div>
                     <div class="text-muted mb-3" style="font-size:0.85rem;">units available</div>
 
-                    @if($product->stock_quantity == 0)
+                    @if($product->stock_count == 0)
                         <span class="badge bg-danger align-self-center px-3 py-2 mb-3">
                             <i class="bi bi-exclamation-triangle"></i> Out of Stock
                         </span>
-                    @elseif($product->stock_quantity <= 5)
+                    @elseif($product->stock_count <= 5)
                         <span class="badge bg-warning text-dark align-self-center px-3 py-2 mb-3">
                             <i class="bi bi-exclamation-circle"></i> Low Stock — Reorder Soon
                         </span>
@@ -102,7 +102,7 @@
 
                     <div class="bg-light rounded p-2">
                         <small class="text-muted d-block">Total Stock Value</small>
-                        <strong class="text-success fs-5">₱{{ number_format($product->stock_quantity * $product->price, 2) }}</strong>
+                        <strong class="text-success fs-5">₱{{ number_format($product->stock_count * $product->price, 2) }}</strong>
                     </div>
                 </div>
             </div>
@@ -119,13 +119,10 @@
                         <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#stockInModal">
                             <i class="bi bi-plus-circle"></i> Add Stock (Stock In)
                         </button>
-                        <button class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#adjustModal">
-                            <i class="bi bi-gear"></i> Adjust Inventory
-                        </button>
-                        <button class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#returnModal"
-                                {{ $product->stock_quantity == 0 ? 'disabled' : '' }}>
-                            <i class="bi bi-arrow-return-left"></i> Return to Supplier
-                        </button>
+                       
+                        <button class="btn btn-outline-danger btn-sm" disabled>
+    <i class="bi bi-arrow-return-left"></i> Return to Supplier (Disabled)
+</button>
                     </div>
                 </div>
             </div>
@@ -251,12 +248,18 @@
                 </div>
                 <div class="modal-body p-4">
                     <div class="alert alert-info border-0 mb-3">
-                        <i class="bi bi-info-circle"></i> Current stock: <strong>{{ $product->stock_quantity }} units</strong>
+                        <i class="bi bi-info-circle"></i> Current stock: <strong>{{ $product->stock_count }} units</strong>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Quantity to Add <span class="text-danger">*</span></label>
-                        <input type="number" class="form-control" name="quantity" min="1" required placeholder="Enter quantity">
+                        <input type="number" 
+                            class="form-control" 
+                            id="stockInQuantity"
+                            min="1"
+                            required 
+                            placeholder="Enter quantity">    
                     </div>
+                        <div id="serialInputsContainer" class="mt-3"></div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">From Supplier (Optional)</label>
                         <select class="form-select" name="supplier_id">
@@ -283,48 +286,20 @@
                     <button type="submit" class="btn btn-success px-4">
                         <i class="bi bi-check-circle"></i> Add Stock
                     </button>
+                    @if($product->stock_count > 0 && $product->inStockSerials()->count() == 0)
+                    <button class="btn btn-primary btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#encodeSerialsModal">
+                        <i class="bi bi-upc-scan"></i> Encode Existing Serials
+                    </button>
+                    @endif
                 </div>
             </form>
         </div>
     </div>
 </div>
 
-{{-- Adjust Inventory Modal --}}
-<div class="modal fade" id="adjustModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content border-0 shadow">
-            <form action="{{ route('inventory.adjust', $product) }}" method="POST">
-                @csrf
-                <div class="modal-header bg-warning border-0">
-                    <h5 class="modal-title"><i class="bi bi-gear"></i> Adjust Inventory</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body p-4">
-                    <div class="alert alert-info border-0 mb-3">
-                        <i class="bi bi-info-circle"></i> Current stock: <strong>{{ $product->stock_quantity }} units</strong>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">New Stock Quantity <span class="text-danger">*</span></label>
-                        <input type="number" class="form-control" name="quantity"
-                               value="{{ $product->stock_quantity }}" min="0" required>
-                        <small class="text-muted">Enter the corrected total stock quantity</small>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Reason for Adjustment <span class="text-danger">*</span></label>
-                        <textarea class="form-control" name="notes" rows="3" required
-                                  placeholder="e.g., Stock count discrepancy, damaged items..."></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer border-0 bg-light">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-warning px-4">
-                        <i class="bi bi-check-circle"></i> Adjust Stock
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+
 
 {{-- Return to Supplier Modal --}}
 <div class="modal fade" id="returnModal" tabindex="-1">
@@ -338,13 +313,13 @@
                 </div>
                 <div class="modal-body p-4">
                     <div class="alert alert-warning border-0 mb-3">
-                        <i class="bi bi-exclamation-triangle"></i> Current stock: <strong>{{ $product->stock_quantity }} units</strong>
+                        <i class="bi bi-exclamation-triangle"></i> Current stock: <strong>{{ $product->stock_count }} units</strong>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Quantity to Return <span class="text-danger">*</span></label>
                         <input type="number" class="form-control" name="quantity"
-                               min="1" max="{{ $product->stock_quantity }}" required placeholder="Enter quantity">
-                        <small class="text-muted">Maximum: {{ $product->stock_quantity }} units</small>
+                               min="1" max="{{ $product->stock_count }}" required placeholder="Enter quantity">
+                        <small class="text-muted">Maximum: {{ $product->stock_count }} units</small>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Return to Supplier (Optional)</label>
@@ -384,5 +359,39 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    const quantityInput = document.getElementById('stockInQuantity');
+    const container = document.getElementById('serialInputsContainer');
+
+    quantityInput.addEventListener('input', function () {
+
+        const quantity = parseInt(this.value) || 0;
+        container.innerHTML = '';
+
+        if (quantity > 0) {
+
+            const label = document.createElement('label');
+            label.className = 'form-label fw-semibold';
+            label.innerText = 'Enter Serial Numbers';
+            container.appendChild(label);
+
+            for (let i = 0; i < quantity; i++) {
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.name = 'serial_numbers[]';
+                input.className = 'form-control mb-2';
+                input.placeholder = 'Serial #' + (i + 1);
+                input.required = true;
+
+                container.appendChild(input);
+            }
+        }
+    });
+
+});
+</script>
 
 @endsection
