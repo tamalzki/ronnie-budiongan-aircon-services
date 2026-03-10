@@ -114,22 +114,22 @@
         </div>
     </div>
 
-    {{-- Table --}}
+    {{-- Table - Compact & Full Width --}}
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive" style="max-height:calc(100vh - 380px);overflow-y:auto;">
-                <table class="table table-hover table-sm mb-0" id="inventoryTable" style="font-size:0.875rem;">
+                <table class="table table-hover mb-0" id="inventoryTable" style="font-size:0.8rem;">
                     <thead class="bg-light" style="position:sticky;top:0;z-index:10;">
                         <tr>
-                            <th class="border-0 px-3 py-2 bg-light">Model</th>
-                            <th class="border-0 px-3 py-2 bg-light">Brand</th>
-                            <th class="border-0 px-3 py-2 bg-light">Unit Type</th>
-                            <th class="border-0 px-3 py-2 bg-light">Supplier</th>
-                            <th class="border-0 px-3 py-2 bg-light">Price</th>
-                            <th class="border-0 px-3 py-2 bg-light">Stock</th>
-                            <th class="border-0 px-3 py-2 bg-light">Value</th>
-                            <th class="border-0 px-3 py-2 bg-light">Movements</th>
-                            <th class="border-0 px-3 py-2 bg-light">Actions</th>
+                            <th class="border-0 px-2 py-2 bg-light" style="min-width:180px;">Model</th>
+                            <th class="border-0 px-2 py-2 bg-light" style="width:80px;">Brand</th>
+                            <th class="border-0 px-2 py-2 bg-light" style="width:70px;">Type</th>
+                            <th class="border-0 px-2 py-2 bg-light" style="width:100px;">Supplier</th>
+                            <th class="border-0 px-2 py-2 bg-light text-end" style="width:90px;">Price</th>
+                            <th class="border-0 px-2 py-2 bg-light text-center" style="width:100px;">Stock</th>
+                            <th class="border-0 px-2 py-2 bg-light text-end" style="width:100px;">Value</th>
+                            <th class="border-0 px-2 py-2 bg-light text-center" style="width:60px;">Moves</th>
+                            <th class="border-0 px-2 py-2 bg-light text-center" style="width:90px;">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="inventoryTableBody">
@@ -143,61 +143,79 @@
                             data-stock="{{ $product->stock_count }}"
                             data-brand="{{ $product->brand_id ?? 'none' }}"
                             data-name="{{ strtolower(($product->model ?? '') . ' ' . ($product->description ?? '')) }}">
-                            <td class="px-3 py-2" style="white-space:nowrap">
-                                <div class="fw-bold">{{ $product->model ?? $product->name }}</div>
+                            
+                            {{-- Model - Main Title --}}
+                            <td class="px-2 py-2">
+                                <div class="fw-bold" style="font-size:0.85rem;">{{ $product->model ?? $product->name }}</div>
                                 @if($product->description)
-                                    <small class="text-muted">{{ $product->description }}</small>
+                                    <small class="text-muted d-block" style="font-size:0.7rem;line-height:1.2;">{{ Str::limit($product->description, 50) }}</small>
                                 @endif
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            
+                            {{-- Brand - Compact Badge --}}
+                            <td class="px-2 py-2">
                                 @if($product->brand)
-                                    <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary">
+                                    <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary" style="font-size:0.7rem;">
                                         {{ $product->brand->name }}
                                     </span>
                                 @else
                                     <span class="text-muted">—</span>
                                 @endif
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
-                                <span class="text-muted">{{ ucfirst($product->unit_type ?? '—') }}</span>
+                            
+                            {{-- Unit Type - Plain Text --}}
+                            <td class="px-2 py-2">
+                                <small class="text-muted">{{ ucfirst($product->unit_type ?? '—') }}</small>
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            
+                            {{-- Supplier - Compact --}}
+                            <td class="px-2 py-2">
                                 @if($product->supplier)
-                                    <small class="text-muted">{{ $product->supplier->name }}</small>
+                                    <small class="text-muted">{{ Str::limit($product->supplier->name, 15) }}</small>
                                 @else
                                     <span class="text-muted">—</span>
                                 @endif
                             </td>
-                            <td class="px-3 py-2 fw-semibold" style="white-space:nowrap">
-                                ₱{{ number_format($product->price, 2) }}
+                            
+                            {{-- Price - Right Aligned --}}
+                            <td class="px-2 py-2 text-end fw-semibold">
+                                <small>₱{{ number_format($product->price, 0) }}</small>
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            
+                            {{-- Stock - Compact Badges --}}
+                            <td class="px-2 py-2 text-center">
                                 @if($product->stock_count == 0)
-                                    <span class="badge bg-danger">
-                                        <i class="bi bi-x-circle"></i> Out of Stock
+                                    <span class="badge bg-danger" style="font-size:0.7rem;">
+                                        <i class="bi bi-x"></i> 0
                                     </span>
                                 @elseif($product->stock_count <= 5)
-                                    <span class="badge bg-warning text-dark">
-                                        <i class="bi bi-exclamation-triangle"></i> {{ $product->stock_count }} units
+                                    <span class="badge bg-warning text-dark" style="font-size:0.7rem;">
+                                        <i class="bi bi-exclamation-triangle"></i> {{ $product->stock_count }}
                                     </span>
                                 @else
-                                    <span class="badge bg-success">
-                                        <i class="bi bi-check-circle"></i> {{ $product->stock_count }} units
+                                    <span class="badge bg-success" style="font-size:0.7rem;">
+                                        {{ $product->stock_count }}
                                     </span>
                                 @endif
                             </td>
-                            <td class="px-3 py-2 text-success fw-semibold" style="white-space:nowrap">
-                                ₱{{ number_format($product->stock_count * $product->price, 2) }}
+                            
+                            {{-- Value - Right Aligned --}}
+                            <td class="px-2 py-2 text-end text-success fw-semibold">
+                                <small>₱{{ number_format($product->stock_count * $product->price, 0) }}</small>
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
-                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary">
+                            
+                            {{-- Movements Count --}}
+                            <td class="px-2 py-2 text-center">
+                                <span class="badge bg-primary bg-opacity-10 text-primary" style="font-size:0.7rem;">
                                     {{ $product->inventory_movements_count }}
                                 </span>
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            
+                            {{-- Actions - Compact Button --}}
+                            <td class="px-2 py-2 text-center">
                                 <a href="{{ route('inventory.show', $product) }}"
-                                   class="btn btn-primary"
-                                   style="padding:2px 8px;font-size:0.78rem"
+                                   class="btn btn-primary btn-sm"
+                                   style="padding:2px 6px;font-size:0.7rem;"
                                    title="Manage">
                                     <i class="bi bi-box-arrow-in-right"></i> Manage
                                 </a>
