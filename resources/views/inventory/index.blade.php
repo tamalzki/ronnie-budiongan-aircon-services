@@ -78,57 +78,58 @@
         </div>
     </div>
 
-    {{-- Search & Filters --}}
-   <div class="card border-0 shadow-sm mb-3">
-    <div class="card-body py-2">
-        <div class="row g-2 align-items-center">
-            <div class="col-md-4">
-                <div class="input-group input-group-sm">
-                    <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
-                    <input type="text" id="searchProduct" class="form-control border-start-0"
-                           placeholder="Search product or model...">
+    {{-- Search & Filters (STICKY) --}}
+    <div class="card border-0 shadow-sm mb-3 sticky-top" style="top:0;z-index:1020;">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-center">
+                <div class="col-md-4">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+                        <input type="text" id="searchProduct" class="form-control border-start-0"
+                               placeholder="Search model, description...">
+                    </div>
                 </div>
-            </div>
-            <div class="col-md-2">
-                <select class="form-select form-select-sm" id="stockFilter">
-                    <option value="all">All Stock</option>
-                    <option value="low">Low Stock</option>
-                    <option value="out">Out of Stock</option>
-                    <option value="available">In Stock</option>
-                </select>
-            </div>
-            <div class="col-md-2">
-                <select class="form-select form-select-sm" id="brandFilter">
-                    <option value="all">All Brands</option>
-                    @foreach($products->pluck('brand')->unique()->filter() as $brand)
-                        <option value="{{ $brand->id }}">{{ $brand->name }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="col-auto">
-                <button class="btn btn-outline-secondary btn-sm" onclick="clearFilters()" title="Clear">
-                    <i class="bi bi-x-lg"></i>
-                </button>
+                <div class="col-md-2">
+                    <select class="form-select form-select-sm" id="stockFilter">
+                        <option value="all">All Stock</option>
+                        <option value="low">Low Stock</option>
+                        <option value="out">Out of Stock</option>
+                        <option value="available">In Stock</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select form-select-sm" id="brandFilter">
+                        <option value="all">All Brands</option>
+                        @foreach($products->pluck('brand')->unique()->filter() as $brand)
+                            <option value="{{ $brand->id }}">{{ $brand->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <button class="btn btn-outline-secondary btn-sm" onclick="clearFilters()" title="Clear">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
     {{-- Table --}}
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
-            <div class="table-responsive">
+            <div class="table-responsive" style="max-height:calc(100vh - 380px);overflow-y:auto;">
                 <table class="table table-hover table-sm mb-0" id="inventoryTable" style="font-size:0.875rem;">
-                    <thead class="bg-light">
+                    <thead class="bg-light" style="position:sticky;top:0;z-index:10;">
                         <tr>
-                            <th class="border-0 px-3 py-2">Product</th>
-                            <th class="border-0 px-3 py-2">Brand</th>
-                            <th class="border-0 px-3 py-2">Supplier</th>
-                            <th class="border-0 px-3 py-2">Price</th>
-                            <th class="border-0 px-3 py-2">Stock</th>
-                            <th class="border-0 px-3 py-2">Value</th>
-                            <th class="border-0 px-3 py-2">Movements</th>
-                            <th class="border-0 px-3 py-2">Actions</th>
+                            <th class="border-0 px-3 py-2 bg-light">Model</th>
+                            <th class="border-0 px-3 py-2 bg-light">Brand</th>
+                            <th class="border-0 px-3 py-2 bg-light">Unit Type</th>
+                            <th class="border-0 px-3 py-2 bg-light">Supplier</th>
+                            <th class="border-0 px-3 py-2 bg-light">Price</th>
+                            <th class="border-0 px-3 py-2 bg-light">Stock</th>
+                            <th class="border-0 px-3 py-2 bg-light">Value</th>
+                            <th class="border-0 px-3 py-2 bg-light">Movements</th>
+                            <th class="border-0 px-3 py-2 bg-light">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="inventoryTableBody">
@@ -141,11 +142,11 @@
                         <tr class="{{ $rowClass }}"
                             data-stock="{{ $product->stock_count }}"
                             data-brand="{{ $product->brand_id ?? 'none' }}"
-                            data-name="{{ strtolower($product->name . ' ' . ($product->model ?? '')) }}">
+                            data-name="{{ strtolower(($product->model ?? '') . ' ' . ($product->description ?? '')) }}">
                             <td class="px-3 py-2" style="white-space:nowrap">
-                                <div class="fw-semibold">{{ $product->name }}</div>
-                                @if($product->model)
-                                    <small class="text-muted">{{ $product->model }}</small>
+                                <div class="fw-bold">{{ $product->model ?? $product->name }}</div>
+                                @if($product->description)
+                                    <small class="text-muted">{{ $product->description }}</small>
                                 @endif
                             </td>
                             <td class="px-3 py-2" style="white-space:nowrap">
@@ -156,6 +157,9 @@
                                 @else
                                     <span class="text-muted">—</span>
                                 @endif
+                            </td>
+                            <td class="px-3 py-2" style="white-space:nowrap">
+                                <span class="text-muted">{{ ucfirst($product->unit_type ?? '—') }}</span>
                             </td>
                             <td class="px-3 py-2" style="white-space:nowrap">
                                 @if($product->supplier)
@@ -191,19 +195,17 @@
                                 </span>
                             </td>
                             <td class="px-3 py-2" style="white-space:nowrap">
-                                <div class="d-flex gap-1">
-    <a href="{{ route('inventory.show', $product) }}"
-       class="btn btn-primary"
-       style="padding:2px 8px;font-size:0.78rem"
-       title="Manage">
-        <i class="bi bi-box-arrow-in-right"></i> Manage
-    </a>
-   
+                                <a href="{{ route('inventory.show', $product) }}"
+                                   class="btn btn-primary"
+                                   style="padding:2px 8px;font-size:0.78rem"
+                                   title="Manage">
+                                    <i class="bi bi-box-arrow-in-right"></i> Manage
+                                </a>
                             </td>
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="8" class="text-center py-5 text-muted">
+                            <td colspan="9" class="text-center py-5 text-muted">
                                 <i class="bi bi-inbox fs-1 d-block mb-2"></i>
                                 No products in inventory
                             </td>
@@ -216,8 +218,6 @@
     </div>
 
 </div>
-
-
 
 @push('scripts')
 <script>
@@ -259,7 +259,7 @@ function filterAndSort() {
         if (!noResults) {
             noResults = document.createElement('tr');
             noResults.id = 'noResultsRow';
-            noResults.innerHTML = '<td colspan="8" class="text-center py-5 text-muted"><i class="bi bi-search fs-1 d-block mb-2"></i>No results found</td>';
+            noResults.innerHTML = '<td colspan="9" class="text-center py-5 text-muted"><i class="bi bi-search fs-1 d-block mb-2"></i>No results found</td>';
             table.querySelector('tbody').appendChild(noResults);
         }
         noResults.style.display = '';
