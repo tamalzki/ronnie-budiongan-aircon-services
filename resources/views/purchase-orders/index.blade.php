@@ -2,14 +2,48 @@
 
 @section('title', 'Purchase Orders')
 
+@push('styles')
+<style>
+    /* Payments Due tab — amber */
+    #tab-payments-due-btn {
+        color: #92400e !important;
+        background: #fffbeb !important;
+        border-color: #fcd34d #fcd34d transparent !important;
+    }
+    #tab-payments-due-btn:hover { background: #fef3c7 !important; }
+    #tab-payments-due-btn.active {
+        color: #92400e !important;
+        background: #fff !important;
+        border-color: #f59e0b #f59e0b #fff !important;
+        border-top-width: 2px !important;
+    }
+    #tab-payments-due-btn .badge.bg-secondary { background: #d97706 !important; }
+
+    /* Goods Receipts tab — green */
+    #tab-receipts-btn {
+        color: #14532d !important;
+        background: #f0fdf4 !important;
+        border-color: #86efac #86efac transparent !important;
+    }
+    #tab-receipts-btn:hover { background: #dcfce7 !important; }
+    #tab-receipts-btn.active {
+        color: #14532d !important;
+        background: #fff !important;
+        border-color: #22c55e #22c55e #fff !important;
+        border-top-width: 2px !important;
+    }
+    #tab-receipts-btn .badge.bg-secondary { background: #16a34a !important; }
+</style>
+@endpush
+
 @section('content')
 <div class="container-fluid">
 
     {{-- Header --}}
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
-            <h2 class="mb-1"><i class="bi bi-cart-plus text-primary"></i> Purchase Orders</h2>
-            <p class="text-muted mb-0">Manage orders from suppliers</p>
+            <h4 class="mb-0 fw-bold"><i class="bi bi-cart-plus text-primary"></i> Purchase Orders</h4>
+            <p class="text-muted mb-0 small">Manage orders from suppliers</p>
         </div>
         <a href="{{ route('purchase-orders.create') }}" class="btn btn-primary btn-sm shadow-sm">
             <i class="bi bi-plus-circle"></i> New Purchase Order
@@ -44,55 +78,55 @@
     @endif
 
     {{-- Summary Cards --}}
-    <div class="row g-3 mb-4">
+    <div class="row g-2 mb-3">
         <div class="col-6 col-md-3">
             <div class="card border-0 shadow-sm">
-                <div class="card-body d-flex align-items-center gap-3 py-3">
+                <div class="card-body d-flex align-items-center gap-2 py-2 px-3">
                     <div class="bg-primary bg-opacity-10 rounded p-2">
-                        <i class="bi bi-cart-check fs-4 text-primary"></i>
+                        <i class="bi bi-cart-check text-primary"></i>
                     </div>
                     <div>
-                        <div class="text-muted small">Total Orders</div>
-                        <div class="fw-bold fs-5">{{ $totalCount }}</div>
+                        <div class="text-muted" style="font-size:0.72rem;">Total Orders</div>
+                        <div class="fw-bold fs-6">{{ $totalCount }}</div>
                     </div>
                 </div>
             </div>
         </div>
         <div class="col-6 col-md-3">
             <div class="card border-0 shadow-sm">
-                <div class="card-body d-flex align-items-center gap-3 py-3">
+                <div class="card-body d-flex align-items-center gap-2 py-2 px-3">
                     <div class="bg-warning bg-opacity-10 rounded p-2">
-                        <i class="bi bi-clock-history fs-4 text-warning"></i>
+                        <i class="bi bi-clock-history text-warning"></i>
                     </div>
                     <div>
-                        <div class="text-muted small">Awaiting</div>
-                        <div class="fw-bold fs-5">{{ $awaitingCount }}</div>
+                        <div class="text-muted" style="font-size:0.72rem;">Awaiting</div>
+                        <div class="fw-bold fs-6">{{ $awaitingCount }}</div>
                     </div>
                 </div>
             </div>
         </div>
         <div class="col-6 col-md-3">
             <div class="card border-0 shadow-sm">
-                <div class="card-body d-flex align-items-center gap-3 py-3">
+                <div class="card-body d-flex align-items-center gap-2 py-2 px-3">
                     <div class="bg-success bg-opacity-10 rounded p-2">
-                        <i class="bi bi-check-circle fs-4 text-success"></i>
+                        <i class="bi bi-check-circle text-success"></i>
                     </div>
                     <div>
-                        <div class="text-muted small">Received</div>
-                        <div class="fw-bold fs-5">{{ $receivedCount }}</div>
+                        <div class="text-muted" style="font-size:0.72rem;">Received</div>
+                        <div class="fw-bold fs-6">{{ $receivedCount }}</div>
                     </div>
                 </div>
             </div>
         </div>
         <div class="col-6 col-md-3">
             <div class="card border-0 shadow-sm">
-                <div class="card-body d-flex align-items-center gap-3 py-3">
+                <div class="card-body d-flex align-items-center gap-2 py-2 px-3">
                     <div class="bg-danger bg-opacity-10 rounded p-2">
-                        <i class="bi bi-exclamation-triangle fs-4 text-danger"></i>
+                        <i class="bi bi-exclamation-triangle text-danger"></i>
                     </div>
                     <div>
-                        <div class="text-muted small">Unpaid</div>
-                        <div class="fw-bold fs-5">{{ $unpaidCount }}</div>
+                        <div class="text-muted" style="font-size:0.72rem;">Unpaid</div>
+                        <div class="fw-bold fs-6">{{ $unpaidCount }}</div>
                     </div>
                 </div>
             </div>
@@ -100,27 +134,46 @@
     </div>
 
     {{-- Tabs --}}
-    <ul class="nav nav-tabs mb-0" id="poTabs" role="tablist" style="font-size:0.9rem;">
-        <li class="nav-item" role="presentation">
-            <button class="nav-link active px-4" id="tab-all-orders-btn"
-                    type="button" role="tab"
-                    data-bs-toggle="tab" data-bs-target="#tab-all-orders"
-                    aria-controls="tab-all-orders" aria-selected="true">
-                <i class="bi bi-list-ul"></i> All Orders
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link px-4" id="tab-payments-due-btn"
-                    type="button" role="tab"
-                    data-bs-toggle="tab" data-bs-target="#tab-payments-due"
-                    aria-controls="tab-payments-due" aria-selected="false">
-                <i class="bi bi-calendar-event"></i> Payments Due
-                @if($paymentsDueCount > 0)
-                    <span class="badge bg-danger ms-1">{{ $paymentsDueCount }}</span>
-                @endif
-            </button>
-        </li>
-    </ul>
+    <div class="d-flex align-items-end gap-2 mb-0">
+        <ul class="nav nav-tabs flex-grow-1" id="poTabs" role="tablist" style="font-size:0.875rem; border-bottom: none;">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active px-4 py-2" id="tab-all-orders-btn"
+                        type="button" role="tab"
+                        data-bs-toggle="tab" data-bs-target="#tab-all-orders"
+                        aria-controls="tab-all-orders" aria-selected="true">
+                    <i class="bi bi-list-ul me-1"></i> All Orders
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link px-4 py-2" id="tab-receipts-btn"
+                        type="button" role="tab"
+                        data-bs-toggle="tab" data-bs-target="#tab-receipts"
+                        aria-controls="tab-receipts" aria-selected="false"
+                        style="font-weight:600;">
+                    <i class="bi bi-box-arrow-in-down me-1"></i> Goods Receipts
+                    @if($pendingToReceive->count() > 0)
+                        <span class="badge bg-danger ms-1">{{ $pendingToReceive->count() }}</span>
+                    @else
+                        <span class="badge bg-secondary ms-1">0</span>
+                    @endif
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link px-4 py-2 position-relative" id="tab-payments-due-btn"
+                        type="button" role="tab"
+                        data-bs-toggle="tab" data-bs-target="#tab-payments-due"
+                        aria-controls="tab-payments-due" aria-selected="false"
+                        style="font-weight:600;">
+                    <i class="bi bi-cash-stack me-1"></i> Payments Due
+                    @if($paymentsDueCount > 0)
+                        <span class="badge bg-danger ms-1">{{ $paymentsDueCount }}</span>
+                    @else
+                        <span class="badge bg-secondary ms-1">{{ $paymentsDue->count() }}</span>
+                    @endif
+                </button>
+            </li>
+        </ul>
+    </div>
 
     <div class="tab-content border border-top-0 rounded-bottom bg-white shadow-sm mb-4" id="poTabContent">
 
@@ -162,15 +215,15 @@
 
             {{-- Table --}}
             <div class="table-responsive">
-                <table class="table table-hover table-sm mb-0" id="poTable" style="font-size:0.875rem;">
+                <table class="table table-hover table-sm mb-0" id="poTable" style="font-size:0.82rem;">
                     <thead class="bg-light">
                         <tr>
-                            <th class="border-0 px-3 py-2">Supplier</th>
-                            <th class="border-0 px-3 py-2" style="white-space:nowrap">Order Date</th>
-                            <th class="border-0 px-3 py-2">Amount</th>
-                            <th class="border-0 px-3 py-2">Payment</th>
-                            <th class="border-0 px-3 py-2">Delivery</th>
-                            <th class="border-0 px-3 py-2">Actions</th>
+                            <th class="border-0 px-3 py-2">Supplier / PO</th>
+                            <th class="border-0 px-2 py-2" style="white-space:nowrap">Order Date</th>
+                            <th class="border-0 px-2 py-2">Amount</th>
+                            <th class="border-0 px-2 py-2">Payment</th>
+                            <th class="border-0 px-2 py-2">Delivery</th>
+                            <th class="border-0 px-2 py-2 text-center">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="poTableBody">
@@ -188,81 +241,80 @@
                             data-dr="{{ strtolower($po->delivery_number ?? '') }}"
                             data-status="{{ $po->status }}"
                             data-payment="{{ $po->payment_status }}">
-                            <td class="px-3 py-2" style="white-space:nowrap">
-                                <div class="fw-semibold">{{ $po->supplier->name }}</div>
-                                <small class="text-muted">
+                            <td class="px-3 py-1" style="white-space:nowrap">
+                                <div class="fw-semibold" style="font-size:0.83rem;">{{ $po->supplier->name }}</div>
+                                <div class="text-muted" style="font-size:0.72rem;">
                                     <a href="{{ route('purchase-orders.show', $po) }}" class="text-muted text-decoration-none">
                                         {{ $po->po_number }}
                                     </a>
                                     @if($po->delivery_number)
-                                        · <i class="bi bi-truck"></i> {{ $po->delivery_number }}
+                                        &middot; <i class="bi bi-truck"></i> {{ $po->delivery_number }}
                                     @endif
-                                </small>
+                                </div>
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            <td class="px-2 py-1" style="white-space:nowrap">
                                 <div>{{ $po->order_date->format('M d, Y') }}</div>
-                                <small class="text-muted">{{ $po->order_date->diffForHumans() }}</small>
+                                <div class="text-muted" style="font-size:0.72rem;">{{ $po->order_date->diffForHumans() }}</div>
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            <td class="px-2 py-1" style="white-space:nowrap">
                                 <div class="fw-semibold">₱{{ number_format($po->total, 2) }}</div>
                                 @if($po->balance > 0)
-                                    <small class="text-danger">₱{{ number_format($po->balance, 2) }} due</small>
+                                    <div class="text-danger" style="font-size:0.72rem;">₱{{ number_format($po->balance, 2) }} due</div>
                                 @endif
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
-                                <span class="badge {{ $po->payment_type == 'full' ? 'bg-success' : 'bg-info text-dark' }}">
-                                    {{ $po->payment_type == 'full' ? 'Full' : '45-Day' }}
-                                </span>
-                                @if($po->payment_type === '45days')
-                                    @if($po->payment_status == 'paid')
-                                        <span class="badge bg-success">Paid</span>
-                                    @elseif($po->payment_status == 'partial')
-                                        <span class="badge bg-warning text-dark">Partial</span>
-                                    @else
-                                        <span class="badge bg-danger">Unpaid</span>
-                                    @endif
-                                    @if($po->payment_due_date && $po->payment_status !== 'paid')
-                                        <br>
-                                        @if($daysLeft < 0)
-                                            <small class="text-danger fw-bold"><i class="bi bi-alarm"></i> Overdue {{ abs((int)$daysLeft) }}d</small>
-                                        @elseif($daysLeft <= 10)
-                                            <small class="text-danger fw-bold"><i class="bi bi-bell-fill"></i> {{ (int)$daysLeft }}d left</small>
+                            <td class="px-2 py-1" style="white-space:nowrap">
+                                <div class="d-flex flex-wrap gap-1 align-items-center">
+                                    <span class="badge {{ $po->payment_type == 'full' ? 'bg-success' : 'bg-info text-dark' }}" style="font-size:0.7rem;">
+                                        {{ $po->payment_type == 'full' ? 'Full' : '45-Day' }}
+                                    </span>
+                                    @if($po->payment_type === '45days')
+                                        @if($po->payment_status == 'paid')
+                                            <span class="badge bg-success" style="font-size:0.7rem;">Paid</span>
+                                        @elseif($po->payment_status == 'partial')
+                                            <span class="badge bg-warning text-dark" style="font-size:0.7rem;">Partial</span>
                                         @else
-                                            <small class="text-muted">Due {{ $po->payment_due_date->format('M d, Y') }}</small>
+                                            <span class="badge bg-danger" style="font-size:0.7rem;">Unpaid</span>
                                         @endif
                                     @endif
+                                </div>
+                                @if($po->payment_type === '45days' && $po->payment_due_date && $po->payment_status !== 'paid')
+                                    @if($daysLeft < 0)
+                                        <div class="text-danger fw-bold" style="font-size:0.72rem;"><i class="bi bi-alarm"></i> Overdue {{ abs((int)$daysLeft) }}d</div>
+                                    @elseif($daysLeft <= 10)
+                                        <div class="text-danger fw-bold" style="font-size:0.72rem;"><i class="bi bi-bell-fill"></i> {{ (int)$daysLeft }}d left</div>
+                                    @else
+                                        <div class="text-muted" style="font-size:0.72rem;">Due {{ $po->payment_due_date->format('M d') }}</div>
+                                    @endif
                                 @endif
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            <td class="px-2 py-1" style="white-space:nowrap">
                                 @if($po->status == 'received')
-                                    <span class="badge bg-success"><i class="bi bi-check-circle-fill"></i> Received</span>
+                                    <span class="badge bg-success" style="font-size:0.7rem;"><i class="bi bi-check-circle-fill"></i> Received</span>
                                 @else
-                                    <span class="badge bg-warning text-dark"><i class="bi bi-clock-fill"></i> Awaiting</span>
+                                    <span class="badge bg-warning text-dark" style="font-size:0.7rem;"><i class="bi bi-clock-fill"></i> Awaiting</span>
                                 @endif
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            <td class="px-2 py-1" style="white-space:nowrap">
                                 <div class="d-flex gap-1 flex-wrap">
                                     <a href="{{ route('purchase-orders.show', $po) }}"
-                                       class="btn btn-outline-primary btn-sm" style="font-size:0.78rem">
+                                       class="btn btn-outline-primary btn-sm py-0 px-2" style="font-size:0.75rem;">
                                         <i class="bi bi-eye"></i> View
                                     </a>
                                     @if($po->status == 'pending')
                                     <a href="{{ route('purchase-orders.edit', $po) }}"
-                                       class="btn btn-warning btn-sm" style="font-size:0.78rem">
+                                       class="btn btn-warning btn-sm py-0 px-2" style="font-size:0.75rem;">
                                         <i class="bi bi-pencil"></i> Edit
                                     </a>
-                                    <button type="button" class="btn btn-outline-success btn-sm"
-                                            data-bs-toggle="modal"
-                                            data-bs-target="#receiveModal{{ $po->id }}"
-                                            style="font-size:0.78rem">
+                                    <button type="button" class="btn btn-outline-success btn-sm py-0 px-2"
+                                            data-bs-toggle="modal" data-bs-target="#receiveModal{{ $po->id }}"
+                                            style="font-size:0.75rem;">
                                         <i class="bi bi-box-arrow-in-down"></i> Receive
                                     </button>
                                     @endif
                                     @if($po->payment_type === '45days' && $po->balance > 0)
-                                    <button type="button" class="btn btn-primary btn-sm"
-                                            data-bs-toggle="modal"
-                                            data-bs-target="#paymentModal{{ $po->id }}"
-                                            style="font-size:0.78rem">
+                                    <button type="button" class="btn btn-primary btn-sm py-0 px-2"
+                                            data-bs-toggle="modal" data-bs-target="#paymentModal{{ $po->id }}"
+                                            style="font-size:0.75rem;">
                                         <i class="bi bi-cash-coin"></i> Pay
                                     </button>
                                     @endif
@@ -270,7 +322,7 @@
                                     <form action="{{ route('purchase-orders.destroy', $po) }}" method="POST"
                                           class="d-inline" onsubmit="return confirm('Delete this purchase order?')">
                                         @csrf @method('DELETE')
-                                        <button type="submit" class="btn btn-outline-danger btn-sm" style="font-size:0.78rem">
+                                        <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size:0.75rem;">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </form>
@@ -280,8 +332,8 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="6" class="text-center py-5 text-muted">
-                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                            <td colspan="6" class="text-center py-4 text-muted">
+                                <i class="bi bi-inbox fs-2 d-block mb-2"></i>
                                 No purchase orders yet
                             </td>
                         </tr>
@@ -303,26 +355,140 @@
 
         </div>{{-- end tab-all-orders --}}
 
-        {{-- ═══ TAB 2: PAYMENTS DUE ═══ --}}
-        <div class="tab-pane fade p-4" id="tab-payments-due" role="tabpanel" aria-labelledby="tab-payments-due-btn">
+        {{-- ═══ TAB 2: GOODS RECEIPTS ═══ --}}
+        <div class="tab-pane fade" id="tab-receipts" role="tabpanel" aria-labelledby="tab-receipts-btn">
 
-            <h6 class="fw-semibold mb-3">
-                <i class="bi bi-calendar-event text-primary"></i> Payment Schedule — 45-Day Terms Only
-            </h6>
-
+            @if($pendingToReceive->count() > 0)
+            <div class="px-3 py-2 border-bottom d-flex align-items-center justify-content-between">
+                <p class="text-muted mb-0" style="font-size:0.82rem;">
+                    <i class="bi bi-box-arrow-in-down text-success"></i>
+                    <strong class="text-success">{{ $pendingToReceive->count() }}</strong> order(s) waiting to be received
+                </p>
+            </div>
             <div class="table-responsive">
-                <table class="table table-hover table-sm mb-0" style="font-size:0.875rem;">
+                <table class="table table-hover table-sm mb-0" style="font-size:0.82rem;">
                     <thead class="bg-light">
                         <tr>
-                            <th class="border-0 px-3 py-2">PO Number</th>
-                            <th class="border-0 px-3 py-2">Supplier</th>
-                            <th class="border-0 px-3 py-2" style="white-space:nowrap">Order Date</th>
-                            <th class="border-0 px-3 py-2" style="white-space:nowrap">Due Date</th>
-                            <th class="border-0 px-3 py-2">Total</th>
-                            <th class="border-0 px-3 py-2">Paid</th>
-                            <th class="border-0 px-3 py-2">Balance</th>
-                            <th class="border-0 px-3 py-2">Status</th>
-                            <th class="border-0 px-3 py-2">Action</th>
+                            <th class="border-0 px-3 py-2">PO / Supplier</th>
+                            <th class="border-0 px-2 py-2" style="white-space:nowrap">Order Date</th>
+                            <th class="border-0 px-2 py-2" style="white-space:nowrap">Expected Delivery</th>
+                            <th class="border-0 px-2 py-2">Items Ordered</th>
+                            <th class="border-0 px-2 py-2 text-end">Value</th>
+                            <th class="border-0 px-2 py-2">Payment</th>
+                            <th class="border-0 px-2 py-2">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($pendingToReceive as $po)
+                        @php
+                            $daysSinceOrder = $po->order_date->diffInDays(now());
+                            $isLate = $po->expected_delivery_date && now()->gt($po->expected_delivery_date);
+                        @endphp
+                        <tr class="{{ $isLate ? 'table-warning' : '' }}">
+                            <td class="px-3 py-1" style="white-space:nowrap">
+                                <a href="{{ route('purchase-orders.show', $po) }}"
+                                   class="fw-semibold text-primary text-decoration-none" style="font-size:0.83rem;">
+                                    {{ $po->po_number }}
+                                </a>
+                                <div class="text-muted" style="font-size:0.72rem;">{{ $po->supplier->name }}</div>
+                            </td>
+                            <td class="px-2 py-1" style="white-space:nowrap">
+                                <div>{{ $po->order_date->format('M d, Y') }}</div>
+                                <div class="text-muted" style="font-size:0.72rem;">{{ $daysSinceOrder }}d ago</div>
+                            </td>
+                            <td class="px-2 py-1" style="white-space:nowrap">
+                                @if($po->expected_delivery_date)
+                                    <div>{{ $po->expected_delivery_date->format('M d, Y') }}</div>
+                                    @if($isLate)
+                                        <div class="text-warning fw-bold" style="font-size:0.72rem;">
+                                            <i class="bi bi-exclamation-triangle-fill"></i> Overdue
+                                        </div>
+                                    @else
+                                        <div class="text-muted" style="font-size:0.72rem;">
+                                            {{ now()->diffInDays($po->expected_delivery_date) }}d remaining
+                                        </div>
+                                    @endif
+                                @else
+                                    <span class="text-muted">—</span>
+                                @endif
+                            </td>
+                            <td class="px-2 py-1">
+                                @foreach($po->items as $item)
+                                <div style="font-size:0.78rem;">
+                                    <span class="fw-semibold">{{ $item->quantity_ordered }}</span>×
+                                    {{ trim(($item->product->brand->name ?? '') . ' ' . $item->product->model) }}
+                                    @if($item->product->unit_type)
+                                        <span class="badge ms-1" style="font-size:0.65rem;
+                                            {{ $item->product->unit_type === 'indoor'
+                                                ? 'background:#e8f0fe;color:#1a56db;'
+                                                : 'background:#dcfce7;color:#166534;' }}">
+                                            {{ ucfirst($item->product->unit_type) }}
+                                        </span>
+                                    @endif
+                                </div>
+                                @endforeach
+                            </td>
+                            <td class="px-2 py-1 text-end fw-semibold" style="white-space:nowrap">
+                                ₱{{ number_format($po->total, 2) }}
+                            </td>
+                            <td class="px-2 py-1" style="white-space:nowrap">
+                                <span class="badge {{ $po->payment_type == 'full' ? 'bg-success' : 'bg-info text-dark' }}" style="font-size:0.7rem;">
+                                    {{ $po->payment_type == 'full' ? 'Full' : '45-Day' }}
+                                </span>
+                                @if($po->payment_type === '45days' && $po->balance > 0)
+                                    <div class="text-muted" style="font-size:0.72rem;">₱{{ number_format($po->balance, 2) }} due</div>
+                                @endif
+                            </td>
+                            <td class="px-2 py-1" style="white-space:nowrap">
+                                <div class="d-flex gap-1">
+                                    <button type="button"
+                                            class="btn btn-success btn-sm py-0 px-2"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#receiveModal{{ $po->id }}"
+                                            style="font-size:0.75rem;">
+                                        <i class="bi bi-box-arrow-in-down"></i> Receive
+                                    </button>
+                                    <a href="{{ route('purchase-orders.show', $po) }}"
+                                       class="btn btn-outline-secondary btn-sm py-0 px-2"
+                                       style="font-size:0.75rem;">
+                                        <i class="bi bi-eye"></i> View
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+            @else
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-check-circle text-success fs-2 d-block mb-2"></i>
+                <p class="mb-0 fw-semibold">All orders have been received!</p>
+                <p class="small">No pending deliveries at this time.</p>
+            </div>
+            @endif
+
+        </div>{{-- end tab-receipts --}}
+
+        {{-- ═══ TAB 3: PAYMENTS DUE ═══ --}}
+        <div class="tab-pane fade p-3" id="tab-payments-due" role="tabpanel" aria-labelledby="tab-payments-due-btn">
+
+            <p class="text-muted mb-2" style="font-size:0.82rem;">
+                <i class="bi bi-calendar-event text-primary"></i> 45-Day payment terms only
+            </p>
+
+            <div class="table-responsive">
+                <table class="table table-hover table-sm mb-0" style="font-size:0.82rem;">
+                    <thead class="bg-light">
+                        <tr>
+                            <th class="border-0 px-3 py-2">PO / Supplier</th>
+                            <th class="border-0 px-2 py-2" style="white-space:nowrap">Ordered</th>
+                            <th class="border-0 px-2 py-2" style="white-space:nowrap">Due Date</th>
+                            <th class="border-0 px-2 py-2">Total</th>
+                            <th class="border-0 px-2 py-2">Paid</th>
+                            <th class="border-0 px-2 py-2">Balance</th>
+                            <th class="border-0 px-2 py-2">Status</th>
+                            <th class="border-0 px-2 py-2 text-center">Action</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -334,43 +500,43 @@
                             elseif ($daysLeft !== null && $daysLeft <= 10) $rowClass = 'table-warning';
                         @endphp
                         <tr class="{{ $rowClass }}">
-                            <td class="px-3 py-2" style="white-space:nowrap">
-                                <a href="{{ route('purchase-orders.show', $po) }}" class="text-decoration-none fw-semibold text-primary">
+                            <td class="px-3 py-1" style="white-space:nowrap">
+                                <a href="{{ route('purchase-orders.show', $po) }}" class="text-decoration-none fw-semibold text-primary" style="font-size:0.83rem;">
                                     {{ $po->po_number }}
                                 </a>
+                                <div class="text-muted" style="font-size:0.72rem;">{{ $po->supplier->name }}</div>
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">{{ $po->supplier->name }}</td>
-                            <td class="px-3 py-2" style="white-space:nowrap">{{ $po->order_date->format('M d, Y') }}</td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            <td class="px-2 py-1" style="white-space:nowrap">{{ $po->order_date->format('M d, Y') }}</td>
+                            <td class="px-2 py-1" style="white-space:nowrap">
                                 <div>{{ $po->payment_due_date->format('M d, Y') }}</div>
                                 @if($daysLeft < 0)
-                                    <small class="text-danger fw-bold"><i class="bi bi-alarm"></i> Overdue {{ abs((int)$daysLeft) }}d</small>
+                                    <div class="text-danger fw-bold" style="font-size:0.72rem;"><i class="bi bi-alarm"></i> Overdue {{ abs((int)$daysLeft) }}d</div>
                                 @elseif($daysLeft == 0)
-                                    <small class="text-danger fw-bold"><i class="bi bi-exclamation-circle"></i> Due Today</small>
+                                    <div class="text-danger fw-bold" style="font-size:0.72rem;"><i class="bi bi-exclamation-circle"></i> Due Today</div>
                                 @elseif($daysLeft <= 10)
-                                    <small class="text-warning fw-bold"><i class="bi bi-bell-fill"></i> {{ (int)$daysLeft }}d left</small>
+                                    <div class="text-warning fw-bold" style="font-size:0.72rem;"><i class="bi bi-bell-fill"></i> {{ (int)$daysLeft }}d left</div>
                                 @else
-                                    <small class="text-muted">{{ (int)$daysLeft }}d left</small>
+                                    <div class="text-muted" style="font-size:0.72rem;">{{ (int)$daysLeft }}d left</div>
                                 @endif
                             </td>
-                            <td class="px-3 py-2 fw-semibold" style="white-space:nowrap">₱{{ number_format($po->total, 2) }}</td>
-                            <td class="px-3 py-2 text-success" style="white-space:nowrap">₱{{ number_format($po->amount_paid, 2) }}</td>
-                            <td class="px-3 py-2 fw-semibold text-danger" style="white-space:nowrap">₱{{ number_format($po->balance, 2) }}</td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            <td class="px-2 py-1 fw-semibold" style="white-space:nowrap">₱{{ number_format($po->total, 2) }}</td>
+                            <td class="px-2 py-1 text-success" style="white-space:nowrap">₱{{ number_format($po->amount_paid, 2) }}</td>
+                            <td class="px-2 py-1 fw-semibold text-danger" style="white-space:nowrap">₱{{ number_format($po->balance, 2) }}</td>
+                            <td class="px-2 py-1" style="white-space:nowrap">
                                 @if($po->payment_status == 'paid')
-                                    <span class="badge bg-success">Paid</span>
+                                    <span class="badge bg-success" style="font-size:0.7rem;">Paid</span>
                                 @elseif($po->payment_status == 'partial')
-                                    <span class="badge bg-warning text-dark">Partial</span>
+                                    <span class="badge bg-warning text-dark" style="font-size:0.7rem;">Partial</span>
                                 @else
-                                    <span class="badge bg-danger">Unpaid</span>
+                                    <span class="badge bg-danger" style="font-size:0.7rem;">Unpaid</span>
                                 @endif
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            <td class="px-2 py-1" style="white-space:nowrap">
                                 @if($po->balance > 0)
                                 <button type="button" class="btn btn-primary btn-sm"
                                         data-bs-toggle="modal"
                                         data-bs-target="#paymentModal{{ $po->id }}"
-                                        style="font-size:0.78rem">
+                                        style="font-size:0.78rem;">
                                     <i class="bi bi-cash-coin"></i> Pay
                                 </button>
                                 @else
@@ -380,8 +546,8 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="9" class="text-center py-5 text-muted">
-                                <i class="bi bi-check-circle text-success fs-1 d-block mb-2"></i>
+                            <td colspan="8" class="text-center py-4 text-muted">
+                                <i class="bi bi-check-circle text-success fs-2 d-block mb-2"></i>
                                 No outstanding payments — all settled!
                             </td>
                         </tr>
@@ -399,7 +565,7 @@
 {{-- ═══════════════════════════════════════════════════
      RECEIVE STOCK MODALS — with serial number inputs
 ════════════════════════════════════════════════════ --}}
-@foreach($purchaseOrders->getCollection()->where('status', 'pending') as $po)
+@foreach($pendingToReceive as $po)
 <div class="modal fade" id="receiveModal{{ $po->id }}" tabindex="-1">
     <div class="modal-dialog modal-xl">
         <div class="modal-content border-0 shadow">

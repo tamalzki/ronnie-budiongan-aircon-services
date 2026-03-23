@@ -35,10 +35,14 @@ class ReportController extends Controller
             ->get();
 
         // ── Top Products ────────────────────────────────────────────
-        $topProducts = Product::withCount(['saleItems' => function ($q) use ($startDate, $endDate) {
-                $q->whereHas('sale', fn($s) => $s->whereBetween('sale_date', [$startDate, $endDate]));
-            }])
+        $topProducts = Product::withCount([
+                'saleItems as sale_items_count' => function ($q) use ($startDate, $endDate) {
+                    $q->whereHas('sale', fn($s) => $s->whereBetween('sale_date', [$startDate, $endDate]));
+                },
+                'serials as in_stock_count' => fn($q) => $q->where('status', 'in_stock'),
+            ])
             ->with('brand')
+            ->having('sale_items_count', '>', 0)
             ->orderBy('sale_items_count', 'desc')
             ->take(10)
             ->get();
@@ -79,7 +83,22 @@ class ReportController extends Controller
 
         // ── Profit ──────────────────────────────────────────────────
         $profitMargin     = $totalSales - $totalPurchases;
-        $profitPercentage = $totalPurchases > 0 ? (($profitMargin / $totalPurchases) * 100) : 0;
+        $profitPercentage = $totalSales > 0 ? (($profitMargin / $totalSales) * 100) : 0;
+
+        // ── Inventory Snapshot (always current, not date-filtered) ──
+        $inventorySnapshot = Product::with('brand')
+            ->where('is_active', true)
+            ->withCount([
+                'serials as in_stock_count'  => fn($q) => $q->where('status', 'in_stock'),
+                'serials as sold_count'      => fn($q) => $q->where('status', 'sold'),
+                'serials as pending_count'   => fn($q) => $q->where('status', 'pending'),
+            ])
+            ->orderByRaw('COALESCE(brand_id, 0)')
+            ->orderBy('model')
+            ->get();
+
+        $totalStockValue = $inventorySnapshot->sum(fn($p) => $p->in_stock_count * (float) $p->cost);
+        $totalStockUnits = $inventorySnapshot->sum('in_stock_count');
 
         // ── Top Customers ───────────────────────────────────────────
         $topCustomers = Sale::whereBetween('sale_date', [$startDate, $endDate])
@@ -101,7 +120,8 @@ class ReportController extends Controller
             'totalPurchases', 'totalPurchasesPaid', 'totalPurchasesPending',
             'purchaseOrdersCount', 'purchaseOrdersSummary',
             'profitMargin', 'profitPercentage',
-            'topCustomers'
+            'topCustomers',
+            'inventorySnapshot', 'totalStockValue', 'totalStockUnits'
         ));
     }
 }

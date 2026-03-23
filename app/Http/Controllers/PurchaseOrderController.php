@@ -48,10 +48,17 @@ class PurchaseOrderController extends Controller
             return $po->payment_due_date && $po->payment_due_date->lte(now()->addDays(30));
         })->count();
 
+        // Goods Receipts queue — POs awaiting stock receipt
+        $pendingToReceive = PurchaseOrder::with(['supplier', 'items.product.brand'])
+            ->where('status', 'pending')
+            ->orderBy('order_date')
+            ->get();
+
         return view('purchase-orders.index', compact(
             'purchaseOrders', 'upcomingDeadlines', 'overdueOrders',
             'totalCount', 'awaitingCount', 'receivedCount', 'unpaidCount',
-            'paymentsDue', 'paymentsDueCount'
+            'paymentsDue', 'paymentsDueCount',
+            'pendingToReceive'
         ));
     }
 

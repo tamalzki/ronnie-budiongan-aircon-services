@@ -59,18 +59,20 @@
     {{-- Tabs --}}
     <ul class="nav nav-tabs mb-0" id="paymentTabs" role="tablist">
         <li class="nav-item">
-            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-history"
-                    style="padding:0.75rem 1.5rem;font-size:0.9rem;border:1px solid transparent;background:white;color:#0d6efd;">
-                <i class="bi bi-clock-history"></i> Payment History
-            </button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-pending"
-                    style="padding:0.75rem 1.5rem;font-size:0.9rem;border:1px solid transparent;">
+            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-pending"
+                    style="padding:0.75rem 1.5rem;font-size:0.9rem;border:1px solid transparent;font-weight:600;">
                 <i class="bi bi-exclamation-circle"></i> Pending Payments
                 @if($unpaidPOs->count() > 0)
                     <span class="badge bg-danger ms-1">{{ $unpaidPOs->count() }}</span>
+                @else
+                    <span class="badge bg-success ms-1">All Clear</span>
                 @endif
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-history"
+                    style="padding:0.75rem 1.5rem;font-size:0.9rem;border:1px solid transparent;">
+                <i class="bi bi-clock-history"></i> Payment History
             </button>
         </li>
     </ul>
@@ -78,9 +80,9 @@
     <div class="tab-content border border-top-0 rounded-bottom bg-white shadow-sm mb-4" id="paymentTabContent">
 
         {{-- ═══════════════════════════════
-             TAB 1: PAYMENT HISTORY
+             TAB 2: PAYMENT HISTORY
         ════════════════════════════════ --}}
-        <div class="tab-pane fade show active" id="tab-history">
+        <div class="tab-pane fade" id="tab-history">
 
             {{-- Search & Filter --}}
             <div class="border-bottom py-3 px-3">
@@ -180,9 +182,9 @@
         </div>{{-- end tab-history --}}
 
         {{-- ═══════════════════════════════
-             TAB 2: PENDING PAYMENTS
+             TAB 1: PENDING PAYMENTS
         ════════════════════════════════ --}}
-        <div class="tab-pane fade p-4" id="tab-pending">
+        <div class="tab-pane fade show active p-4" id="tab-pending">
 
             @if($unpaidPOs->count() > 0)
             <h6 class="fw-semibold mb-3">

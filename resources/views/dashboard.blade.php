@@ -6,24 +6,24 @@
 <div class="container-fluid">
 
     <!-- Header -->
-    <div class="mb-4">
-        <h2 class="mb-1"><i class="bi bi-speedometer2 text-primary"></i> Dashboard</h2>
-        <p class="text-muted mb-0">Welcome back! Here's what's happening today — {{ now()->format('F d, Y') }}</p>
+    <div class="mb-3">
+        <h4 class="mb-0"><i class="bi bi-speedometer2 text-primary"></i> Dashboard</h4>
+        <p class="text-muted mb-0" style="font-size:0.82rem;">Welcome back! Here's what's happening today — {{ now()->format('F d, Y') }}</p>
     </div>
 
     <!-- ROW 1: Sales Metrics -->
-    <div class="row g-3 mb-4">
+    <div class="row g-2 mb-3">
         <div class="col-md-3">
             <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="bg-primary bg-opacity-10 p-3 rounded me-3">
-                            <i class="bi bi-calendar-day fs-3 text-primary"></i>
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="bg-primary bg-opacity-10 rounded p-2 flex-shrink-0">
+                            <i class="bi bi-calendar-day fs-5 text-primary"></i>
                         </div>
-                        <div>
-                            <p class="text-muted mb-1 small">Today's Sales</p>
-                            <h4 class="mb-0 fw-bold">₱{{ number_format($todaySales, 2) }}</h4>
-                            <small class="text-muted">{{ now()->format('M d, Y') }}</small>
+                        <div style="min-width:0;">
+                            <div class="text-muted mb-0" style="font-size:0.72rem;line-height:1.2;">Today's Sales</div>
+                            <div class="fw-bold text-truncate" style="font-size:1rem;line-height:1.3;">₱{{ number_format($todaySales, 2) }}</div>
+                            <div class="text-muted" style="font-size:0.72rem;">{{ now()->format('M d, Y') }}</div>
                         </div>
                     </div>
                 </div>
@@ -32,32 +32,15 @@
 
         <div class="col-md-3">
             <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="bg-success bg-opacity-10 p-3 rounded me-3">
-                            <i class="bi bi-calendar-month fs-3 text-success"></i>
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="bg-success bg-opacity-10 rounded p-2 flex-shrink-0">
+                            <i class="bi bi-calendar-month fs-5 text-success"></i>
                         </div>
-                        <div>
-                            <p class="text-muted mb-1 small">This Month's Sales</p>
-                            <h4 class="mb-0 fw-bold text-success">₱{{ number_format($monthSales, 2) }}</h4>
-                            <small class="text-muted">{{ now()->format('F Y') }}</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="bg-info bg-opacity-10 p-3 rounded me-3">
-                            <i class="bi bi-graph-up fs-3 text-info"></i>
-                        </div>
-                        <div>
-                            <p class="text-muted mb-1 small">Total Sales (All Time)</p>
-                            <h4 class="mb-0 fw-bold text-info">₱{{ number_format($totalSales, 2) }}</h4>
-                            <small class="text-muted">All records</small>
+                        <div style="min-width:0;">
+                            <div class="text-muted mb-0" style="font-size:0.72rem;line-height:1.2;">This Month's Sales</div>
+                            <div class="fw-bold text-success text-truncate" style="font-size:1rem;line-height:1.3;">₱{{ number_format($monthSales, 2) }}</div>
+                            <div class="text-muted" style="font-size:0.72rem;">{{ now()->format('F Y') }}</div>
                         </div>
                     </div>
                 </div>
@@ -66,15 +49,32 @@
 
         <div class="col-md-3">
             <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="bg-warning bg-opacity-10 p-3 rounded me-3">
-                            <i class="bi bi-cash-coin fs-3 text-warning"></i>
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="bg-info bg-opacity-10 rounded p-2 flex-shrink-0">
+                            <i class="bi bi-graph-up fs-5 text-info"></i>
                         </div>
-                        <div>
-                            <p class="text-muted mb-1 small">To Collect This Month</p>
-                            <h4 class="mb-0 fw-bold text-warning">₱{{ number_format($installmentsAmountDueThisMonth, 2) }}</h4>
-                            <small class="text-muted">{{ $installmentsDueThisMonth }} installments due</small>
+                        <div style="min-width:0;">
+                            <div class="text-muted mb-0" style="font-size:0.72rem;line-height:1.2;">Total Sales (All Time)</div>
+                            <div class="fw-bold text-info text-truncate" style="font-size:1rem;line-height:1.3;">₱{{ number_format($totalSales, 2) }}</div>
+                            <div class="text-muted" style="font-size:0.72rem;">All records</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="bg-warning bg-opacity-10 rounded p-2 flex-shrink-0">
+                            <i class="bi bi-cash-coin fs-5 text-warning"></i>
+                        </div>
+                        <div style="min-width:0;">
+                            <div class="text-muted mb-0" style="font-size:0.72rem;line-height:1.2;">To Collect This Month</div>
+                            <div class="fw-bold text-warning text-truncate" style="font-size:1rem;line-height:1.3;">₱{{ number_format($installmentsAmountDueThisMonth, 2) }}</div>
+                            <div class="text-muted" style="font-size:0.72rem;">{{ $installmentsDueThisMonth }} installments due</div>
                         </div>
                     </div>
                 </div>
@@ -83,25 +83,25 @@
     </div>
 
     <!-- ROW 2: Alerts and Inventory -->
-    <div class="row g-3 mb-4">
+    <div class="row g-2 mb-3">
         <!-- Overdue Installments Alert -->
         <div class="col-md-3">
             <div class="card border-0 shadow-sm h-100 {{ $overdueInstallments > 0 ? 'border-start border-danger border-4' : '' }}">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="bg-danger bg-opacity-10 p-3 rounded me-3">
-                            <i class="bi bi-exclamation-triangle fs-3 text-danger"></i>
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="bg-danger bg-opacity-10 rounded p-2 flex-shrink-0">
+                            <i class="bi bi-exclamation-triangle fs-5 text-danger"></i>
                         </div>
-                        <div>
-                            <p class="text-muted mb-1 small">Overdue Installments</p>
-                            <h4 class="mb-0 fw-bold text-danger">{{ $overdueInstallments }}</h4>
-                            <small class="text-muted">
+                        <div style="min-width:0;">
+                            <div class="text-muted mb-0" style="font-size:0.72rem;line-height:1.2;">Overdue Installments</div>
+                            <div class="fw-bold text-danger" style="font-size:1rem;line-height:1.3;">{{ $overdueInstallments }}</div>
+                            <div style="font-size:0.72rem;">
                                 @if($overdueInstallments > 0)
                                     <span class="text-danger">Needs attention!</span>
                                 @else
-                                    All on track
+                                    <span class="text-muted">All on track</span>
                                 @endif
-                            </small>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -111,15 +111,15 @@
         <!-- Supplier Payments Due -->
         <div class="col-md-3">
             <div class="card border-0 shadow-sm h-100 {{ $supplierPaymentsDueCount > 0 ? 'border-start border-warning border-4' : '' }}">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="bg-warning bg-opacity-10 p-3 rounded me-3 flex-shrink-0">
-                            <i class="bi bi-truck fs-3 text-warning"></i>
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="bg-warning bg-opacity-10 rounded p-2 flex-shrink-0">
+                            <i class="bi bi-truck fs-5 text-warning"></i>
                         </div>
-                        <div style="min-width: 0;">
-                            <p class="text-muted mb-1 small">Supplier Payments Due</p>
-                            <h4 class="mb-0 fw-bold text-warning text-break" style="word-break: break-all;">₱{{ number_format($supplierPaymentsDue, 2) }}</h4>
-                            <small class="text-muted">{{ $supplierPaymentsDueCount }} orders pending</small>
+                        <div style="min-width:0;">
+                            <div class="text-muted mb-0" style="font-size:0.72rem;line-height:1.2;">Supplier Payments Due</div>
+                            <div class="fw-bold text-warning text-truncate" style="font-size:1rem;line-height:1.3;">₱{{ number_format($supplierPaymentsDue, 2) }}</div>
+                            <div class="text-muted" style="font-size:0.72rem;">{{ $supplierPaymentsDueCount }} orders pending</div>
                         </div>
                     </div>
                 </div>
@@ -129,15 +129,15 @@
         <!-- Total Stock -->
         <div class="col-md-3">
             <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="bg-primary bg-opacity-10 p-3 rounded me-3">
-                            <i class="bi bi-box-seam fs-3 text-primary"></i>
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="bg-primary bg-opacity-10 rounded p-2 flex-shrink-0">
+                            <i class="bi bi-box-seam fs-5 text-primary"></i>
                         </div>
-                        <div>
-                            <p class="text-muted mb-1 small">Total Stock in Warehouse</p>
-                            <h4 class="mb-0 fw-bold">{{ number_format($totalStock) }} units</h4>
-                            <small class="text-muted">Across all products</small>
+                        <div style="min-width:0;">
+                            <div class="text-muted mb-0" style="font-size:0.72rem;line-height:1.2;">Total Stock in Warehouse</div>
+                            <div class="fw-bold text-truncate" style="font-size:1rem;line-height:1.3;">{{ number_format($totalStock) }} units</div>
+                            <div class="text-muted" style="font-size:0.72rem;">Across all products</div>
                         </div>
                     </div>
                 </div>
@@ -147,15 +147,15 @@
         <!-- Low Stock Alert -->
         <div class="col-md-3">
             <div class="card border-0 shadow-sm h-100 {{ $lowStockProducts > 0 ? 'border-start border-danger border-4' : '' }}">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="bg-danger bg-opacity-10 p-3 rounded me-3">
-                            <i class="bi bi-boxes fs-3 text-danger"></i>
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="bg-danger bg-opacity-10 rounded p-2 flex-shrink-0">
+                            <i class="bi bi-boxes fs-5 text-danger"></i>
                         </div>
-                        <div>
-                            <p class="text-muted mb-1 small">Low Stock Products</p>
-                            <h4 class="mb-0 fw-bold text-danger">{{ $lowStockProducts }}</h4>
-                            <small class="text-muted">{{ $outOfStockProducts }} out of stock</small>
+                        <div style="min-width:0;">
+                            <div class="text-muted mb-0" style="font-size:0.72rem;line-height:1.2;">Low Stock Products</div>
+                            <div class="fw-bold text-danger" style="font-size:1rem;line-height:1.3;">{{ $lowStockProducts }}</div>
+                            <div class="text-muted" style="font-size:0.72rem;">{{ $outOfStockProducts }} out of stock</div>
                         </div>
                     </div>
                 </div>

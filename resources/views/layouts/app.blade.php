@@ -163,7 +163,7 @@
             text-decoration: none;
             transition: background 0.15s ease, color 0.15s ease;
             position: relative;
-            font-size: 0.82rem;
+            font-size: 15px;
             font-weight: 500;
             border-radius: 0;
         }
