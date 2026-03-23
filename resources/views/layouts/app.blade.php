@@ -12,7 +12,7 @@
     
     <style>
         :root {
-            --sidebar-width: 280px;
+            --sidebar-width: 220px;
             --primary-color: #4F46E5;
             --primary-dark: #4338CA;
             --secondary-color: #06B6D4;
@@ -38,62 +38,49 @@
             color: var(--text-dark);
         }
 
-        /* Sidebar Styles */
+        /* ── Sidebar ── */
         .sidebar {
             position: fixed;
             top: 0;
             left: 0;
             width: var(--sidebar-width);
             height: 100vh;
-            background: linear-gradient(180deg, #4F46E5 0%, #4338CA 100%);
+            background: linear-gradient(180deg, #3730a3 0%, #4338CA 60%, #4F46E5 100%);
             color: white;
-            overflow-y: auto;
             z-index: 1000;
-            box-shadow: 4px 0 12px rgba(0, 0, 0, 0.1);
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.15);
             display: flex;
             flex-direction: column;
+            overflow: hidden;
         }
 
-        .sidebar::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .sidebar::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        .sidebar::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 3px;
-        }
-
-        /* Logo Section */
+        /* ── Header ── */
         .sidebar-header {
-            padding: 1.5rem 1.25rem;
+            padding: 0.9rem 1rem;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            background: rgba(0, 0, 0, 0.1);
+            background: rgba(0, 0, 0, 0.12);
             flex-shrink: 0;
         }
 
         .logo {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
+            gap: 0.6rem;
             text-decoration: none;
             color: white;
         }
 
         .logo-icon {
-            width: 50px;
-            height: 50px;
-            border-radius: 12px;
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
             overflow: hidden;
             flex-shrink: 0;
             background: white;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
         }
 
         .logo-icon img {
@@ -102,110 +89,83 @@
             object-fit: cover;
         }
 
-        .logo-text {
-            flex: 1;
-        }
+        .logo-text { flex: 1; }
 
         .logo-title {
-            font-size: 1.1rem;
+            font-size: 0.95rem;
             font-weight: 700;
             line-height: 1.2;
             margin: 0;
         }
 
         .logo-subtitle {
-            font-size: 0.7rem;
-            opacity: 0.8;
+            font-size: 0.62rem;
+            opacity: 0.75;
             margin: 0;
             font-weight: 400;
         }
 
-        /* Navigation - Scrollable */
+        /* ── Navigation ── */
         .sidebar-nav {
             flex: 1;
             overflow-y: auto;
-            padding: 1.5rem 0;
-            padding-bottom: 180px; /* Space for footer */
+            padding: 0.6rem 0 0.5rem;
         }
 
-        .sidebar-nav::-webkit-scrollbar {
-            width: 4px;
-        }
+        .sidebar-nav::-webkit-scrollbar { width: 3px; }
+        .sidebar-nav::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+        .sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
 
-        .sidebar-nav::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .sidebar-nav::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 2px;
-        }
-
-        .nav-section {
-            margin-bottom: 1.5rem;
-        }
+        .nav-section { margin-bottom: 0.2rem; }
 
         .nav-section-title {
-            padding: 0 1.25rem;
-            margin-bottom: 0.5rem;
-            font-size: 0.7rem;
-            font-weight: 600;
+            padding: 0.5rem 1rem 0.2rem;
+            font-size: 0.6rem;
+            font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: rgba(255, 255, 255, 0.6);
+            letter-spacing: 0.08em;
+            color: rgba(255, 255, 255, 0.45);
         }
 
-        .nav-menu {
-            list-style: none;
-            padding: 0;
-            margin: 0;
+        .nav-menu { list-style: none; padding: 0; margin: 0; }
+
+        .nav-item { margin-bottom: 1px; }
+
+        /* ── Fix Bootstrap tabs conflicting with sidebar nav-link styles ── */
+        .nav-tabs .nav-link {
+            color: var(--text-light) !important;
+            background: transparent !important;
+            border: 1px solid transparent;
+            border-radius: 0;
+            font-weight: 500;
+            padding: 0.6rem 1.25rem;
         }
-
-        .nav-item {
-            margin-bottom: 0.25rem;
+        .nav-tabs .nav-link:hover {
+            color: var(--primary-color) !important;
+            background: transparent !important;
+            border-color: var(--border-color) var(--border-color) transparent;
+            transform: none;
         }
-
-        /* ── Fix Bootstrap tabs overridden by sidebar .nav-link styles ── */
-.nav-tabs .nav-link {
-    color: var(--text-light) !important;
-    background: transparent !important;
-    border: 1px solid transparent;
-    border-radius: 0;
-    font-weight: 500;
-    padding: 0.6rem 1.25rem;
-}
-
-.nav-tabs .nav-link:hover {
-    color: var(--primary-color) !important;
-    background: transparent !important;
-    border-color: var(--border-color) var(--border-color) transparent;
-    transform: none;
-}
-
-.nav-tabs .nav-link.active {
-    color: var(--primary-color) !important;
-    background: #fff !important;
-    border-color: var(--border-color) var(--border-color) #fff;
-    font-weight: 600;
-}
-
-.nav-tabs .nav-link.active::before {
-    display: none !important; /* remove sidebar's left accent bar */
-}
-
-.nav-tabs .nav-link .badge {
-    vertical-align: middle;
-}
+        .nav-tabs .nav-link.active {
+            color: var(--primary-color) !important;
+            background: #fff !important;
+            border-color: var(--border-color) var(--border-color) #fff;
+            font-weight: 600;
+        }
+        .nav-tabs .nav-link.active::before { display: none !important; }
+        .nav-tabs .nav-link .badge { vertical-align: middle; }
 
         .nav-link {
             display: flex;
             align-items: center;
-            padding: 0.75rem 1.25rem;
-            color: rgba(255, 255, 255, 0.85);
+            padding: 0.42rem 1rem;
+            color: rgba(255, 255, 255, 0.82);
             text-decoration: none;
-            transition: all 0.2s ease;
+            transition: background 0.15s ease, color 0.15s ease;
             position: relative;
-            font-size: 0.95rem;
+            font-size: 0.82rem;
+            font-weight: 500;
+            border-radius: 0;
         }
 
         .nav-link:hover {
@@ -225,48 +185,45 @@
             left: 0;
             top: 0;
             bottom: 0;
-            width: 4px;
+            width: 3px;
             background: var(--secondary-color);
-            border-radius: 0 4px 4px 0;
+            border-radius: 0 3px 3px 0;
         }
 
         .nav-link i {
-            width: 24px;
-            font-size: 1.1rem;
-            margin-right: 0.75rem;
+            width: 18px;
+            font-size: 0.9rem;
+            margin-right: 0.55rem;
+            opacity: 0.9;
+            flex-shrink: 0;
         }
 
-        /* User Section - Fixed at bottom */
+        /* ── Footer ── */
         .sidebar-footer {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: var(--sidebar-width);
-            padding: 1rem 1.25rem;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            background: linear-gradient(180deg, rgba(67, 56, 202, 0.95) 0%, rgba(67, 56, 202, 1) 100%);
-            z-index: 10;
-            backdrop-filter: blur(10px);
+            flex-shrink: 0;
+            padding: 0.65rem 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(0, 0, 0, 0.15);
         }
 
-        .user-info {
+        .footer-inner {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
-            margin-bottom: 0.75rem;
+            gap: 0.55rem;
         }
 
         .user-avatar {
-            width: 42px;
-            height: 42px;
+            width: 30px;
+            height: 30px;
             background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: bold;
-            font-size: 1.1rem;
+            font-weight: 700;
+            font-size: 0.65rem;
             flex-shrink: 0;
+            letter-spacing: 0.5px;
         }
 
         .user-details {
@@ -274,44 +231,47 @@
             min-width: 0;
         }
 
-        .user-details h6 {
-            font-size: 0.9rem;
+        .user-details .user-name {
+            font-size: 0.78rem;
             font-weight: 600;
             margin: 0;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            line-height: 1.2;
         }
 
-        .user-details p {
-            font-size: 0.75rem;
+        .user-details .user-role {
+            font-size: 0.62rem;
             margin: 0;
-            opacity: 0.7;
+            opacity: 0.6;
+            line-height: 1.2;
         }
 
         .logout-btn {
-            width: 100%;
-            padding: 0.625rem;
-            background: rgba(239, 68, 68, 0.15);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            color: white;
-            border-radius: 8px;
-            font-size: 0.875rem;
-            font-weight: 500;
+            width: 28px;
+            height: 28px;
+            background: rgba(239, 68, 68, 0.18);
+            border: 1px solid rgba(239, 68, 68, 0.35);
+            color: rgba(255, 255, 255, 0.85);
+            border-radius: 6px;
+            font-size: 0.9rem;
             transition: all 0.2s;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 0.5rem;
+            flex-shrink: 0;
+            cursor: pointer;
+            padding: 0;
         }
 
         .logout-btn:hover {
-            background: rgba(239, 68, 68, 0.25);
-            border-color: rgba(239, 68, 68, 0.5);
-            transform: translateY(-1px);
+            background: rgba(239, 68, 68, 0.35);
+            border-color: rgba(239, 68, 68, 0.6);
+            color: white;
         }
 
-        /* Main Content */
+        /* ── Main Content ── */
         .main-content {
             margin-left: var(--sidebar-width);
             min-height: 100vh;
@@ -322,7 +282,7 @@
             padding: 2rem;
         }
 
-        /* Alert Styles */
+        /* ── Alerts ── */
         .alert {
             border-radius: 12px;
             border: none;
@@ -341,7 +301,7 @@
             color: #991B1B;
         }
 
-        /* Card Improvements */
+        /* ── Cards ── */
         .card {
             border-radius: 12px;
             border: 1px solid var(--border-color);
@@ -353,7 +313,7 @@
             border-bottom: 1px solid var(--border-color);
         }
 
-        /* Button Improvements */
+        /* ── Buttons ── */
         .btn {
             border-radius: 8px;
             font-weight: 500;
@@ -373,7 +333,7 @@
             box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
         }
 
-        /* Table Improvements */
+        /* ── Tables ── */
         .table thead th {
             background: var(--bg-light);
             border-bottom: 2px solid var(--border-color);
@@ -384,7 +344,7 @@
             color: var(--text-light);
         }
 
-        /* Badge Improvements */
+        /* ── Badges ── */
         .badge {
             padding: 0.375rem 0.75rem;
             border-radius: 6px;
@@ -392,23 +352,11 @@
             font-size: 0.8rem;
         }
 
-        /* Responsive */
+        /* ── Responsive ── */
         @media (max-width: 768px) {
-            .sidebar {
-                transform: translateX(-100%);
-            }
-
-            .sidebar.show {
-                transform: translateX(0);
-            }
-
-            .main-content {
-                margin-left: 0;
-            }
-
-            .sidebar-footer {
-                width: var(--sidebar-width);
-            }
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.show { transform: translateX(0); }
+            .main-content { margin-left: 0; }
         }
     </style>
 
@@ -541,24 +489,23 @@
             </div>
         </nav>
 
-        <!-- User Section - Fixed at Bottom -->
+        <!-- User / Logout -->
         <div class="sidebar-footer">
-            <div class="user-info">
+            <div class="footer-inner">
                 <div class="user-avatar">
                     {{ strtoupper(substr(auth()->user()->name, 0, 2)) }}
                 </div>
                 <div class="user-details">
-                    <h6>{{ auth()->user()->name }}</h6>
-                    <p>Administrator</p>
+                    <p class="user-name">{{ auth()->user()->name }}</p>
+                    <p class="user-role">Administrator</p>
                 </div>
+                <form action="{{ route('logout') }}" method="POST" class="mb-0">
+                    @csrf
+                    <button type="submit" class="logout-btn" title="Sign Out">
+                        <i class="bi bi-box-arrow-right"></i>
+                    </button>
+                </form>
             </div>
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button type="submit" class="logout-btn">
-                    <i class="bi bi-box-arrow-right"></i>
-                    <span>Sign Out</span>
-                </button>
-            </form>
         </div>
     </aside>
 

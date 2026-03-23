@@ -96,9 +96,6 @@ class InstallmentPaymentController extends Controller
      */
     public function recordPayment(Request $request, InstallmentPayment $installment)
     {
-        // Log the request for debugging
-        \Log::info('Installment Payment Request:', $request->all());
-        
         $validated = $request->validate([
             'amount_paid'       => 'required|numeric|min:0.01',
             'paid_date'         => 'required|date',

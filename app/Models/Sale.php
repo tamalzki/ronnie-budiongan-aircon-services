@@ -25,6 +25,7 @@ class Sale extends Model
         'paid_amount',
         'balance',
         'status',
+        'notes',
         'sale_date',
         'user_id',
     ];

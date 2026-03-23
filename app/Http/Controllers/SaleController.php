@@ -163,6 +163,7 @@ class SaleController extends Controller
                     $product  = Product::with('brand')->findOrFail($item['id']);
                     $saleItem = SaleItem::create([
                         'sale_id'     => $sale->id,
+                        'item_type'   => 'product',
                         'product_id'  => $product->id,
                         'item_name'   => trim(($product->brand->name ?? '') . ' ' . $product->model),
                         'quantity'    => $item['quantity'],
@@ -193,6 +194,8 @@ class SaleController extends Controller
                     $service = Service::findOrFail($item['id']);
                     SaleItem::create([
                         'sale_id'     => $sale->id,
+                        'item_type'   => 'service',
+                        'service_id'  => $service->id,
                         'product_id'  => null,
                         'item_name'   => $service->name,
                         'quantity'    => $item['quantity'],

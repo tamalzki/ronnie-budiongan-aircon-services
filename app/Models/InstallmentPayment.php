@@ -17,8 +17,9 @@ class InstallmentPayment extends Model
         'due_date',
         'paid_date',
         'status',
-        'payment_method', 
-        
+        'payment_method',
+        'reference_number',
+        'notes',
     ];
 
     protected $casts = [

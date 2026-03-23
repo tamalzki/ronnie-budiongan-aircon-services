@@ -113,12 +113,12 @@
             <div class="card border-0 shadow-sm h-100 {{ $supplierPaymentsDueCount > 0 ? 'border-start border-warning border-4' : '' }}">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
-                        <div class="bg-warning bg-opacity-10 p-3 rounded me-3">
+                        <div class="bg-warning bg-opacity-10 p-3 rounded me-3 flex-shrink-0">
                             <i class="bi bi-truck fs-3 text-warning"></i>
                         </div>
-                        <div>
+                        <div style="min-width: 0;">
                             <p class="text-muted mb-1 small">Supplier Payments Due</p>
-                            <h4 class="mb-0 fw-bold text-warning">₱{{ number_format($supplierPaymentsDue, 2) }}</h4>
+                            <h4 class="mb-0 fw-bold text-warning text-break" style="word-break: break-all;">₱{{ number_format($supplierPaymentsDue, 2) }}</h4>
                             <small class="text-muted">{{ $supplierPaymentsDueCount }} orders pending</small>
                         </div>
                     </div>
@@ -244,8 +244,8 @@
                                         <small class="text-muted">{{ $product->model ?? '—' }}</small>
                                     </td>
                                     <td class="px-3 py-2">
-                                        <span class="badge bg-{{ $product->stock_quantity == 0 ? 'danger' : 'warning' }}">
-                                            {{ $product->stock_quantity }} units
+                                        <span class="badge bg-{{ $product->in_stock_count == 0 ? 'danger' : 'warning' }}">
+                                            {{ $product->in_stock_count }} units
                                         </span>
                                     </td>
                                 </tr>
