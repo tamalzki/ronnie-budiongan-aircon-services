@@ -136,11 +136,11 @@
                         @forelse($products as $product)
                         @php
                             $rowClass = '';
-                            if ($product->stock_count == 0)     $rowClass = 'table-danger';
-                            elseif ($product->stock_count <= 5)  $rowClass = 'table-warning';
+                            if ($product->in_stock_count == 0)     $rowClass = 'table-danger';
+                            elseif ($product->in_stock_count <= 5)  $rowClass = 'table-warning';
                         @endphp
                         <tr class="{{ $rowClass }}"
-                            data-stock="{{ $product->stock_count }}"
+                            data-stock="{{ $product->in_stock_count }}"
                             data-brand="{{ $product->brand_id ?? 'none' }}"
                             data-name="{{ strtolower(($product->model ?? '') . ' ' . ($product->description ?? '')) }}">
                             
@@ -184,24 +184,24 @@
                             
                             {{-- Stock - Compact Badges --}}
                             <td class="px-2 py-2 text-center">
-                                @if($product->stock_count == 0)
+                                @if($product->in_stock_count == 0)
                                     <span class="badge bg-danger" style="font-size:0.7rem;">
                                         <i class="bi bi-x"></i> 0
                                     </span>
-                                @elseif($product->stock_count <= 5)
+                                @elseif($product->in_stock_count <= 5)
                                     <span class="badge bg-warning text-dark" style="font-size:0.7rem;">
-                                        <i class="bi bi-exclamation-triangle"></i> {{ $product->stock_count }}
+                                        <i class="bi bi-exclamation-triangle"></i> {{ $product->in_stock_count }}
                                     </span>
                                 @else
                                     <span class="badge bg-success" style="font-size:0.7rem;">
-                                        {{ $product->stock_count }}
+                                        {{ $product->in_stock_count }}
                                     </span>
                                 @endif
                             </td>
                             
                             {{-- Value - Right Aligned --}}
                             <td class="px-2 py-2 text-end text-success fw-semibold">
-                                <small>₱{{ number_format($product->stock_count * $product->price, 0) }}</small>
+                                <small>₱{{ number_format($product->in_stock_count * $product->price, 0) }}</small>
                             </td>
                             
                             {{-- Movements Count --}}

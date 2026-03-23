@@ -14,18 +14,18 @@ class InventoryController extends Controller
     public function index()
     {
         $products = Product::with(['brand', 'supplier'])
-            ->withCount('inventoryMovements')
-            ->orderBy('name')
+            ->withCount([
+                'inventoryMovements',
+                'serials as in_stock_count' => fn($q) => $q->where('status', 'in_stock'),
+            ])
+            ->orderBy('brand_id')
+            ->orderBy('model')
             ->get();
 
-        // Calculate stats
         $totalProducts = $products->count();
-            $lowStock = $products->filter(fn($p) => $p->stock_count <= 5)->count();
-            $outOfStock = $products->filter(fn($p) => $p->stock_count === 0)->count();
-
-            $totalValue = $products->sum(function($p) {
-                return $p->stock_count * $p->price;
-            });
+        $lowStock      = $products->filter(fn($p) => $p->in_stock_count <= 5)->count();
+        $outOfStock    = $products->filter(fn($p) => $p->in_stock_count === 0)->count();
+        $totalValue    = $products->sum(fn($p) => $p->in_stock_count * (float) $p->price);
 
         return view('inventory.index', compact('products', 'totalProducts', 'lowStock', 'outOfStock', 'totalValue'));
     }
@@ -162,41 +162,37 @@ class InventoryController extends Controller
     }
 
     public function encodeSerials(Request $request, Product $product)
-{
-    $expectedCount = $product->stock_count;
+    {
+        $validated = $request->validate([
+            'serial_numbers'   => 'required|array|min:1',
+            'serial_numbers.*' => 'required|string|distinct|unique:product_serials,serial_number',
+        ]);
 
-    $validated = $request->validate([
-        'serial_numbers' => 'required|array|size:' . $expectedCount,
-        'serial_numbers.*' => 'required|string|distinct|unique:product_serials,serial_number',
-    ]);
+        DB::beginTransaction();
 
-    DB::beginTransaction();
+        try {
+            if ($product->inStockSerials()->count() > 0) {
+                throw new \Exception('Serials already exist for this product. Use Stock In to add more.');
+            }
 
-    try {
+            foreach ($validated['serial_numbers'] as $serial) {
+                ProductSerial::create([
+                    'product_id'    => $product->id,
+                    'serial_number' => trim($serial),
+                    'status'        => 'in_stock',
+                    'received_date' => now(),
+                ]);
+            }
 
-        // Prevent duplicate encoding
-        if ($product->inStockSerials()->count() > 0) {
-            throw new \Exception('Serials already exist for this product.');
+            DB::commit();
+
+            return back()->with('success', count($validated['serial_numbers']) . ' serial(s) encoded successfully.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', $e->getMessage());
         }
-
-        foreach ($validated['serial_numbers'] as $serial) {
-            ProductSerial::create([
-                'product_id'   => $product->id,
-                'serial_number'=> $serial,
-                'status'       => 'in_stock',
-                'received_date'=> now(),
-            ]);
-        }
-
-        DB::commit();
-
-        return back()->with('success', 'Existing serials encoded successfully.');
-
-    } catch (\Exception $e) {
-        DB::rollBack();
-        return back()->with('error', $e->getMessage());
     }
-}
 
     public function returnStock(Request $request, Product $product)
     {

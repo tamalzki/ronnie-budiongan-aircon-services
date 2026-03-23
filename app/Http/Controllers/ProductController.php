@@ -128,6 +128,11 @@ class ProductController extends Controller
 
     public function destroy(Product $product)
     {
+        if ($product->serials()->whereIn('status', ['in_stock', 'sold', 'pending'])->exists()) {
+            return redirect()->route('products.index')
+                ->with('error', 'Cannot delete "' . $product->display_model . '" — it has existing inventory or sales records. Deactivate it instead.');
+        }
+
         $product->delete();
         return redirect()->route('products.index')->with('success', 'Product deleted.');
     }

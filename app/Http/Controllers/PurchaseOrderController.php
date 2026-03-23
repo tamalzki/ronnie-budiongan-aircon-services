@@ -247,11 +247,22 @@ class PurchaseOrderController extends Controller
                 }
             }
 
-            // ── Record downpayment ──
-            if ($request->payment_type === '45days' &&
+            // ── Record payment ──
+            if ($request->payment_type === 'full') {
+                // Full payment — record the entire amount as a single supplier payment
+                SupplierPayment::create([
+                    'purchase_order_id' => $po->id,
+                    'payment_number'    => 'Full Payment',
+                    'amount'            => $total,
+                    'payment_date'      => $request->order_date,
+                    'payment_method'    => 'cash',
+                    'notes'             => 'Full payment on purchase order',
+                    'user_id'           => auth()->id(),
+                ]);
+            } elseif ($request->payment_type === '45days' &&
                 $request->filled('downpayment_amount') &&
                 $request->downpayment_amount > 0) {
-
+                // 45-day terms with optional downpayment
                 SupplierPayment::create([
                     'purchase_order_id' => $po->id,
                     'payment_number'    => 'Downpayment / Initial Payment',
