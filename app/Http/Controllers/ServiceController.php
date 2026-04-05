@@ -10,6 +10,7 @@ class ServiceController extends Controller
     public function index()
     {
         $services = Service::orderBy('name')->get();
+
         return view('services.index', compact('services'));
     }
 
@@ -19,22 +20,20 @@ class ServiceController extends Controller
     }
 
     public function store(Request $request)
-{
-    $validated = $request->validate([
-        'name' => 'required|string|max:255',
-        'description' => 'nullable|string',
-        'default_price' => 'required|numeric|min:0',
-        // ✅ Remove 'is_active' => 'boolean',
-    ]);
+    {
+        $validated = $request->validate([
+            'name'          => ['required', 'string', 'max:255'],
+            'description'   => ['nullable', 'string'],
+            'default_price' => ['required', 'numeric', 'min:0'],
+        ]);
 
-    $validated['is_active'] = $request->has('is_active'); // ✅ Add this line
+        $validated['is_active'] = $request->has('is_active');
 
-    Service::create($validated);
+        Service::create($validated);
 
-    return redirect()->route('services.index')
-        ->with('success', 'Service created successfully.');
-}
-
+        return redirect()->route('services.index')
+            ->with('success', 'Service created successfully.');
+    }
 
     public function show(Service $service)
     {
@@ -47,22 +46,20 @@ class ServiceController extends Controller
     }
 
     public function update(Request $request, Service $service)
-{
-    $validated = $request->validate([
-        'name' => 'required|string|max:255',
-        'description' => 'nullable|string',
-        'default_price' => 'required|numeric|min:0',
-        // ✅ Remove 'is_active' => 'boolean',
-    ]);
+    {
+        $validated = $request->validate([
+            'name'          => ['required', 'string', 'max:255'],
+            'description'   => ['nullable', 'string'],
+            'default_price' => ['required', 'numeric', 'min:0'],
+        ]);
 
-    $validated['is_active'] = $request->has('is_active'); // ✅ Add this line
+        $validated['is_active'] = $request->has('is_active');
 
-    $service->update($validated);
+        $service->update($validated);
 
-    return redirect()->route('services.index')
-        ->with('success', 'Service updated successfully.');
-}
-
+        return redirect()->route('services.index')
+            ->with('success', 'Service updated successfully.');
+    }
 
     public function destroy(Service $service)
     {

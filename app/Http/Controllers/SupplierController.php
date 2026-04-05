@@ -10,6 +10,7 @@ class SupplierController extends Controller
     public function index()
     {
         $suppliers = Supplier::withCount('products')->orderBy('name')->get();
+
         return view('suppliers.index', compact('suppliers'));
     }
 
@@ -19,28 +20,27 @@ class SupplierController extends Controller
     }
 
     public function store(Request $request)
-{
-    $validated = $request->validate([
-        'name' => 'required|string|max:255',
-        'contact_person' => 'nullable|string|max:255',
-        'contact_number' => 'nullable|string|max:255',
-        'email' => 'nullable|email|max:255',
-        'address' => 'nullable|string',
-        // ✅ Remove 'is_active' => 'boolean',
-    ]);
+    {
+        $validated = $request->validate([
+            'name'           => ['required', 'string', 'max:255'],
+            'contact_person' => ['nullable', 'string', 'max:255'],
+            'contact_number' => ['nullable', 'string', 'max:255'],
+            'email'          => ['nullable', 'email', 'max:255'],
+            'address'        => ['nullable', 'string'],
+        ]);
 
-    $validated['is_active'] = $request->has('is_active'); // ✅ Add this line
+        $validated['is_active'] = $request->has('is_active');
 
-    Supplier::create($validated);
+        Supplier::create($validated);
 
-    return redirect()->route('suppliers.index')
-        ->with('success', 'Supplier created successfully.');
-}
-
+        return redirect()->route('suppliers.index')
+            ->with('success', 'Supplier created successfully.');
+    }
 
     public function show(Supplier $supplier)
     {
         $supplier->load('products');
+
         return view('suppliers.show', compact('supplier'));
     }
 
@@ -50,24 +50,22 @@ class SupplierController extends Controller
     }
 
     public function update(Request $request, Supplier $supplier)
-{
-    $validated = $request->validate([
-        'name' => 'required|string|max:255',
-        'contact_person' => 'nullable|string|max:255',
-        'contact_number' => 'nullable|string|max:255',
-        'email' => 'nullable|email|max:255',
-        'address' => 'nullable|string',
-        // ✅ Remove 'is_active' => 'boolean',
-    ]);
+    {
+        $validated = $request->validate([
+            'name'           => ['required', 'string', 'max:255'],
+            'contact_person' => ['nullable', 'string', 'max:255'],
+            'contact_number' => ['nullable', 'string', 'max:255'],
+            'email'          => ['nullable', 'email', 'max:255'],
+            'address'        => ['nullable', 'string'],
+        ]);
 
-    $validated['is_active'] = $request->has('is_active'); // ✅ Add this line
+        $validated['is_active'] = $request->has('is_active');
 
-    $supplier->update($validated);
+        $supplier->update($validated);
 
-    return redirect()->route('suppliers.index')
-        ->with('success', 'Supplier updated successfully.');
-}
-
+        return redirect()->route('suppliers.index')
+            ->with('success', 'Supplier updated successfully.');
+    }
 
     public function destroy(Supplier $supplier)
     {

@@ -39,16 +39,15 @@
 @section('content')
 <div class="container-fluid">
 
-    {{-- Header --}}
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-            <h4 class="mb-0 fw-bold"><i class="bi bi-cart-plus text-primary"></i> Purchase Orders</h4>
-            <p class="text-muted mb-0 small">Manage orders from suppliers</p>
-        </div>
-        <a href="{{ route('purchase-orders.create') }}" class="btn btn-primary btn-sm shadow-sm">
-            <i class="bi bi-plus-circle"></i> New Purchase Order
-        </a>
-    </div>
+    <x-page-header title="Purchase Orders" subtitle="Manage orders from suppliers" icon="bi-cart-plus">
+        <x-slot name="actions">
+            <a href="{{ route('purchase-orders.create') }}" class="btn btn-primary btn-sm shadow-sm">
+                <i class="bi bi-plus-circle"></i> New Purchase Order
+            </a>
+        </x-slot>
+    </x-page-header>
+
+    <x-flash />
 
     {{-- Alerts --}}
     @if($overdueOrders->count())
@@ -80,7 +79,7 @@
     {{-- Summary Cards --}}
     <div class="row g-2 mb-3">
         <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm">
+            <div class="card app-card-panel">
                 <div class="card-body d-flex align-items-center gap-2 py-2 px-3">
                     <div class="bg-primary bg-opacity-10 rounded p-2">
                         <i class="bi bi-cart-check text-primary"></i>
@@ -93,7 +92,7 @@
             </div>
         </div>
         <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm">
+            <div class="card app-card-panel">
                 <div class="card-body d-flex align-items-center gap-2 py-2 px-3">
                     <div class="bg-warning bg-opacity-10 rounded p-2">
                         <i class="bi bi-clock-history text-warning"></i>
@@ -106,7 +105,7 @@
             </div>
         </div>
         <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm">
+            <div class="card app-card-panel">
                 <div class="card-body d-flex align-items-center gap-2 py-2 px-3">
                     <div class="bg-success bg-opacity-10 rounded p-2">
                         <i class="bi bi-check-circle text-success"></i>
@@ -119,7 +118,7 @@
             </div>
         </div>
         <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm">
+            <div class="card app-card-panel">
                 <div class="card-body d-flex align-items-center gap-2 py-2 px-3">
                     <div class="bg-danger bg-opacity-10 rounded p-2">
                         <i class="bi bi-exclamation-triangle text-danger"></i>

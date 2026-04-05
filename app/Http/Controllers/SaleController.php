@@ -2,15 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Sale;
-use App\Models\SaleItem;
+use App\Models\InstallmentPayment;
 use App\Models\Product;
 use App\Models\ProductSerial;
+use App\Models\Sale;
+use App\Models\SaleItem;
 use App\Models\Service;
-use App\Models\InstallmentPayment;
+use App\Support\PaymentMethod;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
+use Illuminate\Validation\Rule;
 
 class SaleController extends Controller
 {
@@ -18,7 +20,7 @@ class SaleController extends Controller
 {
     $search = $request->search;
 
-    $sales = Sale::with(['user', 'items.serials'])
+    $sales = Sale::with('user')
         ->withCount('items')
         ->when($search, function ($query) use ($search) {
             $query->where(function ($q) use ($search) {
@@ -92,7 +94,7 @@ class SaleController extends Controller
             'customer_address'     => 'nullable|string',
             'sale_date'            => 'required|date',
             'payment_type'         => 'required|in:cash,installment',
-            'payment_method'       => 'required|in:cash,gcash,bank_transfer,cheque',
+            'payment_method'       => ['required', Rule::in(PaymentMethod::values())],
             'items'                => 'required|array|min:1',
             'items.*.type'         => 'required|in:product,service',
             'items.*.id'           => 'required|integer',
@@ -103,7 +105,7 @@ class SaleController extends Controller
             'notes'                => 'nullable|string',
             'discount'             => 'nullable|numeric|min:0',
             'down_payment'         => 'nullable|numeric|min:0',
-            'down_payment_method'  => 'nullable|in:cash,gcash,bank_transfer,cheque',
+            'down_payment_method'  => ['nullable', Rule::in(PaymentMethod::values())],
             'installment_months'   => 'nullable|integer|min:1|max:24',
         ]);
 

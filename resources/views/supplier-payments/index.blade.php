@@ -5,18 +5,14 @@
 @section('content')
 <div class="container-fluid">
 
-    {{-- Header --}}
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2 class="mb-1"><i class="bi bi-cash-coin text-primary"></i> Supplier Payments</h2>
-            <p class="text-muted mb-0">Track payments to suppliers</p>
-        </div>
-    </div>
+    <x-page-header title="Supplier Payments" subtitle="Track payments to suppliers" icon="bi-cash-coin" marginClass="mb-3" />
+
+    <x-flash />
 
     {{-- Summary Cards --}}
-    <div class="row g-3 mb-4">
+    <div class="row g-3 mb-3">
         <div class="col-6 col-md-4">
-            <div class="card border-0 shadow-sm">
+            <div class="card app-card-panel">
                 <div class="card-body d-flex align-items-center gap-3 py-3">
                     <div class="bg-success bg-opacity-10 rounded p-2">
                         <i class="bi bi-cash-stack fs-4 text-success"></i>
@@ -29,7 +25,7 @@
             </div>
         </div>
         <div class="col-6 col-md-4">
-            <div class="card border-0 shadow-sm">
+            <div class="card app-card-panel">
                 <div class="card-body d-flex align-items-center gap-3 py-3">
                     <div class="bg-danger bg-opacity-10 rounded p-2">
                         <i class="bi bi-exclamation-triangle fs-4 text-danger"></i>
@@ -42,7 +38,7 @@
             </div>
         </div>
         <div class="col-6 col-md-4">
-            <div class="card border-0 shadow-sm">
+            <div class="card app-card-panel">
                 <div class="card-body d-flex align-items-center gap-3 py-3">
                     <div class="bg-primary bg-opacity-10 rounded p-2">
                         <i class="bi bi-receipt fs-4 text-primary"></i>

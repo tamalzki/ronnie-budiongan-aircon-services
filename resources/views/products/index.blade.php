@@ -3,23 +3,15 @@
 @section('content')
 <div class="container-fluid">
 
-    {{-- Header --}}
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2 class="mb-1"><i class="bi bi-box-seam text-primary"></i> Products</h2>
-            <p class="text-muted mb-0">Manage your product catalog</p>
-        </div>
-        <a href="{{ route('products.create') }}" class="btn btn-primary btn-sm shadow-sm">
-            <i class="bi bi-plus-circle"></i> Add Product
-        </a>
-    </div>
+    <x-page-header title="Products" subtitle="Manage your product catalog" icon="bi-box-seam">
+        <x-slot name="actions">
+            <a href="{{ route('products.create') }}" class="btn btn-primary btn-sm shadow-sm">
+                <i class="bi bi-plus-circle"></i> Add Product
+            </a>
+        </x-slot>
+    </x-page-header>
 
-    @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-3">
-            {!! session('success') !!}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    @endif
+    <x-flash />
 
     @if($noPriceCount > 0)
     <div class="alert alert-warning border-0 shadow-sm mb-3 d-flex align-items-center gap-2">
@@ -31,7 +23,7 @@
     @endif
 
     {{-- Search & Filters --}}
-    <div class="card border-0 shadow-sm mb-3 sticky-top" style="top:0;z-index:1020;">
+    <div class="card app-card-panel mb-3 app-filter-toolbar sticky-top" style="top:0;z-index:1020;">
         <div class="card-body py-2">
             <div class="row g-2 align-items-center">
                 <div class="col-md-4">
@@ -66,7 +58,7 @@
     </div>
 
     {{-- Table --}}
-    <div class="card border-0 shadow-sm">
+    <div class="card app-card-panel">
         <div class="card-body p-0">
             <div class="table-responsive" style="max-height:calc(100vh - 280px);overflow-y:auto;">
                 <table class="table table-hover table-sm mb-0" id="productsTable" style="font-size:0.875rem;">

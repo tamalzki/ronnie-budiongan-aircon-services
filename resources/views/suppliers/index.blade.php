@@ -5,19 +5,18 @@
 @section('content')
 <div class="container-fluid">
 
-    {{-- Header --}}
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2 class="mb-1"><i class="bi bi-building text-primary"></i> Suppliers</h2>
-            <p class="text-muted mb-0">Manage supplier information</p>
-        </div>
-        <a href="{{ route('suppliers.create') }}" class="btn btn-primary btn-sm shadow-sm">
-            <i class="bi bi-plus-circle"></i> Add Supplier
-        </a>
-    </div>
+    <x-page-header title="Suppliers" subtitle="Manage supplier information" icon="bi-building">
+        <x-slot name="actions">
+            <a href="{{ route('suppliers.create') }}" class="btn btn-primary btn-sm shadow-sm">
+                <i class="bi bi-plus-circle"></i> Add Supplier
+            </a>
+        </x-slot>
+    </x-page-header>
+
+    <x-flash />
 
     {{-- Search & Filters --}}
-    <div class="card border-0 shadow-sm mb-3">
+    <div class="card app-card-panel mb-3 app-filter-toolbar">
         <div class="card-body py-2">
             <div class="row g-2 align-items-center">
                 <div class="col-md-5">
@@ -44,7 +43,7 @@
     </div>
 
     {{-- Table --}}
-    <div class="card border-0 shadow-sm">
+    <div class="card app-card-panel">
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover table-sm mb-0" id="suppliersTable" style="font-size:0.875rem;">

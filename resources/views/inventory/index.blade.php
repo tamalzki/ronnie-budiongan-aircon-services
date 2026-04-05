@@ -5,25 +5,14 @@
 @section('content')
 <div class="container-fluid">
 
-    {{-- Header --}}
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2 class="mb-1"><i class="bi bi-boxes text-primary"></i> Inventory</h2>
-            <p class="text-muted mb-0">Track stock levels and movements</p>
-        </div>
-    </div>
+    <x-page-header title="Inventory" subtitle="Track stock levels and movements" icon="bi-boxes" />
 
-    @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-3">
-            {{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    @endif
+    <x-flash />
 
     {{-- Summary Cards --}}
     <div class="row g-3 mb-4">
         <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm">
+            <div class="card app-card-panel">
                 <div class="card-body d-flex align-items-center gap-3 py-3">
                     <div class="bg-primary bg-opacity-10 rounded p-2">
                         <i class="bi bi-box-seam fs-4 text-primary"></i>
@@ -36,7 +25,7 @@
             </div>
         </div>
         <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm">
+            <div class="card app-card-panel">
                 <div class="card-body d-flex align-items-center gap-3 py-3">
                     <div class="bg-warning bg-opacity-10 rounded p-2">
                         <i class="bi bi-exclamation-triangle fs-4 text-warning"></i>
@@ -50,7 +39,7 @@
             </div>
         </div>
         <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm">
+            <div class="card app-card-panel">
                 <div class="card-body d-flex align-items-center gap-3 py-3">
                     <div class="bg-danger bg-opacity-10 rounded p-2">
                         <i class="bi bi-x-circle fs-4 text-danger"></i>
@@ -64,7 +53,7 @@
             </div>
         </div>
         <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm">
+            <div class="card app-card-panel">
                 <div class="card-body d-flex align-items-center gap-3 py-3">
                     <div class="bg-success bg-opacity-10 rounded p-2">
                         <i class="bi bi-currency-dollar fs-4 text-success"></i>
@@ -79,7 +68,7 @@
     </div>
 
     {{-- Search & Filters (STICKY) --}}
-    <div class="card border-0 shadow-sm mb-3 sticky-top" style="top:0;z-index:1020;">
+    <div class="card app-card-panel mb-3 app-filter-toolbar sticky-top" style="top:0;z-index:1020;">
         <div class="card-body py-2">
             <div class="row g-2 align-items-center">
                 <div class="col-md-4">
@@ -115,10 +104,10 @@
     </div>
 
     {{-- Table - Compact & Full Width --}}
-    <div class="card border-0 shadow-sm">
+    <div class="card app-card-panel">
         <div class="card-body p-0">
             <div class="table-responsive" style="max-height:calc(100vh - 380px);overflow-y:auto;">
-                <table class="table table-hover mb-0" id="inventoryTable" style="font-size:0.8rem;">
+                <table class="table table-hover mb-0 app-table-compact" id="inventoryTable">
                     <thead class="bg-light" style="position:sticky;top:0;z-index:10;">
                         <tr>
                             <th class="border-0 px-2 py-2 bg-light" style="min-width:180px;">Model</th>

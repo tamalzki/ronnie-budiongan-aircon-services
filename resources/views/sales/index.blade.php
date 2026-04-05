@@ -5,26 +5,18 @@
 @section('content')
 <div class="container-fluid">
 
-    {{-- Header --}}
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-            <h4 class="mb-0 fw-bold"><i class="bi bi-receipt text-primary"></i> Sales</h4>
-            <p class="text-muted mb-0 small">Manage customer sales & invoices</p>
-        </div>
-        <a href="{{ route('sales.create') }}" class="btn btn-primary btn-sm shadow-sm">
-            <i class="bi bi-plus-circle"></i> New Sale
-        </a>
-    </div>
+    <x-page-header title="Sales" subtitle="Manage customer sales & invoices" icon="bi-receipt">
+        <x-slot name="actions">
+            <a href="{{ route('sales.create') }}" class="btn btn-primary btn-sm shadow-sm">
+                <i class="bi bi-plus-circle"></i> New Sale
+            </a>
+        </x-slot>
+    </x-page-header>
 
-    @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-2 py-2">
-            {{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    @endif
+    <x-flash />
 
     {{-- Search --}}
-    <div class="card border-0 shadow-sm mb-2">
+    <div class="card app-card-panel mb-2 app-filter-toolbar">
         <div class="card-body py-2 px-3">
             <div class="row g-2 align-items-center">
                 <div class="col-md-4">
@@ -64,10 +56,10 @@
     </div>
 
     {{-- Table --}}
-    <div class="card border-0 shadow-sm">
+    <div class="card app-card-panel">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover table-sm mb-0" id="salesTable" style="font-size:0.82rem;">
+                <table class="table table-hover table-sm mb-0 app-table-compact" id="salesTable">
                     <thead class="bg-light">
                         <tr>
                             <th class="px-2 py-2 text-center" style="width:40px;">#</th>

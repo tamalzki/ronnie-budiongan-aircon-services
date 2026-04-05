@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class Sale extends Model
 {
@@ -19,7 +20,7 @@ class Sale extends Model
         'discount',
         'total',
         'payment_type',
-        'payment_method',   // 
+        'payment_method',
         'installment_months',
         'installment_amount',
         'paid_amount',
@@ -60,9 +61,34 @@ class Sale extends Model
         parent::boot();
 
         static::creating(function ($sale) {
-            if (empty($sale->invoice_number)) {
-                $sale->invoice_number = 'INV-' . date('Ymd') . '-' . str_pad(static::whereDate('created_at', today())->count() + 1, 4, '0', STR_PAD_LEFT);
+            if (! empty($sale->invoice_number)) {
+                return;
             }
+
+            $sale->invoice_number = static::nextInvoiceNumber();
+        });
+    }
+
+    /**
+     * Next same-day invoice sequence under a short DB lock to avoid duplicate numbers when sales are created concurrently.
+     */
+    public static function nextInvoiceNumber(): string
+    {
+        return DB::transaction(function () {
+            $prefix = 'INV-' . now()->format('Ymd') . '-';
+
+            $last = static::query()
+                ->where('invoice_number', 'like', $prefix . '%')
+                ->lockForUpdate()
+                ->orderByDesc('id')
+                ->value('invoice_number');
+
+            $seq = 1;
+            if ($last && preg_match('/(\d{4})$/', $last, $m)) {
+                $seq = (int) $m[1] + 1;
+            }
+
+            return $prefix . str_pad((string) $seq, 4, '0', STR_PAD_LEFT);
         });
     }
 }

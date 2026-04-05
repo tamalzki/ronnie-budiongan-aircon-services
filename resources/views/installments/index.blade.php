@@ -5,41 +5,30 @@
 @section('content')
 <div class="container-fluid">
 
-    {{-- Header --}}
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2 class="mb-1"><i class="bi bi-people-fill text-primary"></i> Installment Customers</h2>
-            <p class="text-muted mb-0">Track customer installment payments</p>
-        </div>
-    </div>
+    <x-page-header title="Installment Customers" subtitle="Track customer installment payments" icon="bi-people-fill" />
 
-    @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-3">
-            {{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    @endif
+    <x-flash />
 
     {{-- Search --}}
-    <div class="card border-0 shadow-sm mb-3">
-        <div class="card-body py-3">
+    <div class="card app-card-panel mb-3 app-filter-toolbar">
+        <div class="card-body py-2">
             <div class="row g-2 align-items-center">
                 <div class="col-md-4">
-                    <div class="input-group">
+                    <div class="input-group input-group-sm">
                         <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
                         <input type="text" id="installmentSearch" class="form-control border-start-0"
                                placeholder="Search customer, contact...">
                     </div>
                 </div>
                 <div class="col-md-2">
-                    <select id="balanceFilter" class="form-select">
+                    <select id="balanceFilter" class="form-select form-select-sm">
                         <option value="">All Balances</option>
                         <option value="unpaid">With Balance</option>
                         <option value="paid">Fully Paid</option>
                     </select>
                 </div>
                 <div class="col-md-1">
-                    <button class="btn btn-outline-secondary w-100" onclick="clearFilters()" title="Clear">
+                    <button class="btn btn-outline-secondary btn-sm w-100" onclick="clearFilters()" title="Clear">
                         <i class="bi bi-x-lg"></i>
                     </button>
                 </div>
@@ -48,10 +37,10 @@
     </div>
 
     {{-- Table --}}
-    <div class="card border-0 shadow-sm">
+    <div class="card app-card-panel">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover table-sm mb-0" id="installmentTable" style="font-size:0.875rem;">
+                <table class="table table-hover table-sm mb-0 app-table-compact" id="installmentTable">
                     <thead class="bg-light">
                         <tr>
                             <th class="border-0 px-3 py-2">Customer</th>

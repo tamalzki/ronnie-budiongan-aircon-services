@@ -11,21 +11,36 @@ use Illuminate\Support\Facades\DB;
 
 class ReportController extends Controller
 {
+    public const REPORT_KEYS = ['overview', 'installments', 'purchases', 'customers', 'inventory'];
+
     public function index(Request $request)
     {
-        $startDate  = $request->input('start_date', now()->startOfMonth()->format('Y-m-d'));
-        $endDate    = $request->input('end_date', now()->format('Y-m-d'));
+        $startDate = $request->input('start_date', now()->startOfMonth()->format('Y-m-d'));
+        $endDate   = $request->input('end_date', now()->format('Y-m-d'));
 
-        // ── Sales Summary ───────────────────────────────────────────
-        $totalSales             = Sale::whereBetween('sale_date', [$startDate, $endDate])->sum('total');
-        $totalCashSales         = Sale::whereBetween('sale_date', [$startDate, $endDate])->where('payment_type', 'cash')->sum('total');
-        $totalInstallmentSales  = Sale::whereBetween('sale_date', [$startDate, $endDate])->where('payment_type', 'installment')->sum('total');
-        $salesCount             = Sale::whereBetween('sale_date', [$startDate, $endDate])->count();
-        $averageSaleAmount      = $salesCount > 0 ? $totalSales / $salesCount : 0;
+        $currentReport = $request->query('report');
+        if ($currentReport !== null && ! in_array($currentReport, self::REPORT_KEYS, true)) {
+            $currentReport = null;
+        }
 
-        // ── Payment Collection ──────────────────────────────────────
-        $totalCollected = Sale::whereBetween('sale_date', [$startDate, $endDate])->sum('paid_amount');
-        $totalPending   = Sale::whereBetween('sale_date', [$startDate, $endDate])->sum('balance');
+        // ── Sales summary + collection (single aggregate query) ─────
+        $saleStats = DB::table('sales')
+            ->whereBetween('sale_date', [$startDate, $endDate])
+            ->selectRaw('COALESCE(SUM(total), 0) as total_sales')
+            ->selectRaw("COALESCE(SUM(CASE WHEN payment_type = 'cash' THEN total ELSE 0 END), 0) as total_cash_sales")
+            ->selectRaw("COALESCE(SUM(CASE WHEN payment_type = 'installment' THEN total ELSE 0 END), 0) as total_installment_sales")
+            ->selectRaw('COUNT(*) as sales_count')
+            ->selectRaw('COALESCE(SUM(paid_amount), 0) as total_collected')
+            ->selectRaw('COALESCE(SUM(balance), 0) as total_pending')
+            ->first();
+
+        $totalSales            = (float) ($saleStats->total_sales ?? 0);
+        $totalCashSales        = (float) ($saleStats->total_cash_sales ?? 0);
+        $totalInstallmentSales = (float) ($saleStats->total_installment_sales ?? 0);
+        $salesCount            = (int) ($saleStats->sales_count ?? 0);
+        $averageSaleAmount     = $salesCount > 0 ? $totalSales / $salesCount : 0;
+        $totalCollected        = (float) ($saleStats->total_collected ?? 0);
+        $totalPending          = (float) ($saleStats->total_pending ?? 0);
 
         // ── Sales by Date (chart) ───────────────────────────────────
         $salesByDate = Sale::whereBetween('sale_date', [$startDate, $endDate])
@@ -47,9 +62,15 @@ class ReportController extends Controller
             ->take(10)
             ->get();
 
-        // ── Installments Summary ────────────────────────────────────
-        $totalInstallmentAmount = InstallmentPayment::whereBetween('due_date', [$startDate, $endDate])->sum('amount');
-        $paidInstallments       = InstallmentPayment::whereBetween('due_date', [$startDate, $endDate])->where('status', 'paid')->sum('amount_paid');
+        // ── Installments summary for period (single aggregate query) ─
+        $installPeriod = DB::table('installment_payments')
+            ->whereBetween('due_date', [$startDate, $endDate])
+            ->selectRaw('COALESCE(SUM(amount), 0) as total_installment_amount')
+            ->selectRaw("COALESCE(SUM(CASE WHEN status = 'paid' THEN amount_paid ELSE 0 END), 0) as paid_installments")
+            ->first();
+
+        $totalInstallmentAmount = (float) ($installPeriod->total_installment_amount ?? 0);
+        $paidInstallments       = (float) ($installPeriod->paid_installments ?? 0);
 
         $pendingInstallments = InstallmentPayment::whereBetween('due_date', [$startDate, $endDate])
             ->whereIn('status', ['unpaid', 'partial'])
@@ -70,11 +91,19 @@ class ReportController extends Controller
             ->orderBy('due_date')
             ->get();
 
-        // ── Purchase Orders Summary ─────────────────────────────────
-        $totalPurchases        = PurchaseOrder::whereBetween('order_date', [$startDate, $endDate])->sum('total');
-        $totalPurchasesPaid    = PurchaseOrder::whereBetween('order_date', [$startDate, $endDate])->sum('amount_paid');
-        $totalPurchasesPending = PurchaseOrder::whereBetween('order_date', [$startDate, $endDate])->sum('balance');
-        $purchaseOrdersCount   = PurchaseOrder::whereBetween('order_date', [$startDate, $endDate])->count();
+        // ── Purchase orders summary (single aggregate query) ────────
+        $poStats = DB::table('purchase_orders')
+            ->whereBetween('order_date', [$startDate, $endDate])
+            ->selectRaw('COALESCE(SUM(total), 0) as total_purchases')
+            ->selectRaw('COALESCE(SUM(amount_paid), 0) as total_purchases_paid')
+            ->selectRaw('COALESCE(SUM(balance), 0) as total_purchases_pending')
+            ->selectRaw('COUNT(*) as purchase_orders_count')
+            ->first();
+
+        $totalPurchases        = (float) ($poStats->total_purchases ?? 0);
+        $totalPurchasesPaid    = (float) ($poStats->total_purchases_paid ?? 0);
+        $totalPurchasesPending = (float) ($poStats->total_purchases_pending ?? 0);
+        $purchaseOrdersCount   = (int) ($poStats->purchase_orders_count ?? 0);
 
         $purchaseOrdersSummary = PurchaseOrder::whereBetween('order_date', [$startDate, $endDate])
             ->with('supplier')
@@ -109,7 +138,7 @@ class ReportController extends Controller
             ->get();
 
         return view('reports.index', compact(
-            'startDate', 'endDate',
+            'startDate', 'endDate', 'currentReport',
             'totalSales', 'totalCashSales', 'totalInstallmentSales',
             'salesCount', 'averageSaleAmount',
             'totalCollected', 'totalPending',

@@ -2,100 +2,102 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Sale;
 use App\Models\Product;
-use App\Models\ProductSerial;
-use App\Models\InstallmentPayment;
-use App\Models\PurchaseOrder;
-use Illuminate\Http\Request;
-use Carbon\Carbon;
+use App\Models\Sale;
+use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
     public function index()
     {
-        // ── Sales Metrics ──────────────────────────────────────────────
-        $todaySales = Sale::whereDate('sale_date', today())->sum('total');
-        $monthSales = Sale::whereMonth('sale_date', now()->month)
-                         ->whereYear('sale_date', now()->year)
-                         ->sum('total');
-        $totalSales = Sale::sum('total');
+        $now = now();
 
-        // ── Inventory Metrics (now from product_serials) ───────────────
-        $totalStock         = ProductSerial::where('status', 'in_stock')->count();
-        $totalStockValue    = ProductSerial::where('status', 'in_stock')
-                                ->join('products', 'products.id', '=', 'product_serials.product_id')
-                                ->sum('products.cost');
+        // ── Sales metrics (single aggregate query) ───────────────────
+        $salesAgg = DB::table('sales')
+            ->selectRaw('SUM(CASE WHEN DATE(sale_date) = ? THEN total ELSE 0 END) as today_sales', [$now->toDateString()])
+            ->selectRaw('SUM(CASE WHEN YEAR(sale_date) = ? AND MONTH(sale_date) = ? THEN total ELSE 0 END) as month_sales', [$now->year, $now->month])
+            ->selectRaw('COALESCE(SUM(total), 0) as total_sales')
+            ->first();
 
-        // Low stock = products with 5 or fewer in_stock serials
+        $todaySales = (float) ($salesAgg->today_sales ?? 0);
+        $monthSales = (float) ($salesAgg->month_sales ?? 0);
+        $totalSales = (float) ($salesAgg->total_sales ?? 0);
+
+        // ── Inventory: count + cost value (single query) ─────────────
+        $stockAgg = DB::table('product_serials')
+            ->join('products', 'products.id', '=', 'product_serials.product_id')
+            ->where('product_serials.status', 'in_stock')
+            ->selectRaw('COUNT(*) as total_stock')
+            ->selectRaw('COALESCE(SUM(products.cost), 0) as total_stock_value')
+            ->first();
+
+        $totalStock      = (int) ($stockAgg->total_stock ?? 0);
+        $totalStockValue = (float) ($stockAgg->total_stock_value ?? 0);
+
+        // Low stock = products with 5 or fewer in_stock serials (has at least one in_stock)
         $lowStockProducts   = Product::whereHas('serials', fn($q) => $q->where('status', 'in_stock'))
-                                ->withCount(['serials as in_stock_count' => fn($q) => $q->where('status', 'in_stock')])
-                                ->having('in_stock_count', '<=', 5)
-                                ->count();
+            ->withCount(['serials as in_stock_count' => fn($q) => $q->where('status', 'in_stock')])
+            ->having('in_stock_count', '<=', 5)
+            ->count();
 
-        // Out of stock = products with no in_stock serials at all
+        // Out of stock = active products with no in_stock serials
         $outOfStockProducts = Product::where('is_active', true)
-                                ->whereDoesntHave('serials', fn($q) => $q->where('status', 'in_stock'))
-                                ->count();
+            ->whereDoesntHave('serials', fn($q) => $q->where('status', 'in_stock'))
+            ->count();
 
         // Low stock product list for dashboard widget
-        $lowStockProductsList = Product::with('brand')
-                                ->where('is_active', true)
-                                ->withCount(['serials as in_stock_count' => fn($q) => $q->where('status', 'in_stock')])
-                                ->having('in_stock_count', '<=', 5)
-                                ->orderBy('in_stock_count')
-                                ->take(10)
-                                ->get();
+        $lowStockProductsList = Product::query()
+            ->with('brand')
+            ->where('is_active', true)
+            ->withCount(['serials as in_stock_count' => fn($q) => $q->where('status', 'in_stock')])
+            ->having('in_stock_count', '<=', 5)
+            ->orderBy('in_stock_count')
+            ->take(10)
+            ->get();
 
-        // ── Customer Installments ──────────────────────────────────────
-        $installmentsDueThisMonth = InstallmentPayment::whereMonth('due_date', now()->month)
-                                        ->whereYear('due_date', now()->year)
-                                        ->whereIn('status', ['unpaid', 'partial'])
-                                        ->count();
+        // ── Installments: overdue + due this month (single query) ────
+        $installAgg = DB::table('installment_payments')
+            ->selectRaw(
+                "COUNT(CASE WHEN due_date < ? AND status IN ('unpaid','partial') THEN 1 END) as overdue_count",
+                [$now]
+            )
+            ->selectRaw(
+                "COUNT(CASE WHEN YEAR(due_date) = ? AND MONTH(due_date) = ? AND status IN ('unpaid','partial') THEN 1 END) as due_month_count",
+                [$now->year, $now->month]
+            )
+            ->selectRaw(
+                "COALESCE(SUM(CASE WHEN YEAR(due_date) = ? AND MONTH(due_date) = ? AND status IN ('unpaid','partial') THEN amount ELSE 0 END), 0) as due_month_amount",
+                [$now->year, $now->month]
+            )
+            ->first();
 
-        $installmentsAmountDueThisMonth = InstallmentPayment::whereMonth('due_date', now()->month)
-                                            ->whereYear('due_date', now()->year)
-                                            ->whereIn('status', ['unpaid', 'partial'])
-                                            ->sum('amount');
+        $installmentsDueThisMonth       = (int) ($installAgg->due_month_count ?? 0);
+        $installmentsAmountDueThisMonth = (float) ($installAgg->due_month_amount ?? 0);
+        $overdueInstallments            = (int) ($installAgg->overdue_count ?? 0);
 
-        $overdueInstallments = InstallmentPayment::where('due_date', '<', now())
-                                    ->whereIn('status', ['unpaid', 'partial'])
-                                    ->count();
-
-        // ── Supplier Payments Due ──────────────────────────────────────
-        $supplierPaymentsDue      = 0;
-        $supplierPaymentsDueCount = 0;
-
-        try {
-            $supplierPaymentsDue = PurchaseOrder::whereIn('payment_status', ['unpaid', 'partial'])
-                                        ->where('payment_type', '45days')
-                                        ->sum('balance');
-            $supplierPaymentsDueCount = PurchaseOrder::whereIn('payment_status', ['unpaid', 'partial'])
-                                            ->where('payment_type', '45days')
-                                            ->count();
-        } catch (\Exception $e) {
-            $supplierPaymentsDue      = 0;
-            $supplierPaymentsDueCount = 0;
-        }
+        // ── Supplier payments due (single query) ─────────────────────
+        $poDue = DB::table('purchase_orders')
+            ->whereIn('payment_status', ['unpaid', 'partial'])
+            ->where('payment_type', '45days')
+            ->selectRaw('COALESCE(SUM(balance), 0) as balance_sum')
+            ->selectRaw('COUNT(*) as po_count')
+            ->first();
+        $supplierPaymentsDue      = (float) ($poDue->balance_sum ?? 0);
+        $supplierPaymentsDueCount = (int) ($poDue->po_count ?? 0);
 
         // ── Installments to Collect This Month ────────────────────────
-        $installmentsToCollectThisMonth = collect();
-        try {
-            $installmentsToCollectThisMonth = Sale::where('payment_type', 'installment')
-                ->whereHas('installmentPayments', function ($q) {
-                    $q->whereMonth('due_date', now()->month)
-                      ->whereYear('due_date', now()->year)
-                      ->whereIn('status', ['unpaid', 'partial']);
-                })
-                ->with(['installmentPayments' => function ($q) {
-                    $q->whereMonth('due_date', now()->month)
-                      ->whereYear('due_date', now()->year)
-                      ->whereIn('status', ['unpaid', 'partial']);
-                }])
-                ->get();
-        } catch (\Exception $e) {
-            $installmentsToCollectThisMonth = collect();
-        }
+        $installmentsToCollectThisMonth = Sale::where('payment_type', 'installment')
+            ->whereHas('installmentPayments', function ($q) {
+                $q->whereMonth('due_date', now()->month)
+                    ->whereYear('due_date', now()->year)
+                    ->whereIn('status', ['unpaid', 'partial']);
+            })
+            ->with(['installmentPayments' => function ($q) {
+                $q->whereMonth('due_date', now()->month)
+                    ->whereYear('due_date', now()->year)
+                    ->whereIn('status', ['unpaid', 'partial']);
+            }])
+            ->get();
 
         // ── Recent Sales ───────────────────────────────────────────────
         $recentSales = Sale::with('user')

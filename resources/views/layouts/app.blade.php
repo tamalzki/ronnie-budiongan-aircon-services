@@ -64,45 +64,39 @@
 
         .logo {
             display: flex;
+            flex-direction: row;
             align-items: center;
-            gap: 0.6rem;
+            gap: 0.5rem;
             text-decoration: none;
             color: white;
+            min-width: 0;
         }
 
-        .logo-icon {
-            width: 36px;
-            height: 36px;
-            border-radius: 8px;
-            overflow: hidden;
+        .sidebar-brand-logo {
+            display: block;
             flex-shrink: 0;
-            background: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+            width: auto;
+            height: auto;
+            max-height: 36px;
+            max-width: 64px;
+            object-fit: contain;
+            object-position: center;
         }
 
-        .logo-icon img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
+        .logo-text {
+            flex: 1;
+            min-width: 0;
         }
-
-        .logo-text { flex: 1; }
 
         .logo-title {
-            font-size: 0.95rem;
+            font-size: 0.78rem;
             font-weight: 700;
             line-height: 1.2;
             margin: 0;
-        }
-
-        .logo-subtitle {
-            font-size: 0.62rem;
-            opacity: 0.75;
-            margin: 0;
-            font-weight: 400;
+            letter-spacing: -0.02em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         /* ── Navigation ── */
@@ -352,6 +346,44 @@
             font-size: 0.8rem;
         }
 
+        /* ── Unified page chrome (lists & detail) ── */
+        .app-page-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            line-height: 1.3;
+            color: var(--text-dark);
+        }
+        .app-page-subtitle {
+            font-size: 0.82rem;
+            color: var(--text-light);
+        }
+        .app-card-panel {
+            border: none !important;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        }
+        .app-table-compact {
+            font-size: 0.82rem;
+        }
+        .app-table-compact thead th,
+        .app-table-compact tbody td {
+            vertical-align: middle;
+        }
+        .app-filter-toolbar .card-body {
+            padding: 0.5rem 0.75rem;
+        }
+        .app-flash.alert {
+            margin-bottom: 0.75rem;
+        }
+        .app-tab-panel {
+            border: 1px solid var(--border-color);
+            border-top: none;
+            border-radius: 0 0 12px 12px;
+            background: #fff;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 1rem;
+        }
+
         /* ── Responsive ── */
         @media (max-width: 768px) {
             .sidebar { transform: translateX(-100%); }
@@ -367,13 +399,10 @@
     <aside class="sidebar">
         <!-- Logo -->
         <div class="sidebar-header">
-            <a href="{{ route('dashboard') }}" class="logo">
-                <div class="logo-icon">
-                    <img src="https://i.ibb.co/8Qsd72y/299077745-1391147514710942-648860233429463016-n.jpg" alt="RB Aircon Logo">
-                </div>
+            <a href="{{ route('dashboard') }}" class="logo" title="{{ config('app.name') }}">
+                <img src="{{ asset('images/brand-logo.png') }}" alt="" class="sidebar-brand-logo" width="64" height="36" aria-hidden="true">
                 <div class="logo-text">
-                    <h1 class="logo-title">RB Aircon</h1>
-                    <p class="logo-subtitle">Services Management</p>
+                    <h1 class="logo-title">{{ config('app.short_name') }}</h1>
                 </div>
             </a>
         </div>

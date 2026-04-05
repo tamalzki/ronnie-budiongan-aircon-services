@@ -2,29 +2,43 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\InventoryMovement;
+use App\Models\ProductSerial;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
 use App\Models\Product;
-use App\Models\ProductSerial;
 use App\Models\Supplier;
-use App\Models\InventoryMovement;
 use App\Models\SupplierPayment;
+use App\Services\ProductCatalogService;
+use App\Support\PaymentMethod;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
+use Illuminate\Validation\Rule;
 
 class PurchaseOrderController extends Controller
 {
+    public function __construct(
+        private readonly ProductCatalogService $productCatalog
+    ) {}
+
     public function index()
     {
-        $purchaseOrders = PurchaseOrder::with(['supplier', 'items', 'payments'])
+        $purchaseOrders = PurchaseOrder::with('supplier')
             ->orderBy('created_at', 'desc')
             ->paginate(15);
 
-        $totalCount    = PurchaseOrder::count();
-        $awaitingCount = PurchaseOrder::where('status', 'pending')->count();
-        $receivedCount = PurchaseOrder::where('status', 'received')->count();
-        $unpaidCount   = PurchaseOrder::where('payment_status', 'unpaid')->count();
+        $poCounts = PurchaseOrder::query()
+            ->selectRaw('COUNT(*) as total')
+            ->selectRaw("SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as awaiting")
+            ->selectRaw("SUM(CASE WHEN status = 'received' THEN 1 ELSE 0 END) as received")
+            ->selectRaw("SUM(CASE WHEN payment_status = 'unpaid' THEN 1 ELSE 0 END) as unpaid")
+            ->first();
+
+        $totalCount    = (int) ($poCounts->total ?? 0);
+        $awaitingCount = (int) ($poCounts->awaiting ?? 0);
+        $receivedCount = (int) ($poCounts->received ?? 0);
+        $unpaidCount   = (int) ($poCounts->unpaid ?? 0);
 
         $upcomingDeadlines = PurchaseOrder::with('supplier')
             ->where('payment_type', '45days')
@@ -44,12 +58,15 @@ class PurchaseOrderController extends Controller
             ->orderBy('payment_due_date')
             ->get();
 
-        $paymentsDueCount = $paymentsDue->filter(function ($po) {
-            return $po->payment_due_date && $po->payment_due_date->lte(now()->addDays(30));
-        })->count();
+        $paymentsDueCount = PurchaseOrder::query()
+            ->where('payment_type', '45days')
+            ->where('balance', '>', 0)
+            ->whereNotNull('payment_due_date')
+            ->where('payment_due_date', '<=', now()->addDays(30))
+            ->count();
 
-        // Goods Receipts queue — POs awaiting stock receipt
-        $pendingToReceive = PurchaseOrder::with(['supplier', 'items.product.brand'])
+        // Goods Receipts queue — POs awaiting stock receipt (+ serials for receive modals)
+        $pendingToReceive = PurchaseOrder::with(['supplier', 'items.product.brand', 'serials'])
             ->where('status', 'pending')
             ->orderBy('order_date')
             ->get();
@@ -65,26 +82,7 @@ class PurchaseOrderController extends Controller
     public function create()
     {
         $suppliers = Supplier::where('is_active', true)->orderBy('name')->get();
-
-        $productsJson = Product::with('brand')
-            ->where('is_active', true)
-            ->orderBy('brand_id')
-            ->get()
-            ->map(function ($p) {
-                $parts = array_filter([
-                    $p->brand->name ?? null,
-                    $p->model        ?? null,
-                ]);
-                return [
-                    'id'              => $p->id,
-                    'label'           => implode(' · ', $parts) ?: 'Unknown Product',
-                    'unit_type'       => $p->unit_type,
-                    'unit_type_label' => $p->unit_type ? ucfirst($p->unit_type) : null,
-                    'cost'            => (float) ($p->cost ?? 0),
-                ];
-            })
-            ->values()
-            ->toArray();
+        $productsJson = $this->productCatalog->activeProductsForPurchaseOrderJson();
 
         return view('purchase-orders.create', compact('suppliers', 'productsJson'));
     }
@@ -107,7 +105,7 @@ class PurchaseOrderController extends Controller
             'items.*.serials.*'        => 'nullable|string|max:255',
             'downpayment_amount'       => 'nullable|numeric|min:0',
             'downpayment_date'         => 'nullable|date',
-            'downpayment_method'       => 'nullable|in:cash,gcash,bank_transfer,cheque',
+            'downpayment_method'       => ['nullable', Rule::in(PaymentMethod::values())],
             'downpayment_reference'    => 'nullable|string',
         ]);
 
@@ -451,7 +449,7 @@ class PurchaseOrderController extends Controller
         $validated = $request->validate([
             'amount'           => 'required|numeric|min:0.01|max:' . $purchaseOrder->balance,
             'payment_date'     => 'required|date',
-            'payment_method'   => 'required|in:cash,gcash,bank_transfer,cheque',
+            'payment_method'   => ['required', Rule::in(PaymentMethod::values())],
             'reference_number' => 'nullable|string',
             'notes'            => 'nullable|string',
         ]);
@@ -507,24 +505,7 @@ class PurchaseOrderController extends Controller
             ->map(fn($serials) => $serials->pluck('serial_number')->toArray());
 
         $suppliers    = Supplier::where('is_active', true)->orderBy('name')->get();
-        $productsJson = Product::with('brand')
-            ->where('is_active', true)
-            ->get()
-            ->map(function ($p) {
-                $parts = array_filter([
-                    $p->brand->name ?? null,
-                    $p->model        ?? null,
-                ]);
-                return [
-                    'id'              => $p->id,
-                    'label'           => implode(' · ', $parts) ?: 'Unknown Product',
-                    'unit_type'       => $p->unit_type,
-                    'unit_type_label' => $p->unit_type ? ucfirst($p->unit_type) : null,
-                    'cost'            => (float) ($p->cost ?? 0),
-                ];
-            })
-            ->values()
-            ->toArray();
+        $productsJson = $this->productCatalog->activeProductsForPurchaseOrderJson();
 
         return view('purchase-orders.edit', compact(
             'purchaseOrder', 'suppliers', 'productsJson', 'existingSerials'

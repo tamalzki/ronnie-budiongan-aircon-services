@@ -10,6 +10,7 @@ class BrandController extends Controller
     public function index()
     {
         $brands = Brand::withCount('products')->orderBy('name')->get();
+
         return view('brands.index', compact('brands'));
     }
 
@@ -19,24 +20,24 @@ class BrandController extends Controller
     }
 
     public function store(Request $request)
-{
-    $validated = $request->validate([
-        'name' => 'required|string|max:255',
-        'description' => 'nullable|string',
-        // ✅ Remove 'is_active' => 'boolean',
-    ]);
+    {
+        $validated = $request->validate([
+            'name'        => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+        ]);
 
-    $validated['is_active'] = $request->has('is_active'); // ✅ Add this line
+        $validated['is_active'] = $request->has('is_active');
 
-    Brand::create($validated);
+        Brand::create($validated);
 
-    return redirect()->route('brands.index')
-        ->with('success', 'Brand created successfully.');
-}
+        return redirect()->route('brands.index')
+            ->with('success', 'Brand created successfully.');
+    }
 
     public function show(Brand $brand)
     {
         $brand->load('products');
+
         return view('brands.show', compact('brand'));
     }
 
@@ -46,21 +47,19 @@ class BrandController extends Controller
     }
 
     public function update(Request $request, Brand $brand)
-{
-    $validated = $request->validate([
-        'name' => 'required|string|max:255',
-        'description' => 'nullable|string',
-        // ✅ Remove 'is_active' => 'boolean',
-    ]);
+    {
+        $validated = $request->validate([
+            'name'        => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+        ]);
 
-    $validated['is_active'] = $request->has('is_active'); // ✅ Add this line
+        $validated['is_active'] = $request->has('is_active');
 
-    $brand->update($validated);
+        $brand->update($validated);
 
-    return redirect()->route('brands.index')
-        ->with('success', 'Brand updated successfully.');
-}
-
+        return redirect()->route('brands.index')
+            ->with('success', 'Brand updated successfully.');
+    }
 
     public function destroy(Brand $brand)
     {
