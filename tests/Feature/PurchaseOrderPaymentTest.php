@@ -6,12 +6,12 @@ use App\Http\Middleware\VerifyCsrfToken;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Support\RefreshDatabaseWithForce;
 use Tests\TestCase;
 
 class PurchaseOrderPaymentTest extends TestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabaseWithForce;
 
     protected function setUp(): void
     {
