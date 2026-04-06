@@ -495,7 +495,7 @@
                     <li class="nav-item">
                         <a href="{{ route('operation-expenses.index') }}" class="nav-link {{ request()->routeIs('operation-expenses.*') ? 'active' : '' }}">
                             <i class="bi bi-receipt-cutoff"></i>
-                            <span>Operational expenses</span>
+                            <span>Operation Expense</span>
                         </a>
                     </li>
                 </ul>
