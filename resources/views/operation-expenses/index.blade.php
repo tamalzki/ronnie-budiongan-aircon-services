@@ -7,14 +7,11 @@
 
     <x-page-header title="Operational expenses" subtitle="Day-to-day operational costs" icon="bi-receipt-cutoff">
         <x-slot name="actions">
-            <a href="{{ route('expense-categories.index') }}" class="btn btn-outline-secondary btn-sm shadow-sm me-1">
-                <i class="bi bi-folder2"></i> Categories
-            </a>
-            <a href="{{ route('reports.index', ['report' => 'expenses', 'start_date' => request('from', now()->startOfMonth()->format('Y-m-d')), 'end_date' => request('to', now()->format('Y-m-d'))]) }}" class="btn btn-outline-primary btn-sm shadow-sm me-1">
+            <a href="{{ route('reports.index', ['report' => 'expenses', 'start_date' => now()->startOfMonth()->format('Y-m-d'), 'end_date' => now()->format('Y-m-d')]) }}" class="btn btn-outline-primary btn-sm shadow-sm me-1">
                 <i class="bi bi-graph-up"></i> Operational expense report
             </a>
             <a href="{{ route('operation-expenses.create') }}" class="btn btn-primary btn-sm shadow-sm">
-                <i class="bi bi-plus-circle"></i> Add operational expense
+                <i class="bi bi-plus-circle"></i> Add Expense
             </a>
         </x-slot>
     </x-page-header>
@@ -24,30 +21,15 @@
     <div class="card app-card-panel mb-3 app-filter-toolbar">
         <div class="card-body py-2">
             <form method="get" action="{{ route('operation-expenses.index') }}" class="row g-2 align-items-end">
-                <div class="col-6 col-md-2">
-                    <label class="form-label small text-muted mb-0">From</label>
-                    <input type="date" name="from" class="form-control form-control-sm" value="{{ request('from') }}">
-                </div>
-                <div class="col-6 col-md-2">
-                    <label class="form-label small text-muted mb-0">To</label>
-                    <input type="date" name="to" class="form-control form-control-sm" value="{{ request('to') }}">
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label small text-muted mb-0">Category</label>
-                    <select name="category_id" class="form-select form-select-sm">
-                        <option value="">All</option>
-                        @foreach($categories as $c)
-                            <option value="{{ $c->id }}" @selected(request('category_id') == $c->id)>{{ $c->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-md-3">
+                <div class="col-md-6 col-lg-4">
                     <label class="form-label small text-muted mb-0">Search description</label>
                     <input type="text" name="q" class="form-control form-control-sm" value="{{ request('q') }}" placeholder="Keywords…">
                 </div>
-                <div class="col-auto">
-                    <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-funnel"></i> Filter</button>
+                <div class="col-auto d-flex gap-1">
+                    <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-search"></i> Search</button>
+                    @if(request()->filled('q'))
                     <a href="{{ route('operation-expenses.index') }}" class="btn btn-outline-secondary btn-sm">Clear</a>
+                    @endif
                 </div>
             </form>
         </div>
@@ -86,7 +68,7 @@
                             </td>
                         </tr>
                         @empty
-                        <tr><td colspan="6" class="text-center py-5 text-muted">No operational expenses match your filters.</td></tr>
+                        <tr><td colspan="6" class="text-center py-5 text-muted">{{ request()->filled('q') ? 'No operational expenses match your search.' : 'No operational expenses yet.' }}</td></tr>
                         @endforelse
                     </tbody>
                 </table>

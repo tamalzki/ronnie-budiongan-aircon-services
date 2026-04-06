@@ -17,27 +17,14 @@ class OperationExpenseController extends Controller
     {
         $query = OperationExpense::with(['category', 'user'])->orderByDesc('expense_date')->orderByDesc('id');
 
-        if ($request->filled('category_id')) {
-            $query->where('expense_category_id', $request->category_id);
-        }
-
-        if ($request->filled('from')) {
-            $query->whereDate('expense_date', '>=', $request->from);
-        }
-
-        if ($request->filled('to')) {
-            $query->whereDate('expense_date', '<=', $request->to);
-        }
-
         if ($request->filled('q')) {
             $q = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $request->q) . '%';
             $query->where('description', 'like', $q);
         }
 
         $expenses = $query->paginate(20)->withQueryString();
-        $categories = ExpenseCategory::orderBy('sort_order')->orderBy('name')->get();
 
-        return view('operation-expenses.index', compact('expenses', 'categories'));
+        return view('operation-expenses.index', compact('expenses'));
     }
 
     public function create()

@@ -17,7 +17,7 @@
                             <select name="expense_category_id" required class="form-select @error('expense_category_id') is-invalid @enderror">
                                 <option value="">— Select —</option>
                                 @foreach($categories as $c)
-                                    <option value="{{ $c->id }}" @selected(old('expense_category_id') == $c->id)>{{ $c->name }}</option>
+                                    <option value="{{ $c->id }}"{{ (string) old('expense_category_id') === (string) $c->id ? ' selected' : '' }}>{{ $c->name }}</option>
                                 @endforeach
                             </select>
                             @error('expense_category_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
