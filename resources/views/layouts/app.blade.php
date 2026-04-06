@@ -487,20 +487,19 @@
                 </ul>
             </div>
 
-            @if(Route::has('operation-expenses.index'))
-            <!-- Operations (hidden until operational expense routes are registered, e.g. after deploy + route:clear) -->
+            <!-- Operations — link always visible; uses named route when registered, otherwise same path (avoids hiding nav when route cache is stale) -->
             <div class="nav-section">
                 <div class="nav-section-title">Operations</div>
                 <ul class="nav-menu">
                     <li class="nav-item">
-                        <a href="{{ route('operation-expenses.index') }}" class="nav-link {{ request()->routeIs('operation-expenses.*') ? 'active' : '' }}">
+                        <a href="{{ Route::has('operation-expenses.index') ? route('operation-expenses.index') : url('/operation-expenses') }}"
+                           class="nav-link {{ request()->routeIs('operation-expenses.*') ? 'active' : '' }}">
                             <i class="bi bi-receipt-cutoff"></i>
                             <span>Operation Expense</span>
                         </a>
                     </li>
                 </ul>
             </div>
-            @endif
 
             <!-- Configuration -->
             <div class="nav-section">
