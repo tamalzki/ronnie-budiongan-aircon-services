@@ -10,6 +10,8 @@ class SupplierPaymentController extends Controller
 {
     public function index()
     {
+        $this->authorize('viewAny', PurchaseOrder::class);
+
         // Get all payments with relationships
         $payments = SupplierPayment::with(['purchaseOrder.supplier', 'user'])
             ->orderBy('payment_date', 'desc')

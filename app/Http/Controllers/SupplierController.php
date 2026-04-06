@@ -7,6 +7,11 @@ use Illuminate\Http\Request;
 
 class SupplierController extends Controller
 {
+    public function __construct()
+    {
+        $this->authorizeResource(Supplier::class, 'supplier');
+    }
+
     public function index()
     {
         $suppliers = Supplier::withCount('products')->orderBy('name')->get();

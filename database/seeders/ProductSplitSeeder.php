@@ -2,13 +2,25 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
+use App\Models\Brand;
 use App\Models\Product;
+use App\Models\Supplier;
+use Illuminate\Database\Seeder;
 
 class ProductSplitSeeder extends Seeder
 {
     public function run(): void
     {
+        $brandId = Brand::where('name', 'Daikin')->value('id');
+        if ($brandId === null) {
+            throw new \RuntimeException('Run BrandSeeder first (Daikin brand missing).');
+        }
+
+        $supplierId = Supplier::where('name', 'Daikin Philippines')->value('id');
+        if ($supplierId === null) {
+            throw new \RuntimeException('Run SupplierSeeder first (Daikin Philippines supplier missing).');
+        }
+
         $products = [
 
             // COOLING KING SERIES
@@ -59,38 +71,37 @@ class ProductSplitSeeder extends Seeder
         $insertData = [];
 
         foreach ($products as $product) {
-
-            // Indoor
             $insertData[] = [
-                'name' => 'Daikin',
-                'brand_id' => 1,
-                'supplier_id' => 1,
-                'model' => $product['indoor'],
+                'name'        => 'Daikin ' . $product['indoor'],
+                'brand_id'    => $brandId,
+                'supplier_id' => $supplierId,
+                'model'       => $product['indoor'],
+                'unit_type'   => 'indoor',
                 'description' => $product['description'],
-                'price' => $product['price'],
-                'cost' => 0,
-                'stock_quantity' => 0,
-                'is_active' => 1,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'price'       => $product['price'],
+                'cost'        => 0,
+                'is_active'   => 1,
+                'created_at'  => now(),
+                'updated_at'  => now(),
             ];
 
-            // Outdoor
             $insertData[] = [
-                'name' => 'Daikin',
-                'brand_id' => 1,
-                'supplier_id' => 1,
-                'model' => $product['outdoor'],
+                'name'        => 'Daikin ' . $product['outdoor'],
+                'brand_id'    => $brandId,
+                'supplier_id' => $supplierId,
+                'model'       => $product['outdoor'],
+                'unit_type'   => 'outdoor',
                 'description' => $product['description'],
-                'price' => $product['price'],
-                'cost' => 0,
-                'stock_quantity' => 0,
-                'is_active' => 1,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'price'       => $product['price'],
+                'cost'        => 0,
+                'is_active'   => 1,
+                'created_at'  => now(),
+                'updated_at'  => now(),
             ];
         }
 
         Product::insert($insertData);
+
+        $this->command?->info('Seeded ' . count($insertData) . ' Daikin products (indoor + outdoor).');
     }
 }

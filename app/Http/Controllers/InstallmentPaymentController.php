@@ -17,6 +17,8 @@ class InstallmentPaymentController extends Controller
      */
     public function index()
     {
+        $this->authorize('viewAny', Sale::class);
+
         $customersData = Sale::where('payment_type', 'installment')
             ->select('customer_name', 'customer_contact', 'customer_address')
             ->selectRaw('MIN(id) as first_sale_id')
@@ -33,6 +35,8 @@ class InstallmentPaymentController extends Controller
 
     public function update(Request $request, InstallmentPayment $installment)
     {
+        $this->authorize('update', $installment);
+
         $request->validate([
             'amount_paid'      => ['required', 'numeric', 'min:0.01', 'max:' . $installment->amount],
             'paid_date'        => ['required', 'date'],
@@ -86,6 +90,8 @@ class InstallmentPaymentController extends Controller
      */
     public function show(Sale $sale)
     {
+        $this->authorize('view', $sale);
+
         if ($sale->payment_type !== 'installment') {
             return redirect()->route('installments.index')
                 ->with('error', 'This sale is not an installment sale.');
@@ -129,6 +135,8 @@ class InstallmentPaymentController extends Controller
      */
     public function recordPayment(Request $request, InstallmentPayment $installment)
     {
+        $this->authorize('update', $installment);
+
         $validated = $request->validate([
             'amount_paid'      => ['required', 'numeric', 'min:0.01'],
             'paid_date'        => ['required', 'date'],
@@ -139,11 +147,22 @@ class InstallmentPaymentController extends Controller
             'amount_paid.min' => 'Payment amount must be at least ₱0.01',
         ]);
 
+        $referenceNumber = $validated['reference_number'] ?? null;
+        $notes = $validated['notes'] ?? null;
+
         DB::beginTransaction();
 
         try {
             $sale = $installment->sale()->lockForUpdate()->firstOrFail();
             $amountToPay = (float) $validated['amount_paid'];
+            $saleBalance = round((float) $sale->balance, 2);
+
+            if ($amountToPay > $saleBalance + 0.009) {
+                throw new \InvalidArgumentException(
+                    'Payment amount cannot exceed the sale remaining balance (₱' . number_format($saleBalance, 2) . ').'
+                );
+            }
+
             $remainingInstallmentBalance = (float) $installment->amount - (float) $installment->amount_paid;
 
             if ($amountToPay <= $remainingInstallmentBalance) {
@@ -152,8 +171,8 @@ class InstallmentPaymentController extends Controller
                 $installment->update([
                     'paid_date'        => $validated['paid_date'],
                     'payment_method'   => $validated['payment_method'],
-                    'reference_number' => $validated['reference_number'],
-                    'notes'            => $validated['notes'],
+                    'reference_number' => $referenceNumber,
+                    'notes'            => $notes,
                     'status'           => (float) $installment->amount_paid >= (float) $installment->amount ? 'paid' : 'partial',
                 ]);
 
@@ -166,8 +185,8 @@ class InstallmentPaymentController extends Controller
                     'amount_paid'      => $installment->amount,
                     'paid_date'        => $validated['paid_date'],
                     'payment_method'   => $validated['payment_method'],
-                    'reference_number' => $validated['reference_number'],
-                    'notes'            => $validated['notes'],
+                    'reference_number' => $referenceNumber,
+                    'notes'            => $notes,
                     'status'           => 'paid',
                 ]);
                 $overflow -= $remainingInstallmentBalance;
@@ -198,11 +217,22 @@ class InstallmentPaymentController extends Controller
                     $overflow -= $applyAmount;
                 }
 
+                if ($overflow > 0.009) {
+                    throw new \RuntimeException(
+                        'This amount cannot be fully applied to the installment schedule. Remaining sale balance is ₱'
+                        . number_format($saleBalance, 2) . '; check installment lines or contact support.'
+                    );
+                }
+
                 $sale->increment('paid_amount', $amountToPay);
                 $sale->decrement('balance', $amountToPay);
             }
 
             $sale->refresh();
+
+            if ((float) $sale->balance < -0.009) {
+                throw new \RuntimeException('This payment would make the sale balance invalid. No changes were saved.');
+            }
 
             if ((float) $sale->balance <= 0) {
                 $sale->update(['status' => 'completed']);
@@ -211,6 +241,10 @@ class InstallmentPaymentController extends Controller
             DB::commit();
 
             return back()->with('success', 'Payment of ₱' . number_format($amountToPay, 2) . ' recorded successfully.');
+        } catch (\InvalidArgumentException $e) {
+            DB::rollBack();
+
+            return back()->with('error', $e->getMessage());
         } catch (\Throwable $e) {
             DB::rollBack();
             Log::error('Installment payment failed', [

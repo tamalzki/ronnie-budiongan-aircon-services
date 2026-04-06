@@ -20,7 +20,9 @@ class PurchaseOrderController extends Controller
 {
     public function __construct(
         private readonly ProductCatalogService $productCatalog
-    ) {}
+    ) {
+        $this->authorizeResource(PurchaseOrder::class, 'purchase_order');
+    }
 
     public function index()
     {
@@ -315,6 +317,8 @@ class PurchaseOrderController extends Controller
 
     public function receive(Request $request, PurchaseOrder $purchaseOrder)
     {
+        $this->authorize('update', $purchaseOrder);
+
         $request->validate([
             'received_date'            => 'required|date',
             'delivery_number'          => 'nullable|string|max:255',
@@ -446,47 +450,61 @@ class PurchaseOrderController extends Controller
 
     public function recordPayment(Request $request, PurchaseOrder $purchaseOrder)
     {
+        $this->authorize('update', $purchaseOrder);
+
         $validated = $request->validate([
-            'amount'           => 'required|numeric|min:0.01|max:' . $purchaseOrder->balance,
+            'amount'           => 'required|numeric|min:0.01',
             'payment_date'     => 'required|date',
             'payment_method'   => ['required', Rule::in(PaymentMethod::values())],
             'reference_number' => 'nullable|string',
             'notes'            => 'nullable|string',
         ]);
 
-        DB::beginTransaction();
+        $referenceNumber = $validated['reference_number'] ?? null;
+        $notes = $validated['notes'] ?? null;
 
         try {
-            $paymentCount = $purchaseOrder->payments()->count() + 1;
+            DB::transaction(function () use ($validated, $purchaseOrder, $referenceNumber, $notes) {
+                $po = PurchaseOrder::whereKey($purchaseOrder->id)->lockForUpdate()->firstOrFail();
 
-            SupplierPayment::create([
-                'purchase_order_id' => $purchaseOrder->id,
-                'payment_number'    => 'Payment #' . $paymentCount,
-                'amount'            => $validated['amount'],
-                'payment_date'      => $validated['payment_date'],
-                'payment_method'    => $validated['payment_method'],
-                'reference_number'  => $validated['reference_number'],
-                'notes'             => $validated['notes'],
-                'user_id'           => auth()->id(),
-            ]);
+                $pay = (float) $validated['amount'];
+                $remaining = round((float) $po->balance, 2);
 
-            $newAmountPaid = $purchaseOrder->amount_paid + $validated['amount'];
-            $newBalance    = $purchaseOrder->total - $newAmountPaid;
+                if ($pay > $remaining + 0.009) {
+                    throw new \InvalidArgumentException(
+                        'Payment amount cannot exceed the remaining balance (₱' . number_format($remaining, 2) . ').'
+                    );
+                }
 
-            $purchaseOrder->update([
-                'amount_paid'    => $newAmountPaid,
-                'balance'        => max(0, $newBalance),
-                'payment_status' => $newBalance <= 0 ? 'paid' : 'partial',
-            ]);
+                $paymentCount = $po->payments()->count() + 1;
 
-            DB::commit();
+                SupplierPayment::create([
+                    'purchase_order_id' => $po->id,
+                    'payment_number'    => 'Payment #' . $paymentCount,
+                    'amount'            => $pay,
+                    'payment_date'      => $validated['payment_date'],
+                    'payment_method'    => $validated['payment_method'],
+                    'reference_number'  => $referenceNumber,
+                    'notes'             => $notes,
+                    'user_id'           => auth()->id(),
+                ]);
 
-            return back()->with('success', 'Payment of ₱' . number_format($validated['amount'], 2) . ' recorded successfully.');
+                $newAmountPaid = (float) $po->amount_paid + $pay;
+                $newBalance    = (float) $po->total - $newAmountPaid;
 
+                $po->update([
+                    'amount_paid'    => $newAmountPaid,
+                    'balance'        => max(0, $newBalance),
+                    'payment_status' => $newBalance <= 0 ? 'paid' : 'partial',
+                ]);
+            });
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
         } catch (\Exception $e) {
-            DB::rollBack();
             return back()->with('error', 'Error recording payment: ' . $e->getMessage());
         }
+
+        return back()->with('success', 'Payment of ₱' . number_format((float) $validated['amount'], 2) . ' recorded successfully.');
     }
 
     public function edit(PurchaseOrder $purchaseOrder)
@@ -541,6 +559,28 @@ class PurchaseOrderController extends Controller
                 return back()->withInput()->withErrors([
                     "items.{$index}.serials" => "Serial count ({$serials->count()}) must match quantity ({$item['quantity']}).",
                 ]);
+            }
+
+            if ($serials->count() > 0) {
+                $dupes = $serials->duplicates();
+                if ($dupes->isNotEmpty()) {
+                    return back()->withInput()->withErrors([
+                        "items.{$index}.serials" => 'Duplicate serial numbers found: ' . $dupes->unique()->implode(', '),
+                    ]);
+                }
+
+                $existing = ProductSerial::where('product_id', $item['product_id'])
+                    ->whereIn('serial_number', $serials)
+                    ->where(function ($q) use ($purchaseOrder) {
+                        $q->where('purchase_order_id', '!=', $purchaseOrder->id)
+                            ->orWhere('status', '!=', 'pending');
+                    })
+                    ->pluck('serial_number');
+                if ($existing->isNotEmpty()) {
+                    return back()->withInput()->withErrors([
+                        "items.{$index}.serials" => 'These serials already exist for this product: ' . $existing->implode(', '),
+                    ]);
+                }
             }
         }
 
@@ -652,6 +692,8 @@ class PurchaseOrderController extends Controller
 
     public function updateDueDate(Request $request, PurchaseOrder $purchaseOrder)
     {
+        $this->authorize('update', $purchaseOrder);
+
         $request->validate([
             'payment_due_date' => 'required|date',
         ]);

@@ -7,6 +7,11 @@ use Illuminate\Http\Request;
 
 class ServiceController extends Controller
 {
+    public function __construct()
+    {
+        $this->authorizeResource(Service::class, 'service');
+    }
+
     public function index()
     {
         $services = Service::orderBy('name')->get();

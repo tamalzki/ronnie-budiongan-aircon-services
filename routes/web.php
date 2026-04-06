@@ -40,7 +40,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('suppliers', SupplierController::class);
     Route::resource('services', ServiceController::class);
     Route::resource('products', ProductController::class);
-    Route::resource('sales', SaleController::class);
+    Route::resource('sales', SaleController::class)->except(['edit', 'update']);
 
     // Installments
     Route::get('installments', [InstallmentPaymentController::class, 'index'])->name('installments.index');

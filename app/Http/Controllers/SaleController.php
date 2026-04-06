@@ -16,32 +16,35 @@ use Illuminate\Validation\Rule;
 
 class SaleController extends Controller
 {
+    public function __construct()
+    {
+        $this->authorizeResource(Sale::class, 'sale', [
+            'except' => ['edit', 'update'],
+        ]);
+    }
+
     public function index(Request $request)
-{
-    $search = $request->search;
+    {
+        $search = $request->search;
 
-    $sales = Sale::with('user')
-        ->withCount('items')
-        ->when($search, function ($query) use ($search) {
-            $query->where(function ($q) use ($search) {
+        $sales = Sale::with('user')
+            ->withCount('items')
+            ->when($search, function ($query) use ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('invoice_number', 'like', "%{$search}%")
+                        ->orWhere('customer_name', 'like', "%{$search}%")
+                        ->orWhere('customer_contact', 'like', "%{$search}%")
+                        ->orWhereHas('items.serials', function ($sq) use ($search) {
+                            $sq->where('serial_number', 'like', "%{$search}%");
+                        });
+                });
+            })
+            ->orderBy('sale_date', 'desc')
+            ->paginate(15)
+            ->withQueryString();
 
-                // Invoice / Customer / Contact
-                $q->where('invoice_number', 'like', "%{$search}%")
-                  ->orWhere('customer_name', 'like', "%{$search}%")
-                  ->orWhere('customer_contact', 'like', "%{$search}%")
-
-                  // 🔥 Serial number search
-                  ->orWhereHas('items.serials', function ($sq) use ($search) {
-                      $sq->where('serial_number', 'like', "%{$search}%");
-                  });
-            });
-        })
-        ->orderBy('sale_date', 'desc')
-        ->paginate(15)
-        ->withQueryString();
-
-    return view('sales.index', compact('sales'));
-}
+        return view('sales.index', compact('sales'));
+    }
 
     public function create()
     {
@@ -105,9 +108,25 @@ class SaleController extends Controller
             'notes'                => 'nullable|string',
             'discount'             => 'nullable|numeric|min:0',
             'down_payment'         => 'nullable|numeric|min:0',
-            'down_payment_method'  => ['nullable', Rule::in(PaymentMethod::values())],
+            'down_payment_method'  => [
+                'nullable',
+                Rule::requiredIf(function () use ($request) {
+                    return $request->payment_type === 'installment'
+                        && (float) ($request->down_payment ?? 0) > 0;
+                }),
+                Rule::in(PaymentMethod::values()),
+            ],
             'installment_months'   => 'nullable|integer|min:1|max:24',
         ]);
+
+        $subtotalPreview   = collect($request->items)->sum(fn($i) => $i['quantity'] * $i['price']);
+        $discountPreview   = (float) ($request->discount ?? 0);
+        $totalPreview      = max(0, $subtotalPreview - $discountPreview);
+        if ($request->payment_type === 'installment' && (float) ($request->down_payment ?? 0) > $totalPreview + 0.001) {
+            return back()->withInput()->withErrors([
+                'down_payment' => 'Down payment cannot exceed the sale total.',
+            ]);
+        }
 
         // Guard: no price
         foreach ($request->items as $item) {

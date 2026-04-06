@@ -13,6 +13,8 @@ class InventoryController extends Controller
 {
     public function index()
     {
+        $this->authorize('viewAny', Product::class);
+
         $products = Product::with(['brand', 'supplier'])
             ->withCount([
                 'inventoryMovements',
@@ -32,6 +34,8 @@ class InventoryController extends Controller
 
     public function show(Product $product)
     {
+        $this->authorize('view', $product);
+
         $product->load(['brand', 'supplier']);
 
         $movements = InventoryMovement::where('product_id', $product->id)
@@ -59,6 +63,8 @@ class InventoryController extends Controller
 
     public function adjust(Request $request, Product $product)
     {
+        $this->authorize('update', $product);
+
         $validated = $request->validate([
             'new_quantity' => ['required', 'integer', 'min:0'],
             'notes'        => ['required', 'string'],
@@ -117,6 +123,8 @@ class InventoryController extends Controller
 
     public function stockIn(Request $request, Product $product)
     {
+        $this->authorize('update', $product);
+
         $validated = $request->validate([
             'serial_numbers'   => ['required', 'array', 'min:1'],
             'serial_numbers.*' => ['required', 'string', 'distinct', 'unique:product_serials,serial_number'],
@@ -164,6 +172,8 @@ class InventoryController extends Controller
 
     public function encodeSerials(Request $request, Product $product)
     {
+        $this->authorize('update', $product);
+
         $validated = $request->validate([
             'serial_numbers'   => ['required', 'array', 'min:1'],
             'serial_numbers.*' => ['required', 'string', 'distinct', 'unique:product_serials,serial_number'],
@@ -197,6 +207,8 @@ class InventoryController extends Controller
 
     public function returnStock(Request $request, Product $product)
     {
+        $this->authorize('update', $product);
+
         $validated = $request->validate([
             'quantity'    => ['required', 'integer', 'min:1', 'max:' . $product->stock_count],
             'supplier_id' => ['nullable', 'exists:suppliers,id'],

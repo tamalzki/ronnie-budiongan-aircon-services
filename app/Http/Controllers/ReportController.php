@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Sale;
 use App\Models\Product;
+use App\Models\Sale;
 use App\Models\InstallmentPayment;
 use App\Models\PurchaseOrder;
 use Illuminate\Http\Request;
@@ -15,6 +15,8 @@ class ReportController extends Controller
 
     public function index(Request $request)
     {
+        $this->authorize('viewAny', Sale::class);
+
         $startDate = $request->input('start_date', now()->startOfMonth()->format('Y-m-d'));
         $endDate   = $request->input('end_date', now()->format('Y-m-d'));
 

@@ -10,6 +10,11 @@ use Illuminate\Http\Request;
 
 class ProductController extends Controller
 {
+    public function __construct()
+    {
+        $this->authorizeResource(Product::class, 'product');
+    }
+
     public function index()
     {
         $products = Product::with(['brand', 'supplier'])
@@ -113,6 +118,8 @@ class ProductController extends Controller
 
     public function setPrice(Request $request, Product $product)
     {
+        $this->authorize('update', $product);
+
         $request->validate(['price' => 'required|numeric|min:0.01']);
 
         $product->update(['price' => $request->price]);

@@ -10,6 +10,8 @@ class DashboardController extends Controller
 {
     public function index()
     {
+        $this->authorize('viewAny', Sale::class);
+
         $now = now();
 
         // ── Sales metrics (single aggregate query) ───────────────────
