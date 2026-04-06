@@ -97,6 +97,8 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            /* Bootstrap sets h1 color via --bs-heading-color (dark); force readable on sidebar */
+            color: #fff !important;
         }
 
         /* ── Navigation ── */
