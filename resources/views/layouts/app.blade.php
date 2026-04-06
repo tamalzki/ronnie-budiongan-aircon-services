@@ -487,7 +487,8 @@
                 </ul>
             </div>
 
-            <!-- Operations -->
+            @if(Route::has('operation-expenses.index'))
+            <!-- Operations (hidden until operational expense routes are registered, e.g. after deploy + route:clear) -->
             <div class="nav-section">
                 <div class="nav-section-title">Operations</div>
                 <ul class="nav-menu">
@@ -499,6 +500,7 @@
                     </li>
                 </ul>
             </div>
+            @endif
 
             <!-- Configuration -->
             <div class="nav-section">

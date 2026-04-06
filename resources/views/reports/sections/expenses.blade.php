@@ -1,6 +1,9 @@
+@php
+    $operationalExpenseListRouteReady = Route::has('operation-expenses.index');
+@endphp
 <div class="report-section app-tab-panel">
     <div class="row g-3 mb-4">
-        <div class="col-md-6">
+        <div class="col-md-{{ $operationalExpenseListRouteReady ? 6 : 12 }}">
             <div class="card border-0 bg-light h-100">
                 <div class="card-body">
                     <h6 class="text-muted mb-3"><i class="bi bi-receipt-cutoff"></i> Period total</h6>
@@ -9,6 +12,7 @@
                 </div>
             </div>
         </div>
+        @if($operationalExpenseListRouteReady)
         <div class="col-md-6">
             <div class="card border-0 bg-light h-100">
                 <div class="card-body">
@@ -17,12 +21,15 @@
                     <a href="{{ route('operation-expenses.index') }}" class="btn btn-primary btn-sm">
                         <i class="bi bi-receipt"></i> Operational expenses
                     </a>
+                    @if(Route::has('expense-categories.index'))
                     <a href="{{ route('expense-categories.index') }}" class="btn btn-outline-secondary btn-sm ms-1">
                         <i class="bi bi-folder2"></i> Categories
                     </a>
+                    @endif
                 </div>
             </div>
         </div>
+        @endif
     </div>
 
     <h6 class="fw-semibold mb-2"><i class="bi bi-pie-chart text-primary"></i> By category</h6>
