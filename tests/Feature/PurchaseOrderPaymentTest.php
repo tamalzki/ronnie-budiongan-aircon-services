@@ -6,12 +6,15 @@ use App\Http\Middleware\VerifyCsrfToken;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
 use App\Models\User;
-use Tests\Support\RefreshDatabaseWithForce;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
 
+/**
+ * @see InstallmentPaymentTest class docblock (transactions, no schema wipe).
+ */
 class PurchaseOrderPaymentTest extends TestCase
 {
-    use RefreshDatabaseWithForce;
+    use DatabaseTransactions;
 
     protected function setUp(): void
     {

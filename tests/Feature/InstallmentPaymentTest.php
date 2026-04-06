@@ -6,12 +6,17 @@ use App\Http\Middleware\VerifyCsrfToken;
 use App\Models\InstallmentPayment;
 use App\Models\Sale;
 use App\Models\User;
-use Tests\Support\RefreshDatabaseWithForce;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
 
+/**
+ * Uses transactions only (no migrate:fresh). Safe for a DB that already has real data:
+ * each test rolls back. Prefer a dedicated test database on CI; avoid running against
+ * production during live traffic (locks and rare edge cases).
+ */
 class InstallmentPaymentTest extends TestCase
 {
-    use RefreshDatabaseWithForce;
+    use DatabaseTransactions;
 
     protected function setUp(): void
     {
