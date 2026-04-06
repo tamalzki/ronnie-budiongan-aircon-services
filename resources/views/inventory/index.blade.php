@@ -118,7 +118,7 @@
                             <th class="border-0 px-2 py-2 bg-light text-center" style="width:100px;">Stock</th>
                             <th class="border-0 px-2 py-2 bg-light text-end" style="width:100px;">Value</th>
                             <th class="border-0 px-2 py-2 bg-light text-center" style="width:60px;">Moves</th>
-                            <th class="border-0 px-2 py-2 bg-light text-center" style="width:90px;">Actions</th>
+                            <th class="border-0 px-2 py-2 bg-light text-center" style="min-width:128px;">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="inventoryTableBody">
@@ -200,14 +200,22 @@
                                 </span>
                             </td>
                             
-                            {{-- Actions - Compact Button --}}
+                            {{-- Actions: manage view + direct Stock in --}}
                             <td class="px-2 py-2 text-center">
-                                <a href="{{ route('inventory.show', $product) }}"
-                                   class="btn btn-primary btn-sm"
-                                   style="padding:2px 6px;font-size:0.7rem;"
-                                   title="Manage">
-                                    <i class="bi bi-box-arrow-in-right"></i> Manage
-                                </a>
+                                <div class="d-flex flex-column gap-1 align-items-stretch">
+                                    <a href="{{ route('inventory.show', $product) }}"
+                                       class="btn btn-primary btn-sm py-0"
+                                       style="font-size:0.7rem;"
+                                       title="Movements, adjust, full tools">
+                                        <i class="bi bi-sliders"></i> Manage
+                                    </a>
+                                    <a href="{{ route('inventory.show', $product) }}#stock-in"
+                                       class="btn btn-success btn-sm py-0"
+                                       style="font-size:0.7rem;"
+                                       title="Open Stock In for this product">
+                                        <i class="bi bi-box-arrow-in-down"></i> Stock in
+                                    </a>
+                                </div>
                             </td>
                         </tr>
                         @empty

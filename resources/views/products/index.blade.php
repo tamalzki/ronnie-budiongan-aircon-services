@@ -170,11 +170,16 @@
                             </td>
 
                             <td class="px-3 py-2" style="white-space:nowrap">
-                                <div class="d-flex gap-1">
+                                <div class="d-flex flex-wrap gap-1">
                                     <a href="{{ route('products.show', $product) }}"
                                        class="btn btn-outline-info btn-sm" style="font-size:0.78rem"
                                        title="View serials">
-                                        <i class="bi bi-upc-scan">View Products</i>
+                                        <i class="bi bi-upc-scan"></i> View
+                                    </a>
+                                    <a href="{{ route('inventory.show', $product) }}#stock-in"
+                                       class="btn btn-outline-success btn-sm" style="font-size:0.78rem"
+                                       title="Add stock & serial numbers">
+                                        <i class="bi bi-box-arrow-in-down"></i> Stock in
                                     </a>
                                     <a href="{{ route('products.edit', $product) }}"
                                        class="btn btn-primary btn-sm" style="font-size:0.78rem">

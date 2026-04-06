@@ -20,4 +20,14 @@ class GuestAccessTest extends TestCase
     {
         $this->get(route('reports.index'))->assertRedirect(route('login'));
     }
+
+    public function test_guest_is_redirected_from_operation_expenses_index(): void
+    {
+        $this->get(route('operation-expenses.index'))->assertRedirect(route('login'));
+    }
+
+    public function test_guest_is_redirected_from_expense_categories_index(): void
+    {
+        $this->get(route('expense-categories.index'))->assertRedirect(route('login'));
+    }
 }

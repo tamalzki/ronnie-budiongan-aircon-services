@@ -108,8 +108,8 @@
             </div>
         </div>
 
-        {{-- Quick Actions + Stats --}}
-        <div class="col-md-4">
+        {{-- Quick Actions + Stats (anchor #stock-in opens Stock In modal from listing pages) --}}
+        <div class="col-md-4" id="stock-in" style="scroll-margin-top: 1rem;">
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-header bg-light border-0 py-2">
                     <h6 class="mb-0"><i class="bi bi-lightning-fill text-warning"></i> Quick Actions</h6>
@@ -362,6 +362,13 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+
+    if (window.location.hash === '#stock-in') {
+        const stockModal = document.getElementById('stockInModal');
+        if (stockModal && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            bootstrap.Modal.getOrCreateInstance(stockModal).show();
+        }
+    }
 
     const quantityInput = document.getElementById('stockInQuantity');
     const container = document.getElementById('serialInputsContainer');

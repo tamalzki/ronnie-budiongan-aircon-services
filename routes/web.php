@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\SupplierPaymentController;
+use App\Http\Controllers\ExpenseCategoryController;
+use App\Http\Controllers\OperationExpenseController;
 
 // Root: logged in → dashboard, guest → login
 Route::get('/', function () {
@@ -50,6 +52,10 @@ Route::middleware('auth')->group(function () {
 
     // Reports
     Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
+
+    // Operation expenses
+    Route::resource('expense-categories', ExpenseCategoryController::class)->except(['show']);
+    Route::resource('operation-expenses', OperationExpenseController::class)->except(['show']);
 
     // Purchase Orders
     Route::resource('purchase-orders', PurchaseOrderController::class);

@@ -12,6 +12,7 @@
             'purchases' => 'Purchases',
             'customers' => 'Customers',
             'inventory' => 'Inventory',
+            'expenses' => 'Operational expense report',
         ];
         $reportLink = fn (string $key) => route('reports.index', ['report' => $key]);
     @endphp
@@ -33,6 +34,7 @@
                 ['key' => 'purchases', 'title' => 'Purchases', 'desc' => 'Purchase orders, paid vs outstanding', 'icon' => 'bi-cart-plus', 'circle' => 'primary'],
                 ['key' => 'customers', 'title' => 'Customers', 'desc' => 'Top spenders, pending installment balances', 'icon' => 'bi-people', 'circle' => 'info'],
                 ['key' => 'inventory', 'title' => 'Inventory', 'desc' => 'Stock levels, value, low-stock alerts', 'icon' => 'bi-boxes', 'circle' => 'secondary'],
+                ['key' => 'expenses', 'title' => 'Operational expense report', 'desc' => 'Totals by category and line items for the period', 'icon' => 'bi-receipt-cutoff', 'circle' => 'danger'],
             ];
         @endphp
         <div class="row g-3 g-md-4 report-hub-grid">
@@ -134,6 +136,8 @@
                 @include('reports.sections.customers')
             @elseif($currentReport === 'inventory')
                 @include('reports.sections.inventory')
+            @elseif($currentReport === 'expenses')
+                @include('reports.sections.expenses')
             @endif
         </div>
     @endif

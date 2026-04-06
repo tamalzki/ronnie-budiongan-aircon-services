@@ -401,10 +401,10 @@
     <aside class="sidebar">
         <!-- Logo -->
         <div class="sidebar-header">
-            <a href="{{ route('dashboard') }}" class="logo" title="{{ config('app.name') }}">
-                <img src="{{ asset('images/brand-logo.png') }}" alt="" class="sidebar-brand-logo" width="64" height="36" aria-hidden="true">
+            <a href="{{ route('dashboard') }}" class="logo" title="Ronnie Aircon">
+                <img src="{{ asset('images/brand-logo.png') }}" alt="Ronnie Aircon" class="sidebar-brand-logo" width="64" height="36">
                 <div class="logo-text">
-                    <h1 class="logo-title">{{ config('app.short_name') }}</h1>
+                    <h1 class="logo-title">Ronnie Aircon</h1>
                 </div>
             </a>
         </div>
@@ -482,6 +482,19 @@
                         <a href="{{ route('suppliers.index') }}" class="nav-link {{ request()->routeIs('suppliers.*') ? 'active' : '' }}">
                             <i class="bi bi-people"></i>
                             <span>Suppliers</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Operations -->
+            <div class="nav-section">
+                <div class="nav-section-title">Operations</div>
+                <ul class="nav-menu">
+                    <li class="nav-item">
+                        <a href="{{ route('operation-expenses.index') }}" class="nav-link {{ request()->routeIs('operation-expenses.*') ? 'active' : '' }}">
+                            <i class="bi bi-receipt-cutoff"></i>
+                            <span>Operational expenses</span>
                         </a>
                     </li>
                 </ul>

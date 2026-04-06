@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\OperationExpense;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\InstallmentPayment;
@@ -11,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 
 class ReportController extends Controller
 {
-    public const REPORT_KEYS = ['overview', 'installments', 'purchases', 'customers', 'inventory'];
+    public const REPORT_KEYS = ['overview', 'installments', 'purchases', 'customers', 'inventory', 'expenses'];
 
     public function index(Request $request)
     {
@@ -116,6 +117,29 @@ class ReportController extends Controller
         $profitMargin     = $totalSales - $totalPurchases;
         $profitPercentage = $totalSales > 0 ? (($profitMargin / $totalSales) * 100) : 0;
 
+        // ── Operating expenses (same date range as sales / PO) ──────
+        $expenseAgg = DB::table('operation_expenses')
+            ->whereBetween('expense_date', [$startDate, $endDate])
+            ->selectRaw('COALESCE(SUM(amount), 0) as total')
+            ->first();
+        $totalOperatingExpenses = (float) ($expenseAgg->total ?? 0);
+
+        $expensesByCategory = DB::table('operation_expenses')
+            ->join('expense_categories', 'operation_expenses.expense_category_id', '=', 'expense_categories.id')
+            ->whereBetween('operation_expenses.expense_date', [$startDate, $endDate])
+            ->groupBy('expense_categories.id', 'expense_categories.name')
+            ->orderByDesc(DB::raw('SUM(operation_expenses.amount)'))
+            ->select('expense_categories.name as category_name')
+            ->selectRaw('SUM(operation_expenses.amount) as total')
+            ->get();
+
+        $operationExpensesList = OperationExpense::query()
+            ->whereBetween('expense_date', [$startDate, $endDate])
+            ->with(['category', 'user'])
+            ->orderByDesc('expense_date')
+            ->orderByDesc('id')
+            ->get();
+
         // ── Inventory Snapshot (always current, not date-filtered) ──
         $inventorySnapshot = Product::with('brand')
             ->where('is_active', true)
@@ -151,6 +175,8 @@ class ReportController extends Controller
             'totalPurchases', 'totalPurchasesPaid', 'totalPurchasesPending',
             'purchaseOrdersCount', 'purchaseOrdersSummary',
             'profitMargin', 'profitPercentage',
+            'totalOperatingExpenses',
+            'expensesByCategory', 'operationExpensesList',
             'topCustomers',
             'inventorySnapshot', 'totalStockValue', 'totalStockUnits'
         ));
