@@ -60,21 +60,21 @@
     {{-- Table --}}
     <div class="card app-card-panel">
         <div class="card-body p-0">
-            <div class="table-responsive" style="max-height:calc(100vh - 280px);overflow-y:auto;">
-                <table class="table table-hover table-sm mb-0" id="productsTable" style="font-size:0.875rem;">
+            <div class="table-responsive" style="max-height:calc(100vh - 240px);overflow-y:auto;">
+                <table class="table table-hover table-sm mb-0 products-compact-table" id="productsTable" style="font-size:0.82rem;">
                     <thead class="bg-light" style="position:sticky;top:0;z-index:10;">
                         <tr>
-                            <th class="border-0 px-3 py-2 bg-light">Brand</th>
-                            <th class="border-0 px-3 py-2 bg-light">Model</th>
-                            <th class="border-0 px-3 py-2 bg-light">Unit Type</th>
-                            <th class="border-0 px-3 py-2 bg-light">Supplier</th>
-                            <th class="border-0 px-3 py-2 bg-light" style="white-space:nowrap">Cost (PO)</th>
-                            <th class="border-0 px-3 py-2 bg-light" style="white-space:nowrap">Selling Price</th>
-                            <th class="border-0 px-3 py-2 bg-light">Profit</th>
-                            <th class="border-0 px-3 py-2 bg-light">
+                            <th class="border-0 px-2 py-2 bg-light">Brand</th>
+                            <th class="border-0 px-2 py-2 bg-light">Model</th>
+                            <th class="border-0 px-2 py-2 bg-light">Unit Type</th>
+                            <th class="border-0 px-2 py-2 bg-light">Supplier</th>
+                            <th class="border-0 px-2 py-2 bg-light" style="white-space:nowrap">Cost (PO)</th>
+                            <th class="border-0 px-2 py-2 bg-light" style="white-space:nowrap">Selling Price</th>
+                            <th class="border-0 px-2 py-2 bg-light">Profit</th>
+                            <th class="border-0 px-2 py-2 bg-light">
                                 <i class="bi bi-upc-scan me-1"></i>Inventory
                             </th>
-                            <th class="border-0 px-3 py-2 bg-light">Actions</th>
+                            <th class="border-0 px-2 py-2 bg-light">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="productsTableBody">
@@ -92,36 +92,36 @@
                             data-stock="{{ $stockLevel }}"
                             data-price="{{ $canSell ? 'priced' : 'noprice' }}">
 
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            <td class="px-2 py-2 align-middle" style="white-space:nowrap">
                                 <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary">
                                     {{ $product->brand->name ?? '—' }}
                                 </span>
                             </td>
-                            <td class="px-3 py-2 fw-semibold" style="white-space:nowrap">
+                            <td class="px-2 py-2 align-middle fw-semibold" style="white-space:nowrap">
                                 <a href="{{ route('products.show', $product) }}" class="text-decoration-none text-dark">
                                     {{ $product->model ?? '—' }}
                                 </a>
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            <td class="px-2 py-2 align-middle" style="white-space:nowrap">
                                 @if($product->unit_type === 'indoor')
-                                    <span style="font-size:0.75rem;padding:2px 8px;border-radius:20px;background:#e8f0fe;color:#1a56db;border:1px solid #93c5fd;font-weight:600;">❄️ Indoor</span>
+                                    <span style="font-size:0.72rem;padding:1px 7px;border-radius:20px;background:#e8f0fe;color:#1a56db;border:1px solid #93c5fd;font-weight:600;">Indoor</span>
                                 @elseif($product->unit_type === 'outdoor')
-                                    <span style="font-size:0.75rem;padding:2px 8px;border-radius:20px;background:#dcfce7;color:#166534;border:1px solid #86efac;font-weight:600;">🌀 Outdoor</span>
+                                    <span style="font-size:0.72rem;padding:1px 7px;border-radius:20px;background:#dcfce7;color:#166534;border:1px solid #86efac;font-weight:600;">Outdoor</span>
                                 @else
                                     <span class="text-muted">—</span>
                                 @endif
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            <td class="px-2 py-2 align-middle" style="white-space:nowrap">
                                 <small class="text-muted">{{ $product->supplier->name ?? '—' }}</small>
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            <td class="px-2 py-2 align-middle" style="white-space:nowrap">
                                 @if($product->cost > 0)
                                     <span class="text-danger fw-semibold">₱{{ number_format($product->cost, 2) }}</span>
                                 @else
                                     <span class="text-muted">—</span>
                                 @endif
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            <td class="px-2 py-2 align-middle" style="white-space:nowrap">
                                 @if($canSell)
                                     <span class="text-success fw-semibold">₱{{ number_format($product->price, 2) }}</span>
                                 @else
@@ -138,7 +138,7 @@
                                     </form>
                                 @endif
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            <td class="px-2 py-2 align-middle" style="white-space:nowrap">
                                 @if($canSell && $product->cost > 0)
                                     <span class="badge {{ $profit >= 0 ? 'bg-success' : 'bg-danger' }}">
                                         ₱{{ number_format($profit, 2) }} ({{ number_format($profitPct, 1) }}%)
@@ -149,7 +149,7 @@
                             </td>
 
                             {{-- ── Inventory / Serial Count column ── --}}
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            <td class="px-2 py-2 align-middle" style="white-space:nowrap">
                                 <a href="{{ route('products.show', $product) }}"
                                    class="text-decoration-none d-inline-flex align-items-center gap-1"
                                    title="View serial numbers">
@@ -169,27 +169,27 @@
                                 </a>
                             </td>
 
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            <td class="px-2 py-2 align-middle" style="white-space:nowrap">
                                 <div class="d-flex flex-wrap gap-1">
                                     <a href="{{ route('products.show', $product) }}"
-                                       class="btn btn-outline-info btn-sm" style="font-size:0.78rem"
+                                       class="btn btn-outline-info btn-sm py-0 px-2" style="font-size:0.74rem"
                                        title="View serials">
                                         <i class="bi bi-upc-scan"></i> View
                                     </a>
                                     <a href="{{ route('inventory.show', $product) }}#stock-in"
-                                       class="btn btn-outline-success btn-sm" style="font-size:0.78rem"
+                                       class="btn btn-outline-success btn-sm py-0 px-2" style="font-size:0.74rem"
                                        title="Add stock & serial numbers">
                                         <i class="bi bi-box-arrow-in-down"></i> Stock in
                                     </a>
                                     <a href="{{ route('products.edit', $product) }}"
-                                       class="btn btn-primary btn-sm" style="font-size:0.78rem">
+                                       class="btn btn-primary btn-sm py-0 px-2" style="font-size:0.74rem">
                                         <i class="bi bi-pencil"></i> Edit
                                     </a>
                                     <form action="{{ route('products.destroy', $product) }}" method="POST"
                                           class="d-inline" onsubmit="return confirm('Delete this product?')">
                                         @csrf @method('DELETE')
-                                        <button type="submit" class="btn btn-outline-danger btn-sm"
-                                                style="font-size:0.78rem">
+                                        <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2"
+                                                style="font-size:0.74rem">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </form>
@@ -269,5 +269,17 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 @endpush
+
+<style>
+.products-compact-table thead th {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+.products-compact-table tbody td {
+    vertical-align: middle;
+}
+</style>
 
 @endsection
