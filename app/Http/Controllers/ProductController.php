@@ -17,7 +17,7 @@ class ProductController extends Controller
 
     public function index()
     {
-        $products = Product::with(['brand', 'supplier'])
+        $products = Product::with(['brand'])
             ->withCount([
                 'serials as in_stock_count'  => fn($q) => $q->where('status', 'in_stock'),
                 'serials as pending_count'   => fn($q) => $q->where('status', 'pending'),
@@ -34,8 +34,18 @@ class ProductController extends Controller
         $noPriceCount = $products->where('price', 0)->count();
 
         $totalProducts = $products->count();
-        $lowStock = $products->filter(fn($p) => (int) ($p->in_stock_count ?? 0) <= 5)->count();
         $outOfStock = $products->filter(fn($p) => (int) ($p->in_stock_count ?? 0) === 0)->count();
+        $lowStock = $products->filter(function ($p) {
+            $n = (int) ($p->in_stock_count ?? 0);
+
+            return $n >= 1 && $n <= 5;
+        })->count();
+        $mediumStock = $products->filter(function ($p) {
+            $n = (int) ($p->in_stock_count ?? 0);
+
+            return $n >= 6 && $n <= 20;
+        })->count();
+        $highStock = $products->filter(fn($p) => (int) ($p->in_stock_count ?? 0) > 20)->count();
         $totalValue = $products->sum(fn($p) => (int) ($p->in_stock_count ?? 0) * (float) $p->price);
 
         return view('products.index', compact(
@@ -43,6 +53,8 @@ class ProductController extends Controller
             'noPriceCount',
             'totalProducts',
             'lowStock',
+            'mediumStock',
+            'highStock',
             'outOfStock',
             'totalValue'
         ));
