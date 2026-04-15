@@ -448,15 +448,9 @@
                 <div class="nav-section-title">Inventory</div>
                 <ul class="nav-menu">
                     <li class="nav-item">
-                        <a href="{{ route('inventory.index') }}" class="nav-link {{ request()->routeIs('inventory.*') ? 'active' : '' }}">
-                            <i class="bi bi-box-seam"></i>
-                            <span>Manage Stock</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="{{ route('products.index') }}" class="nav-link {{ request()->routeIs('products.*') ? 'active' : '' }}">
-                            <i class="bi bi-grid"></i>
-                            <span>Products</span>
+                        <a href="{{ route('products.index') }}" class="nav-link {{ request()->routeIs('products.*', 'inventory.*') ? 'active' : '' }}">
+                            <i class="bi bi-boxes"></i>
+                            <span>Products &amp; Stock</span>
                         </a>
                     </li>
                 </ul>

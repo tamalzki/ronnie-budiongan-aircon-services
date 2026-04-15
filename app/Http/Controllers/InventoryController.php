@@ -15,21 +15,7 @@ class InventoryController extends Controller
     {
         $this->authorize('viewAny', Product::class);
 
-        $products = Product::with(['brand', 'supplier'])
-            ->withCount([
-                'inventoryMovements',
-                'serials as in_stock_count' => fn($q) => $q->where('status', 'in_stock'),
-            ])
-            ->orderBy('brand_id')
-            ->orderBy('model')
-            ->get();
-
-        $totalProducts = $products->count();
-        $lowStock      = $products->filter(fn($p) => $p->in_stock_count <= 5)->count();
-        $outOfStock    = $products->filter(fn($p) => $p->in_stock_count === 0)->count();
-        $totalValue    = $products->sum(fn($p) => $p->in_stock_count * (float) $p->price);
-
-        return view('inventory.index', compact('products', 'totalProducts', 'lowStock', 'outOfStock', 'totalValue'));
+        return redirect()->route('products.index');
     }
 
     public function show(Product $product)

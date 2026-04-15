@@ -10,13 +10,13 @@
         <div>
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb mb-1">
-                    <li class="breadcrumb-item"><a href="{{ route('inventory.index') }}">Inventory</a></li>
+                    <li class="breadcrumb-item"><a href="{{ route('products.index') }}">Products &amp; Stock</a></li>
                     <li class="breadcrumb-item active">{{ $product->name }}</li>
                 </ol>
             </nav>
             <h2 class="mb-0"><i class="bi bi-box-seam text-primary"></i> {{ $product->name }}</h2>
         </div>
-        <a href="{{ route('inventory.index') }}" class="btn btn-outline-secondary btn-sm">
+        <a href="{{ route('products.index') }}" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-arrow-left"></i> Back
         </a>
     </div>

@@ -233,7 +233,7 @@
                         <h5 class="mb-0"><i class="bi bi-exclamation-triangle text-danger me-1"></i> Low stock</h5>
                         <small class="text-muted">Products with 5 or fewer units in stock</small>
                     </div>
-                    <a href="{{ route('inventory.index') }}" class="btn btn-sm btn-outline-primary">Manage stock</a>
+                    <a href="{{ route('products.index') }}" class="btn btn-sm btn-outline-primary">Products &amp; stock</a>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">

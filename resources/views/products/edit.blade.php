@@ -155,7 +155,7 @@
                             <label class="form-label fw-semibold">Stock Quantity</label>
                             <input type="number" class="form-control" name="stock_quantity"
                                    value="{{ old('stock_quantity', $product->stock_quantity) }}" min="0">
-                            <small class="text-muted">Manage stock properly via Inventory page</small>
+                            <small class="text-muted">Use Products &amp; Stock to add serials (Stock in) or open the full inventory tools for this item.</small>
                         </div>
 
                         {{-- Active --}}

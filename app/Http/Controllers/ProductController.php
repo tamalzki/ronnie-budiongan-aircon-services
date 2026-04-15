@@ -22,6 +22,10 @@ class ProductController extends Controller
                 'serials as in_stock_count'  => fn($q) => $q->where('status', 'in_stock'),
                 'serials as pending_count'   => fn($q) => $q->where('status', 'pending'),
                 'serials as sold_count'      => fn($q) => $q->where('status', 'sold'),
+                'serials as linked_serials_count',
+                'saleItems',
+                'purchaseOrderItems',
+                'inventoryMovements',
             ])
             ->orderBy('brand_id')
             ->orderBy('model')
@@ -29,7 +33,19 @@ class ProductController extends Controller
 
         $noPriceCount = $products->where('price', 0)->count();
 
-        return view('products.index', compact('products', 'noPriceCount'));
+        $totalProducts = $products->count();
+        $lowStock = $products->filter(fn($p) => (int) ($p->in_stock_count ?? 0) <= 5)->count();
+        $outOfStock = $products->filter(fn($p) => (int) ($p->in_stock_count ?? 0) === 0)->count();
+        $totalValue = $products->sum(fn($p) => (int) ($p->in_stock_count ?? 0) * (float) $p->price);
+
+        return view('products.index', compact(
+            'products',
+            'noPriceCount',
+            'totalProducts',
+            'lowStock',
+            'outOfStock',
+            'totalValue'
+        ));
     }
 
     public function show(Product $product)
@@ -135,12 +151,31 @@ class ProductController extends Controller
 
     public function destroy(Product $product)
     {
-        if ($product->serials()->whereIn('status', ['in_stock', 'sold', 'pending'])->exists()) {
+        $label = $product->display_model;
+        $blocks = [];
+
+        if ($product->saleItems()->exists()) {
+            $blocks[] = 'sales line items';
+        }
+        if ($product->purchaseOrderItems()->exists()) {
+            $blocks[] = 'purchase order lines';
+        }
+        if ($product->inventoryMovements()->exists()) {
+            $blocks[] = 'inventory movements';
+        }
+        if ($product->serials()->exists()) {
+            $blocks[] = 'serial / stock records';
+        }
+
+        if ($blocks !== []) {
             return redirect()->route('products.index')
-                ->with('error', 'Cannot delete "' . $product->display_model . '" — it has existing inventory or sales records. Deactivate it instead.');
+                ->with('error',
+                    'Cannot delete "' . $label . '" because it is linked to: ' . implode(', ', $blocks) . '. '
+                    . 'Remove or resolve those records first, or deactivate the product instead.');
         }
 
         $product->delete();
+
         return redirect()->route('products.index')->with('success', 'Product deleted.');
     }
 }

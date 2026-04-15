@@ -1,9 +1,9 @@
 @extends('layouts.app')
-@section('title', 'Products')
+@section('title', 'Products & Stock')
 @section('content')
 <div class="container-fluid">
 
-    <x-page-header title="Products" subtitle="Manage your product catalog" icon="bi-box-seam">
+    <x-page-header title="Products &amp; Stock" subtitle="Catalog, pricing, and stock-in in one place" icon="bi-boxes">
         <x-slot name="actions">
             <a href="{{ route('products.create') }}" class="btn btn-primary btn-sm shadow-sm">
                 <i class="bi bi-plus-circle"></i> Add Product
@@ -12,6 +12,63 @@
     </x-page-header>
 
     <x-flash />
+
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-md-3">
+            <div class="card app-card-panel">
+                <div class="card-body d-flex align-items-center gap-3 py-3">
+                    <div class="bg-primary bg-opacity-10 rounded p-2">
+                        <i class="bi bi-box-seam fs-4 text-primary"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small">Total Products</div>
+                        <div class="fw-bold fs-5">{{ $totalProducts }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card app-card-panel">
+                <div class="card-body d-flex align-items-center gap-3 py-3">
+                    <div class="bg-warning bg-opacity-10 rounded p-2">
+                        <i class="bi bi-exclamation-triangle fs-4 text-warning"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small">Low Stock</div>
+                        <div class="fw-bold fs-5 text-warning">{{ $lowStock }}</div>
+                        <div class="text-muted" style="font-size:0.75rem">≤ 5 units</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card app-card-panel">
+                <div class="card-body d-flex align-items-center gap-3 py-3">
+                    <div class="bg-danger bg-opacity-10 rounded p-2">
+                        <i class="bi bi-x-circle fs-4 text-danger"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small">Out of Stock</div>
+                        <div class="fw-bold fs-5 text-danger">{{ $outOfStock }}</div>
+                        <div class="text-muted" style="font-size:0.75rem">0 units</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card app-card-panel">
+                <div class="card-body d-flex align-items-center gap-3 py-3">
+                    <div class="bg-success bg-opacity-10 rounded p-2">
+                        <i class="bi bi-currency-dollar fs-4 text-success"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small">Stock Value (at price)</div>
+                        <div class="fw-bold fs-5 text-success">₱{{ number_format($totalValue, 2) }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     @if($noPriceCount > 0)
     <div class="alert alert-warning border-0 shadow-sm mb-3 d-flex align-items-center gap-2">
@@ -48,6 +105,14 @@
                         <option value="priced">Price Set</option>
                     </select>
                 </div>
+                <div class="col-md-2">
+                    <select id="brandFilter" class="form-select form-select-sm">
+                        <option value="">All Brands</option>
+                        @foreach($products->pluck('brand')->unique()->filter() as $brand)
+                            <option value="{{ $brand->id }}">{{ $brand->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
                 <div class="col-auto">
                     <button class="btn btn-outline-secondary btn-sm" onclick="clearFilters()" title="Clear">
                         <i class="bi bi-x-lg"></i>
@@ -60,7 +125,7 @@
     {{-- Table --}}
     <div class="card app-card-panel">
         <div class="card-body p-0">
-            <div class="table-responsive" style="max-height:calc(100vh - 240px);overflow-y:auto;">
+            <div class="table-responsive" style="max-height:calc(100vh - 380px);overflow-y:auto;">
                 <table class="table table-hover table-sm mb-0 products-compact-table" id="productsTable" style="font-size:0.82rem;">
                     <thead class="bg-light" style="position:sticky;top:0;z-index:10;">
                         <tr>
@@ -70,7 +135,6 @@
                             <th class="border-0 px-2 py-2 bg-light">Supplier</th>
                             <th class="border-0 px-2 py-2 bg-light" style="white-space:nowrap">Cost (PO)</th>
                             <th class="border-0 px-2 py-2 bg-light" style="white-space:nowrap">Selling Price</th>
-                            <th class="border-0 px-2 py-2 bg-light">Profit</th>
                             <th class="border-0 px-2 py-2 bg-light">
                                 <i class="bi bi-upc-scan me-1"></i>Inventory
                             </th>
@@ -81,16 +145,19 @@
                         @forelse($products as $product)
                         @php
                             $canSell    = $product->price > 0;
-                            $profit     = $product->price - $product->cost;
-                            $profitPct  = $product->cost > 0 ? (($profit / $product->cost) * 100) : 0;
                             $inStock    = $product->in_stock_count ?? 0;
                             $pending    = $product->pending_count  ?? 0;
                             $stockLevel = $inStock == 0 ? 'out' : ($inStock <= 5 ? 'low' : 'in');
+                            $hasLinkedData = ($product->sale_items_count ?? 0) > 0
+                                || ($product->purchase_order_items_count ?? 0) > 0
+                                || ($product->inventory_movements_count ?? 0) > 0
+                                || ($product->linked_serials_count ?? 0) > 0;
                         @endphp
                         <tr class="{{ !$canSell ? 'table-warning' : '' }} product-row"
                             data-search="{{ strtolower(($product->brand->name ?? '') . ' ' . ($product->model ?? '') . ' ' . ($product->supplier->name ?? '') . ' ' . ($product->unit_type ?? '')) }}"
                             data-stock="{{ $stockLevel }}"
-                            data-price="{{ $canSell ? 'priced' : 'noprice' }}">
+                            data-price="{{ $canSell ? 'priced' : 'noprice' }}"
+                            data-brand="{{ $product->brand_id ?? '' }}">
 
                             <td class="px-2 py-2 align-middle" style="white-space:nowrap">
                                 <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary">
@@ -138,15 +205,6 @@
                                     </form>
                                 @endif
                             </td>
-                            <td class="px-2 py-2 align-middle" style="white-space:nowrap">
-                                @if($canSell && $product->cost > 0)
-                                    <span class="badge {{ $profit >= 0 ? 'bg-success' : 'bg-danger' }}">
-                                        ₱{{ number_format($profit, 2) }} ({{ number_format($profitPct, 1) }}%)
-                                    </span>
-                                @else
-                                    <span class="text-muted">—</span>
-                                @endif
-                            </td>
 
                             {{-- ── Inventory / Serial Count column ── --}}
                             <td class="px-2 py-2 align-middle" style="white-space:nowrap">
@@ -169,12 +227,17 @@
                                 </a>
                             </td>
 
-                            <td class="px-2 py-2 align-middle" style="white-space:nowrap">
-                                <div class="d-flex flex-wrap gap-1">
+                            <td class="px-2 py-2 align-middle text-nowrap products-actions-cell">
+                                <div class="d-inline-flex flex-nowrap align-items-center gap-1">
                                     <a href="{{ route('products.show', $product) }}"
                                        class="btn btn-outline-info btn-sm py-0 px-2" style="font-size:0.74rem"
                                        title="View serials">
                                         <i class="bi bi-upc-scan"></i> View
+                                    </a>
+                                    <a href="{{ route('inventory.show', $product) }}"
+                                       class="btn btn-outline-primary btn-sm py-0 px-2" style="font-size:0.74rem"
+                                       title="Movements, adjust, returns">
+                                        <i class="bi bi-sliders"></i> Manage
                                     </a>
                                     <a href="{{ route('inventory.show', $product) }}#stock-in"
                                        class="btn btn-outline-success btn-sm py-0 px-2" style="font-size:0.74rem"
@@ -185,20 +248,30 @@
                                        class="btn btn-primary btn-sm py-0 px-2" style="font-size:0.74rem">
                                         <i class="bi bi-pencil"></i> Edit
                                     </a>
-                                    <form action="{{ route('products.destroy', $product) }}" method="POST"
-                                          class="d-inline" onsubmit="return confirm('Delete this product?')">
-                                        @csrf @method('DELETE')
-                                        <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2"
-                                                style="font-size:0.74rem">
-                                            <i class="bi bi-trash"></i>
+                                    @if($hasLinkedData)
+                                        <button type="button"
+                                                class="btn btn-outline-secondary btn-sm py-0 px-2 text-nowrap"
+                                                style="font-size:0.74rem"
+                                                disabled
+                                                title="Cannot delete: this product has sales, purchase orders, inventory movements, or serial records.">
+                                            <i class="bi bi-trash"></i> Delete
                                         </button>
-                                    </form>
+                                    @else
+                                        <form action="{{ route('products.destroy', $product) }}" method="POST"
+                                              class="d-inline" onsubmit="return confirm('Delete this product? This cannot be undone.')">
+                                            @csrf @method('DELETE')
+                                            <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2 text-nowrap"
+                                                    style="font-size:0.74rem">
+                                                <i class="bi bi-trash"></i> Delete
+                                            </button>
+                                        </form>
+                                    @endif
                                 </div>
                             </td>
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="9" class="text-center py-5 text-muted">
+                            <td colspan="8" class="text-center py-5 text-muted">
                                 <i class="bi bi-inbox fs-1 d-block mb-2"></i>
                                 No products yet
                             </td>
@@ -228,6 +301,7 @@ function clearFilters() {
     document.getElementById('productSearch').value = '';
     document.getElementById('stockFilter').value   = '';
     document.getElementById('priceFilter').value   = '';
+    document.getElementById('brandFilter').value   = '';
     filterTable();
 }
 
@@ -235,6 +309,7 @@ function filterTable() {
     const search = document.getElementById('productSearch').value.toLowerCase();
     const stock  = document.getElementById('stockFilter').value;
     const price  = document.getElementById('priceFilter').value;
+    const brand  = document.getElementById('brandFilter').value;
     const rows   = document.querySelectorAll('.product-row');
     let visible  = 0;
 
@@ -242,8 +317,9 @@ function filterTable() {
         const matchSearch = !search || row.dataset.search.includes(search);
         const matchStock  = !stock  || row.dataset.stock  === stock;
         const matchPrice  = !price  || row.dataset.price  === price;
+        const matchBrand  = !brand  || row.dataset.brand === brand;
 
-        const show = matchSearch && matchStock && matchPrice;
+        const show = matchSearch && matchStock && matchPrice && matchBrand;
         row.style.display = show ? '' : 'none';
         if (show) visible++;
     });
@@ -253,7 +329,7 @@ function filterTable() {
         if (!noResults) {
             noResults = document.createElement('tr');
             noResults.id = 'noResultsRow';
-            noResults.innerHTML = '<td colspan="9" class="text-center py-5 text-muted"><i class="bi bi-search fs-1 d-block mb-2"></i>No results found</td>';
+            noResults.innerHTML = '<td colspan="8" class="text-center py-5 text-muted"><i class="bi bi-search fs-1 d-block mb-2"></i>No results found</td>';
             document.getElementById('productsTableBody').appendChild(noResults);
         }
         noResults.style.display = '';
@@ -266,6 +342,7 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('productSearch').addEventListener('input', filterTable);
     document.getElementById('stockFilter').addEventListener('change', filterTable);
     document.getElementById('priceFilter').addEventListener('change', filterTable);
+    document.getElementById('brandFilter').addEventListener('change', filterTable);
 });
 </script>
 @endpush
@@ -279,6 +356,9 @@ document.addEventListener('DOMContentLoaded', function () {
 }
 .products-compact-table tbody td {
     vertical-align: middle;
+}
+.products-actions-cell .d-inline-flex {
+    flex-wrap: nowrap;
 }
 </style>
 
