@@ -2,39 +2,40 @@
 @section('title', 'Add Product')
 @section('content')
 <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2 class="mb-1"><i class="bi bi-plus-circle text-primary"></i> Add Product</h2>
-            <p class="text-muted mb-0">Products are identified by Brand + Model + Unit Type</p>
-        </div>
-        <a href="{{ route('products.index') }}" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left"></i> Back
-        </a>
-    </div>
 
-    <div class="row justify-content-center">
-        <div class="col-md-7">
+    <x-page-header title="Add Product" subtitle="Products are identified by Brand + Model + Unit Type" icon="bi-plus-circle">
+        <x-slot name="actions">
+            <a href="{{ route('products.index') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </x-slot>
+    </x-page-header>
+
+    <x-flash />
+
+    <div class="row">
+        <div class="col-lg-8 col-xl-7">
 
             {{-- Workflow tip --}}
-            <div class="alert alert-info border-0 shadow-sm mb-4">
-                <i class="bi bi-lightbulb-fill me-2"></i>
+            <div class="alert alert-info border-0 shadow-sm py-2 px-3 mb-3 small">
+                <i class="bi bi-lightbulb-fill me-1"></i>
                 <strong>Recommended workflow:</strong>
                 Add product here → Create Purchase Order (cost auto-fills) → Receive Stock → Sell
             </div>
 
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-primary text-white border-0">
-                    <h5 class="mb-0"><i class="bi bi-box-seam"></i> Product Details</h5>
+            <div class="card app-card-panel">
+                <div class="card-header bg-white py-2 px-3">
+                    <span class="fw-semibold small"><i class="bi bi-box-seam text-primary me-1"></i>Product Details</span>
                 </div>
-                <div class="card-body p-4">
+                <div class="card-body p-3">
                     <form action="{{ route('products.store') }}" method="POST">
                         @csrf
 
                         {{-- Brand & Model --}}
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Brand <span class="text-danger">*</span></label>
-                                <select class="form-select @error('brand_id') is-invalid @enderror"
+                                <label class="form-label small fw-semibold mb-1">Brand <span class="text-danger">*</span></label>
+                                <select class="form-select form-select-sm @error('brand_id') is-invalid @enderror"
                                         name="brand_id" required>
                                     <option value="">-- Select Brand --</option>
                                     @foreach($brands as $brand)
@@ -46,9 +47,9 @@
                                 @error('brand_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Model <span class="text-danger">*</span></label>
+                                <label class="form-label small fw-semibold mb-1">Model <span class="text-danger">*</span></label>
                                 <input type="text" name="model"
-                                       class="form-control @error('model') is-invalid @enderror"
+                                       class="form-control form-control-sm @error('model') is-invalid @enderror"
                                        value="{{ old('model') }}"
                                        placeholder="e.g. FTKC60BVAF" required>
                                 @error('model')<div class="invalid-feedback">{{ $message }}</div>@enderror
@@ -58,8 +59,8 @@
                         {{-- Unit Type & Serial Number --}}
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Unit Type <span class="text-danger">*</span></label>
-                                <select class="form-select @error('unit_type') is-invalid @enderror"
+                                <label class="form-label small fw-semibold mb-1">Unit Type <span class="text-danger">*</span></label>
+                                <select class="form-select form-select-sm @error('unit_type') is-invalid @enderror"
                                         name="unit_type" required>
                                     <option value="">-- Select Type --</option>
                                     <option value="indoor" {{ old('unit_type') == 'indoor' ? 'selected' : '' }}>🏠 Indoor Unit</option>
@@ -68,9 +69,9 @@
                                 @error('unit_type')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Serial Number</label>
+                                <label class="form-label small fw-semibold mb-1">Serial Number</label>
                                 <input type="text" name="serial_number"
-                                       class="form-control @error('serial_number') is-invalid @enderror"
+                                       class="form-control form-control-sm @error('serial_number') is-invalid @enderror"
                                        value="{{ old('serial_number') }}"
                                        placeholder="Optional">
                                 @error('serial_number')<div class="invalid-feedback">{{ $message }}</div>@enderror
@@ -80,8 +81,8 @@
 
                         {{-- Supplier --}}
                         <div class="mb-3">
-                            <label class="form-label fw-semibold">Supplier</label>
-                            <select class="form-select" name="supplier_id">
+                            <label class="form-label small fw-semibold mb-1">Supplier</label>
+                            <select class="form-select form-select-sm" name="supplier_id">
                                 <option value="">-- Select Supplier --</option>
                                 @foreach($suppliers as $supplier)
                                     <option value="{{ $supplier->id }}" {{ old('supplier_id') == $supplier->id ? 'selected' : '' }}>
@@ -93,61 +94,61 @@
 
                         {{-- Description --}}
                         <div class="mb-3">
-                            <label class="form-label fw-semibold">Description</label>
-                            <textarea class="form-control" name="description" rows="2"
+                            <label class="form-label small fw-semibold mb-1">Description</label>
+                            <textarea class="form-control form-control-sm" name="description" rows="2"
                                       placeholder="Optional">{{ old('description') }}</textarea>
                         </div>
 
                         {{-- Cost & Selling Price --}}
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Cost</label>
-                                <div class="input-group">
+                                <label class="form-label small fw-semibold mb-1">Cost</label>
+                                <div class="input-group input-group-sm">
                                     <span class="input-group-text">₱</span>
                                     <input type="number" step="0.01" min="0"
                                            class="form-control @error('cost') is-invalid @enderror"
                                            name="cost" value="{{ old('cost', 0) }}"
                                            placeholder="e.g. 28000.00">
                                 </div>
-                                @error('cost')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                @error('cost')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                                 <small class="text-muted">Used as default in PO</small>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">
+                                <label class="form-label small fw-semibold mb-1">
                                     Selling Price <span class="text-danger">*</span>
                                 </label>
-                                <div class="input-group">
+                                <div class="input-group input-group-sm">
                                     <span class="input-group-text">₱</span>
                                     <input type="number" step="0.01" min="0.01"
                                            class="form-control @error('price') is-invalid @enderror"
                                            name="price" value="{{ old('price', '') }}"
                                            placeholder="e.g. 35000.00" required>
                                 </div>
-                                @error('price')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                @error('price')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                                 <small class="text-muted">What customers pay</small>
                             </div>
                         </div>
 
                         {{-- Stock --}}
                         <div class="mb-3">
-                            <label class="form-label fw-semibold">Initial Stock <span class="text-danger">*</span></label>
-                            <input type="number" class="form-control @error('stock_quantity') is-invalid @enderror"
+                            <label class="form-label small fw-semibold mb-1">Initial Stock <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control form-control-sm @error('stock_quantity') is-invalid @enderror"
                                    name="stock_quantity" value="{{ old('stock_quantity', 0) }}" min="0" required>
                             @error('stock_quantity')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
 
                         {{-- Active --}}
-                        <div class="mb-4">
+                        <div class="mb-3">
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" name="is_active"
                                        id="isActive" {{ old('is_active', true) ? 'checked' : '' }}>
-                                <label class="form-check-label" for="isActive">Active Product</label>
+                                <label class="form-check-label small" for="isActive">Active Product</label>
                             </div>
                         </div>
 
-                        <div class="d-flex justify-content-between">
-                            <a href="{{ route('products.index') }}" class="btn btn-outline-secondary px-4">Cancel</a>
-                            <button type="submit" class="btn btn-primary px-5">
+                        <div class="d-flex justify-content-end gap-2 pt-2 border-top">
+                            <a href="{{ route('products.index') }}" class="btn btn-outline-secondary btn-sm">Cancel</a>
+                            <button type="submit" class="btn btn-primary btn-sm shadow-sm">
                                 <i class="bi bi-save"></i> Save Product
                             </button>
                         </div>

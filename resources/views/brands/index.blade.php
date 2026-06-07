@@ -46,14 +46,14 @@
     <div class="card app-card-panel">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover table-sm mb-0" id="brandsTable" style="font-size:0.875rem;">
-                    <thead class="bg-light">
+                <table class="table table-hover table-sm align-middle mb-0 app-table" id="brandsTable">
+                    <thead>
                         <tr>
-                            <th class="border-0 px-3 py-2">Brand Name</th>
-                            <th class="border-0 px-3 py-2">Description</th>
-                            <th class="border-0 px-3 py-2 text-center">Products</th>
-                            <th class="border-0 px-3 py-2">Status</th>
-                            <th class="border-0 px-3 py-2">Actions</th>
+                            <th>Brand Name</th>
+                            <th>Description</th>
+                            <th class="text-center">Products</th>
+                            <th>Status</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="brandsTableBody">
@@ -77,24 +77,19 @@
                                     {{ $brand->is_active ? 'Active' : 'Inactive' }}
                                 </span>
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
-                                <div class="d-flex gap-1">
-                                    <a href="{{ route('brands.show', $brand) }}"
-                                       class="btn btn-outline-primary"
-                                       style="padding:2px 8px;font-size:0.78rem">
-                                        <i class="bi bi-eye"></i> View
+                            <td style="white-space:nowrap">
+                                <div class="app-act-wrap">
+                                    <a href="{{ route('brands.show', $brand) }}" class="btn btn-light border app-act">
+                                        <i class="bi bi-eye"></i><span class="act-label"> View</span>
                                     </a>
-                                    <a href="{{ route('brands.edit', $brand) }}"
-                                       class="btn btn-warning"
-                                       style="padding:2px 8px;font-size:0.78rem">
-                                        <i class="bi bi-pencil"></i> Edit
+                                    <a href="{{ route('brands.edit', $brand) }}" class="btn btn-light border app-act">
+                                        <i class="bi bi-pencil"></i><span class="act-label"> Edit</span>
                                     </a>
                                     <form action="{{ route('brands.destroy', $brand) }}" method="POST"
-                                          class="d-inline" onsubmit="return confirm('Delete this brand?')">
+                                          class="app-act-form" onsubmit="return confirm('Delete this brand?')">
                                         @csrf @method('DELETE')
-                                        <button type="submit" class="btn btn-outline-danger"
-                                                style="padding:2px 8px;font-size:0.78rem">
-                                            <i class="bi bi-trash">delete</i>
+                                        <button type="submit" class="btn btn-light border app-act text-danger">
+                                            <i class="bi bi-trash"></i> Delete
                                         </button>
                                     </form>
                                 </div>

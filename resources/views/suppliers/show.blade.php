@@ -3,97 +3,87 @@
 @section('title', 'Supplier Details')
 
 @section('content')
-<div class="container">
-    <div class="row">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0">{{ $supplier->name }}</h4>
-                </div>
-                <div class="card-body">
-                    <table class="table table-bordered">
-                        <tr>
-                            <th width="200">ID</th>
-                            <td>{{ $supplier->id }}</td>
-                        </tr>
-                        <tr>
-                            <th>Name</th>
-                            <td>{{ $supplier->name }}</td>
-                        </tr>
-                        <tr>
-                            <th>Contact Person</th>
-                            <td>{{ $supplier->contact_person ?? 'N/A' }}</td>
-                        </tr>
-                        <tr>
-                            <th>Contact Number</th>
-                            <td>{{ $supplier->contact_number ?? 'N/A' }}</td>
-                        </tr>
-                        <tr>
-                            <th>Email</th>
-                            <td>{{ $supplier->email ?? 'N/A' }}</td>
-                        </tr>
-                        <tr>
-                            <th>Address</th>
-                            <td>{{ $supplier->address ?? 'N/A' }}</td>
-                        </tr>
-                        <tr>
-                            <th>Status</th>
-                            <td>
-                                <span class="badge bg-{{ $supplier->is_active ? 'success' : 'secondary' }}">
-                                    {{ $supplier->is_active ? 'Active' : 'Inactive' }}
-                                </span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>Total Products</th>
-                            <td>{{ $supplier->products->count() }}</td>
-                        </tr>
-                        <tr>
-                            <th>Created At</th>
-                            <td>{{ $supplier->created_at->format('M d, Y h:i A') }}</td>
-                        </tr>
-                        <tr>
-                            <th>Updated At</th>
-                            <td>{{ $supplier->updated_at->format('M d, Y h:i A') }}</td>
-                        </tr>
-                    </table>
+<div class="container-fluid">
 
-                    <div class="d-flex justify-content-between mt-3">
-                        <a href="{{ route('suppliers.index') }}" class="btn btn-secondary">
-                            <i class="bi bi-arrow-left"></i> Back
-                        </a>
-                        <a href="{{ route('suppliers.edit', $supplier) }}" class="btn btn-warning">
-                            <i class="bi bi-pencil"></i> Edit
-                        </a>
-                    </div>
+    <x-page-header title="{{ $supplier->name }}" subtitle="Supplier details" icon="bi-people">
+        <x-slot name="actions">
+            <a href="{{ route('suppliers.index') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+            <a href="{{ route('suppliers.edit', $supplier) }}" class="btn btn-primary btn-sm shadow-sm">
+                <i class="bi bi-pencil"></i> Edit
+            </a>
+        </x-slot>
+    </x-page-header>
+
+    <x-flash />
+
+    <div class="row g-3">
+        <div class="col-lg-5">
+            <div class="card app-card-panel">
+                <div class="card-body p-3">
+                    <dl class="row mb-0 small">
+                        <dt class="col-5 text-muted fw-normal py-1">Name</dt>
+                        <dd class="col-7 fw-semibold py-1 mb-0">{{ $supplier->name }}</dd>
+
+                        <dt class="col-5 text-muted fw-normal py-1">Contact Person</dt>
+                        <dd class="col-7 py-1 mb-0">{{ $supplier->contact_person ?? '—' }}</dd>
+
+                        <dt class="col-5 text-muted fw-normal py-1">Contact Number</dt>
+                        <dd class="col-7 py-1 mb-0">{{ $supplier->contact_number ?? '—' }}</dd>
+
+                        <dt class="col-5 text-muted fw-normal py-1">Email</dt>
+                        <dd class="col-7 py-1 mb-0">{{ $supplier->email ?? '—' }}</dd>
+
+                        <dt class="col-5 text-muted fw-normal py-1">Address</dt>
+                        <dd class="col-7 py-1 mb-0">{{ $supplier->address ?? '—' }}</dd>
+
+                        <dt class="col-5 text-muted fw-normal py-1">Status</dt>
+                        <dd class="col-7 py-1 mb-0">
+                            <span class="badge {{ $supplier->is_active ? 'bg-success' : 'bg-secondary' }}">
+                                {{ $supplier->is_active ? 'Active' : 'Inactive' }}
+                            </span>
+                        </dd>
+
+                        <dt class="col-5 text-muted fw-normal py-1">Total Products</dt>
+                        <dd class="col-7 fw-semibold py-1 mb-0">{{ $supplier->products->count() }}</dd>
+
+                        <dt class="col-5 text-muted fw-normal py-1">Created</dt>
+                        <dd class="col-7 py-1 mb-0">{{ $supplier->created_at->format('M d, Y h:i A') }}</dd>
+
+                        <dt class="col-5 text-muted fw-normal py-1">Updated</dt>
+                        <dd class="col-7 py-1 mb-0">{{ $supplier->updated_at->format('M d, Y h:i A') }}</dd>
+                    </dl>
                 </div>
             </div>
+        </div>
 
-            @if($supplier->products->count() > 0)
-            <div class="card mt-3">
-                <div class="card-header">
-                    <h5 class="mb-0">Products ({{ $supplier->products->count() }})</h5>
+        @if($supplier->products->count() > 0)
+        <div class="col-lg-7">
+            <div class="card app-card-panel">
+                <div class="card-header bg-white py-2 px-3">
+                    <span class="fw-semibold small"><i class="bi bi-boxes text-primary me-1"></i>Products ({{ $supplier->products->count() }})</span>
                 </div>
-                <div class="card-body">
+                <div class="card-body p-0">
                     <div class="table-responsive">
-                        <table class="table table-sm">
-                            <thead>
+                        <table class="table table-hover table-sm mb-0 app-table-compact">
+                            <thead class="bg-light">
                                 <tr>
-                                    <th>Product Name</th>
-                                    <th>Brand</th>
-                                    <th>Model</th>
-                                    <th>Price</th>
-                                    <th>Stock</th>
+                                    <th class="px-3 py-2">Product Name</th>
+                                    <th class="px-3 py-2">Brand</th>
+                                    <th class="px-3 py-2">Model</th>
+                                    <th class="px-3 py-2 text-end">Price</th>
+                                    <th class="px-3 py-2 text-center">Stock</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach($supplier->products as $product)
                                 <tr>
-                                    <td>{{ $product->name }}</td>
-                                    <td>{{ $product->brand->name ?? 'N/A' }}</td>
-                                    <td>{{ $product->model ?? 'N/A' }}</td>
-                                    <td>₱{{ number_format($product->price, 2) }}</td>
-                                    <td>{{ $product->stock_quantity }}</td>
+                                    <td class="px-3 py-1 fw-semibold">{{ $product->name }}</td>
+                                    <td class="px-3 py-1">{{ $product->brand->name ?? '—' }}</td>
+                                    <td class="px-3 py-1">{{ $product->model ?? '—' }}</td>
+                                    <td class="px-3 py-1 text-end">₱{{ number_format($product->price, 2) }}</td>
+                                    <td class="px-3 py-1 text-center">{{ $product->stock_quantity }}</td>
                                 </tr>
                                 @endforeach
                             </tbody>
@@ -101,8 +91,8 @@
                     </div>
                 </div>
             </div>
-            @endif
         </div>
+        @endif
     </div>
 </div>
 @endsection

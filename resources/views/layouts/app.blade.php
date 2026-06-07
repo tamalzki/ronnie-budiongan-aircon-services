@@ -329,6 +329,75 @@
             box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
         }
 
+        /* ═══════════════════════════════════════════════════════
+           Global App Table — unified design matching Products page
+        ════════════════════════════════════════════════════════ */
+        table.app-table {
+            font-size: 0.8125rem;
+            border-collapse: collapse;
+        }
+        table.app-table > thead > tr > th {
+            padding: 0.48rem 0.7rem !important;
+            font-size: 0.63rem !important;
+            font-weight: 700 !important;
+            letter-spacing: 0.07em !important;
+            text-transform: uppercase !important;
+            color: #6B7280 !important;
+            background: #F9FAFB !important;
+            border-bottom: 2px solid #D1D5DB !important;
+            border-top: none !important;
+            border-right: 1px solid #E5E7EB !important;
+            white-space: nowrap !important;
+            vertical-align: middle !important;
+        }
+        table.app-table > thead > tr > th:last-child {
+            border-right: none !important;
+        }
+        table.app-table > tbody > tr > td {
+            padding: 0.42rem 0.7rem !important;
+            border-bottom: 1px solid #E5E7EB !important;
+            border-right: 1px solid #F3F4F6 !important;
+            vertical-align: middle !important;
+        }
+        table.app-table > tbody > tr > td:last-child {
+            border-right: none !important;
+        }
+        table.app-table > tbody > tr:last-child > td {
+            border-bottom: none !important;
+        }
+        table.app-table > tbody > tr:hover > td {
+            background-color: rgba(79, 70, 229, 0.035) !important;
+        }
+        /* Tfoot */
+        table.app-table > tfoot > tr > td,
+        table.app-table > tfoot > tr > th {
+            padding: 0.42rem 0.7rem !important;
+            font-size: 0.8rem;
+            background: #F9FAFB !important;
+            border-top: 2px solid #D1D5DB !important;
+        }
+
+        /* ── Unified action buttons ── */
+        .app-act {
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 0.22rem;
+            padding: 0.18rem 0.5rem !important;
+            font-size: 0.72rem !important;
+            font-weight: 600 !important;
+            white-space: nowrap;
+            line-height: 1.35;
+            border-radius: 6px !important;
+        }
+        .app-act i { font-size: 0.88rem; opacity: 0.85; }
+        .app-act-wrap {
+            display: inline-flex;
+            flex-wrap: nowrap;
+            align-items: center;
+            gap: 0.2rem;
+        }
+        .app-act-form { display: inline-flex; margin: 0; }
+
         /* ── Tables ── */
         .table thead th {
             background: var(--bg-light);

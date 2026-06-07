@@ -5,28 +5,15 @@
 @section('content')
 <div class="container-fluid">
 
-    {{-- Header --}}
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb mb-1">
-                    <li class="breadcrumb-item"><a href="{{ route('products.index') }}">Products &amp; Stock</a></li>
-                    <li class="breadcrumb-item active">{{ $product->name }}</li>
-                </ol>
-            </nav>
-            <h2 class="mb-0"><i class="bi bi-box-seam text-primary"></i> {{ $product->name }}</h2>
-        </div>
-        <a href="{{ route('products.index') }}" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-arrow-left"></i> Back
-        </a>
-    </div>
+    <x-page-header title="{{ $product->name }}" subtitle="Inventory &amp; stock movements" icon="bi-box-seam">
+        <x-slot name="actions">
+            <a href="{{ route('products.index') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </x-slot>
+    </x-page-header>
 
-    @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-3">
-            {{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    @endif
+    <x-flash />
 
     {{-- ═══════════════════════════════════════════════════
          ROW 1: Product Info + Stock Status + Actions
@@ -35,9 +22,9 @@
 
         {{-- Product Info --}}
         <div class="col-md-4">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-primary text-white border-0 py-2">
-                    <h6 class="mb-0"><i class="bi bi-info-circle"></i> Product Information</h6>
+            <div class="card app-card-panel h-100">
+                <div class="card-header bg-white py-2 px-3">
+                    <span class="fw-semibold small"><i class="bi bi-info-circle text-primary me-1"></i>Product Information</span>
                 </div>
                 <div class="card-body p-0">
                     <table class="table table-sm table-borderless mb-0" style="font-size:0.875rem;">
@@ -159,7 +146,131 @@
     </div>
 
     {{-- ═══════════════════════════════════════════════════
-         ROW 2: Movement History (full width)
+         ROW 2: Serial Numbers
+    ════════════════════════════════════════════════════ --}}
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header border-0 py-2 d-flex justify-content-between align-items-center flex-wrap gap-2"
+             style="background:linear-gradient(135deg,#4F46E5,#4338CA);">
+            <h6 class="mb-0 text-white"><i class="bi bi-upc-scan me-1"></i>Serial Numbers
+                <span class="badge bg-white text-dark ms-1" style="font-size:0.72rem;">{{ $serials->count() }}</span>
+            </h6>
+            <div class="d-flex flex-wrap gap-1">
+                <button class="btn btn-sm btn-light sn-filter-btn active" data-filter="all" onclick="filterSN('all')" style="font-size:0.72rem;">
+                    All <span class="badge bg-secondary ms-1">{{ $serials->count() }}</span>
+                </button>
+                @if($serialCounts['in_stock'] > 0)
+                <button class="btn btn-sm sn-filter-btn" data-filter="in_stock" onclick="filterSN('in_stock')"
+                        style="font-size:0.72rem;background:#d1fae5;color:#065f46;border:1px solid #86efac;">
+                    In Stock <span class="badge ms-1" style="background:#10b981;">{{ $serialCounts['in_stock'] }}</span>
+                </button>
+                @endif
+                @if($serialCounts['pending'] > 0)
+                <button class="btn btn-sm sn-filter-btn" data-filter="pending" onclick="filterSN('pending')"
+                        style="font-size:0.72rem;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;">
+                    Pending <span class="badge bg-warning text-dark ms-1">{{ $serialCounts['pending'] }}</span>
+                </button>
+                @endif
+                @if($serialCounts['sold'] > 0)
+                <button class="btn btn-sm sn-filter-btn" data-filter="sold" onclick="filterSN('sold')"
+                        style="font-size:0.72rem;background:#dbeafe;color:#1e40af;border:1px solid #93c5fd;">
+                    Sold <span class="badge ms-1" style="background:#3b82f6;">{{ $serialCounts['sold'] }}</span>
+                </button>
+                @endif
+                @if($serialCounts['defective'] + $serialCounts['lost'] > 0)
+                <button class="btn btn-sm sn-filter-btn" data-filter="defective" onclick="filterSN('defective')"
+                        style="font-size:0.72rem;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;">
+                    Defective/Lost <span class="badge bg-danger ms-1">{{ $serialCounts['defective'] + $serialCounts['lost'] }}</span>
+                </button>
+                @endif
+            </div>
+        </div>
+        <div class="card-body p-0">
+            @if($serials->count() > 0)
+            <div class="table-responsive">
+                <table class="table table-hover table-sm mb-0" style="font-size:0.875rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="px-3 py-2">#</th>
+                            <th class="px-3 py-2"><i class="bi bi-upc-scan me-1"></i>Serial Number</th>
+                            <th class="px-3 py-2">Status</th>
+                            <th class="px-3 py-2">Purchase Order</th>
+                            <th class="px-3 py-2">Received</th>
+                            <th class="px-3 py-2">Sale / Customer</th>
+                        </tr>
+                    </thead>
+                    <tbody id="snTableBody">
+                        @foreach($serials as $serial)
+                        @php
+                            $snCfg = [
+                                'in_stock'  => ['bg'=>'#f0fdf4','badge'=>'bg-success',              'icon'=>'✅','label'=>'In Stock'],
+                                'pending'   => ['bg'=>'#fffbeb','badge'=>'bg-warning text-dark',     'icon'=>'⏳','label'=>'Pending'],
+                                'sold'      => ['bg'=>'#eff6ff','badge'=>'bg-primary',               'icon'=>'🛒','label'=>'Sold'],
+                                'returned'  => ['bg'=>'#fdf4ff','badge'=>'bg-secondary',             'icon'=>'↩️','label'=>'Returned'],
+                                'defective' => ['bg'=>'#fff1f2','badge'=>'bg-danger',                'icon'=>'⚠️','label'=>'Defective'],
+                                'lost'      => ['bg'=>'#f9fafb','badge'=>'bg-secondary',             'icon'=>'❓','label'=>'Lost'],
+                            ];
+                            $cfg = $snCfg[$serial->status] ?? $snCfg['lost'];
+                            $snFilter = in_array($serial->status, ['defective','lost']) ? 'defective' : $serial->status;
+                        @endphp
+                        <tr class="sn-row" data-status="{{ $snFilter }}" style="background:{{ $cfg['bg'] }};">
+                            <td class="px-3 py-2 text-muted">{{ $loop->iteration }}</td>
+                            <td class="px-3 py-2">
+                                <code class="fw-semibold" style="font-size:0.88rem;color:#1e293b;letter-spacing:0.03em;">
+                                    {{ $serial->serial_number }}
+                                </code>
+                            </td>
+                            <td class="px-3 py-2">
+                                <span class="badge {{ $cfg['badge'] }}">{{ $cfg['icon'] }} {{ $cfg['label'] }}</span>
+                            </td>
+                            <td class="px-3 py-2" style="white-space:nowrap">
+                                @if($serial->purchaseOrder)
+                                    <a href="{{ route('purchase-orders.show', $serial->purchaseOrder) }}"
+                                       class="text-decoration-none text-primary fw-semibold" style="font-size:0.82rem;">
+                                        <i class="bi bi-cart-plus me-1"></i>{{ $serial->purchaseOrder->po_number }}
+                                    </a>
+                                @else
+                                    <span class="text-muted small">—</span>
+                                @endif
+                            </td>
+                            <td class="px-3 py-2" style="white-space:nowrap">
+                                @if($serial->received_date)
+                                    <small>{{ \Carbon\Carbon::parse($serial->received_date)->format('M d, Y') }}</small>
+                                @else
+                                    <small class="text-muted">—</small>
+                                @endif
+                            </td>
+                            <td class="px-3 py-2">
+                                @if($serial->sale)
+                                    <a href="{{ route('sales.show', $serial->sale) }}"
+                                       class="text-decoration-none text-success fw-semibold" style="font-size:0.82rem;">
+                                        <i class="bi bi-receipt me-1"></i>{{ $serial->sale->invoice_number }}
+                                    </a>
+                                    <div class="text-muted" style="font-size:0.72rem;">{{ $serial->sale->customer_name }}</div>
+                                @else
+                                    <span class="text-muted small">—</span>
+                                @endif
+                            </td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+            <div class="px-3 py-2 border-top bg-light d-flex justify-content-between align-items-center">
+                <small class="text-muted"><span id="snVisibleCount">{{ $serials->count() }}</span> of {{ $serials->count() }} serials shown</small>
+                <small class="text-muted">Total units ever: <strong>{{ $serials->count() }}</strong></small>
+            </div>
+            @else
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-upc fs-1 d-block mb-2 opacity-50"></i>
+                <p class="mb-1">No serial numbers recorded yet.</p>
+                <small>Serials are added when creating or receiving a Purchase Order.</small>
+            </div>
+            @endif
+        </div>
+    </div>
+
+    {{-- ═══════════════════════════════════════════════════
+         ROW 3: Movement History (full width)
     ════════════════════════════════════════════════════ --}}
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center py-2">
@@ -361,6 +472,27 @@
 </div>
 
 <script>
+function filterSN(status) {
+    const rows    = document.querySelectorAll('.sn-row');
+    const btns    = document.querySelectorAll('.sn-filter-btn');
+    let   visible = 0;
+
+    rows.forEach(row => {
+        const show = status === 'all' || row.dataset.status === status;
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
+    });
+
+    btns.forEach(btn => {
+        const isActive = btn.dataset.filter === status;
+        btn.classList.toggle('active', isActive);
+        btn.style.boxShadow = isActive ? '0 0 0 2px #4F46E5' : '';
+    });
+
+    const countEl = document.getElementById('snVisibleCount');
+    if (countEl) countEl.textContent = visible;
+}
+
 document.addEventListener('DOMContentLoaded', function () {
 
     if (window.location.hash === '#stock-in') {

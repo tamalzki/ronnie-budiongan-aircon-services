@@ -40,16 +40,15 @@
     <div class="card app-card-panel">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover table-sm mb-0 app-table-compact" id="installmentTable">
-                    <thead class="bg-light">
+                <table class="table table-hover table-sm align-middle mb-0 app-table" id="installmentTable">
+                    <thead>
                         <tr>
-                            <th class="border-0 px-3 py-2">Customer</th>
-                            <th class="border-0 px-3 py-2">Contact</th>
-                       
-                            <th class="border-0 px-3 py-2" style="white-space:nowrap">Total Amount</th>
-                            <th class="border-0 px-3 py-2" style="white-space:nowrap">Total Paid</th>
-                            <th class="border-0 px-3 py-2">Balance</th>
-                            <th class="border-0 px-3 py-2">Actions</th>
+                            <th>Customer</th>
+                            <th>Contact</th>
+                            <th class="text-end">Total Amount</th>
+                            <th class="text-end">Total Paid</th>
+                            <th class="text-end">Balance</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="installmentTableBody">
@@ -89,11 +88,10 @@
                                     <span class="badge bg-success">Fully Paid</span>
                                 @endif
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            <td style="white-space:nowrap">
                                 <a href="{{ route('installments.show', $customer->first_sale_id) }}"
-                                   class="btn btn-outline-primary"
-                                   style="padding:2px 8px;font-size:0.78rem">
-                                    <i class="bi bi-calendar-check"></i> View Installments
+                                   class="btn btn-light border app-act">
+                                    <i class="bi bi-calendar-check"></i><span class="act-label"> View Installments</span>
                                 </a>
                             </td>
                         </tr>

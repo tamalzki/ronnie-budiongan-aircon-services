@@ -7,12 +7,13 @@
 
     @php
         $hubTitles = [
-            'overview' => 'Overview',
+            'overview'     => 'Overview',
+            'sales'        => 'Sales Report',
             'installments' => 'Installments',
-            'purchases' => 'Purchases',
-            'customers' => 'Customers',
-            'inventory' => 'Inventory',
-            'expenses' => 'Operational expense report',
+            'purchases'    => 'Purchases',
+            'customers'    => 'Customers',
+            'inventory'    => 'Inventory',
+            'expenses'     => 'Operational expense report',
         ];
         $reportLink = fn (string $key) => route('reports.index', ['report' => $key]);
     @endphp
@@ -29,12 +30,13 @@
     @if($currentReport === null)
         @php
             $reportCards = [
-                ['key' => 'overview', 'title' => 'Overview', 'desc' => 'Daily trend, cash vs installment, top products', 'icon' => 'bi-speedometer2', 'circle' => 'success'],
-                ['key' => 'installments', 'title' => 'Installments', 'desc' => 'Due this month, overdue, collections', 'icon' => 'bi-calendar-check', 'circle' => 'warning'],
-                ['key' => 'purchases', 'title' => 'Purchases', 'desc' => 'Purchase orders, paid vs outstanding', 'icon' => 'bi-cart-plus', 'circle' => 'primary'],
-                ['key' => 'customers', 'title' => 'Customers', 'desc' => 'Top spenders, pending installment balances', 'icon' => 'bi-people', 'circle' => 'info'],
-                ['key' => 'inventory', 'title' => 'Inventory', 'desc' => 'Stock levels, value, low-stock alerts', 'icon' => 'bi-boxes', 'circle' => 'secondary'],
-                ['key' => 'expenses', 'title' => 'Operational expense report', 'desc' => 'Totals by category and line items for the period', 'icon' => 'bi-receipt-cutoff', 'circle' => 'danger'],
+                ['key' => 'overview',     'title' => 'Overview',                   'desc' => 'Daily trend, cash vs installment, top products',     'icon' => 'bi-speedometer2',   'circle' => 'success'],
+                ['key' => 'sales',        'title' => 'Sales Report',               'desc' => 'Full transaction list, payment breakdown, receivables', 'icon' => 'bi-receipt',        'circle' => 'primary'],
+                ['key' => 'installments', 'title' => 'Installments',               'desc' => 'Due this month, overdue, collections',                 'icon' => 'bi-calendar-check', 'circle' => 'warning'],
+                ['key' => 'purchases',    'title' => 'Purchases',                  'desc' => 'Purchase orders, paid vs outstanding',                 'icon' => 'bi-cart-plus',      'circle' => 'primary'],
+                ['key' => 'customers',    'title' => 'Customers',                  'desc' => 'Top spenders, pending installment balances',           'icon' => 'bi-people',         'circle' => 'info'],
+                ['key' => 'inventory',    'title' => 'Inventory',                  'desc' => 'Stock levels, value, low-stock alerts',                'icon' => 'bi-boxes',          'circle' => 'secondary'],
+                ['key' => 'expenses',     'title' => 'Operational Expenses',       'desc' => 'Totals by category and line items for the period',     'icon' => 'bi-receipt-cutoff', 'circle' => 'danger'],
             ];
         @endphp
         <div class="row g-3 g-md-4 report-hub-grid">
@@ -128,6 +130,8 @@
         <div class="app-tab-panel">
             @if($currentReport === 'overview')
                 @include('reports.sections.overview')
+            @elseif($currentReport === 'sales')
+                @include('reports.sections.sales')
             @elseif($currentReport === 'installments')
                 @include('reports.sections.installments')
             @elseif($currentReport === 'purchases')

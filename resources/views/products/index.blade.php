@@ -3,7 +3,7 @@
 @section('content')
 <div class="products-page container-fluid px-2 px-lg-3 pb-4">
 
-    <x-page-header title="Products &amp; Stock" subtitle="Catalog, pricing, and inventory" icon="bi-boxes">
+    <x-page-header title="Products and Stocks" subtitle="Catalog, pricing, and inventory" icon="bi-boxes">
         <x-slot name="actions">
             <a href="{{ route('products.create') }}" class="btn btn-primary btn-sm px-3">
                 <i class="bi bi-plus-lg"></i> Add product
@@ -97,8 +97,8 @@
                         <th scope="col" class="products-th ps-3">Brand</th>
                         <th scope="col" class="products-th">Model</th>
                         <th scope="col" class="products-th">Type</th>
-                        <th scope="col" class="products-th text-end">Cost</th>
-                        <th scope="col" class="products-th text-end">Price</th>
+                        <th scope="col" class="products-th text-end">Purchase Cost</th>
+                        <th scope="col" class="products-th text-end">Selling Price</th>
                         <th scope="col" class="products-th text-center">Quantity</th>
                         <th scope="col" class="products-th text-end pe-3">Actions</th>
                     </tr>

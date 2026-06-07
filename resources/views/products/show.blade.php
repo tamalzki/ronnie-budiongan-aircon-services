@@ -4,50 +4,30 @@
 @section('content')
 <div class="container-fluid">
 
-    {{-- Header --}}
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb mb-1">
-                    <li class="breadcrumb-item"><a href="{{ route('products.index') }}">Products</a></li>
-                    <li class="breadcrumb-item active">{{ ($product->brand->name ?? '') . ' ' . $product->model }}</li>
-                </ol>
-            </nav>
-            <h2 class="mb-0">
-                <i class="bi bi-box-seam text-primary"></i>
-                {{ $product->brand->name ?? '' }} {{ $product->model }}
-                @if($product->unit_type === 'indoor')
-                    <span style="font-size:0.75rem;padding:3px 10px;border-radius:20px;background:#e8f0fe;color:#1a56db;border:1px solid #93c5fd;font-weight:600;vertical-align:middle;">❄️ Indoor</span>
-                @elseif($product->unit_type === 'outdoor')
-                    <span style="font-size:0.75rem;padding:3px 10px;border-radius:20px;background:#dcfce7;color:#166534;border:1px solid #86efac;font-weight:600;vertical-align:middle;">🌀 Outdoor</span>
-                @endif
-            </h2>
-        </div>
-        <div class="d-flex gap-2">
+    <x-page-header
+        title="{{ ($product->brand->name ?? '') . ' ' . $product->model }}"
+        subtitle="{{ ucfirst($product->unit_type ?? '') }} unit"
+        icon="bi-box-seam">
+        <x-slot name="actions">
             <a href="{{ route('products.index') }}" class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-arrow-left"></i> Back
             </a>
-            <a href="{{ route('products.edit', $product) }}" class="btn btn-primary btn-sm">
+            <a href="{{ route('products.edit', $product) }}" class="btn btn-primary btn-sm shadow-sm">
                 <i class="bi bi-pencil"></i> Edit Product
             </a>
-        </div>
-    </div>
+        </x-slot>
+    </x-page-header>
 
-    @if(session('success'))
-    <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-3">
-        {!! session('success') !!}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    @endif
+    <x-flash />
 
     {{-- Top Row: Product Info + Inventory Summary --}}
     <div class="row g-4 mb-4">
 
         {{-- Product Info --}}
         <div class="col-md-5">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-primary text-white border-0">
-                    <h5 class="mb-0"><i class="bi bi-info-circle"></i> Product Details</h5>
+            <div class="card app-card-panel h-100">
+                <div class="card-header bg-white py-2 px-3">
+                    <span class="fw-semibold small"><i class="bi bi-info-circle text-primary me-1"></i>Product Details</span>
                 </div>
                 <div class="card-body">
                     <div class="row g-3">

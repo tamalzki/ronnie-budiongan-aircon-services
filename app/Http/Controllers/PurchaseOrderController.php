@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\Supplier;
 use App\Models\SupplierPayment;
 use App\Services\ProductCatalogService;
+use App\Services\PurchaseOrderAutoReceiveService;
 use App\Support\PaymentMethod;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -19,7 +20,8 @@ use Illuminate\Validation\Rule;
 class PurchaseOrderController extends Controller
 {
     public function __construct(
-        private readonly ProductCatalogService $productCatalog
+        private readonly ProductCatalogService $productCatalog,
+        private readonly PurchaseOrderAutoReceiveService $purchaseOrderAutoReceive
     ) {
         $this->authorizeResource(PurchaseOrder::class, 'purchase_order');
     }
@@ -27,20 +29,24 @@ class PurchaseOrderController extends Controller
     public function index()
     {
         $purchaseOrders = PurchaseOrder::with('supplier')
+            ->withCount([
+                'serials as serials_count',
+                'serials as sold_serials_count' => fn($q) => $q->where('status', 'sold'),
+            ])
+            ->orderBy('order_date', 'desc')
             ->orderBy('created_at', 'desc')
-            ->paginate(15);
+            ->paginate(20);
 
         $poCounts = PurchaseOrder::query()
             ->selectRaw('COUNT(*) as total')
-            ->selectRaw("SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as awaiting")
             ->selectRaw("SUM(CASE WHEN status = 'received' THEN 1 ELSE 0 END) as received")
             ->selectRaw("SUM(CASE WHEN payment_status = 'unpaid' THEN 1 ELSE 0 END) as unpaid")
             ->first();
 
         $totalCount    = (int) ($poCounts->total ?? 0);
-        $awaitingCount = (int) ($poCounts->awaiting ?? 0);
         $receivedCount = (int) ($poCounts->received ?? 0);
         $unpaidCount   = (int) ($poCounts->unpaid ?? 0);
+        $totalUnits    = \App\Models\ProductSerial::count();
 
         $upcomingDeadlines = PurchaseOrder::with('supplier')
             ->where('payment_type', '45days')
@@ -67,17 +73,10 @@ class PurchaseOrderController extends Controller
             ->where('payment_due_date', '<=', now()->addDays(30))
             ->count();
 
-        // Goods Receipts queue — POs awaiting stock receipt (+ serials for receive modals)
-        $pendingToReceive = PurchaseOrder::with(['supplier', 'items.product.brand', 'serials'])
-            ->where('status', 'pending')
-            ->orderBy('order_date')
-            ->get();
-
         return view('purchase-orders.index', compact(
             'purchaseOrders', 'upcomingDeadlines', 'overdueOrders',
-            'totalCount', 'awaitingCount', 'receivedCount', 'unpaidCount',
-            'paymentsDue', 'paymentsDueCount',
-            'pendingToReceive'
+            'totalCount', 'receivedCount', 'unpaidCount', 'totalUnits',
+            'paymentsDue', 'paymentsDueCount'
         ));
     }
 
@@ -92,6 +91,9 @@ class PurchaseOrderController extends Controller
     public function store(Request $request)
     {
         $request->validate([
+            'po_number'                => 'nullable|string|max:255',
+            'so_number'                => 'nullable|string|max:255',
+            'delivery_number'          => 'nullable|string|max:255',
             'supplier_id'              => 'required|exists:suppliers,id',
             'order_date'               => 'required|date',
             'expected_delivery_date'   => 'nullable|date',
@@ -100,11 +102,11 @@ class PurchaseOrderController extends Controller
             'items'                    => 'required|array|min:1',
             'items.*.product_id'       => 'required|exists:products,id',
             'items.*.quantity'         => 'required|integer|min:1',
-            'items.*.unit_cost'        => 'required|numeric|min:0',
+            'items.*.unit_cost'        => 'nullable|numeric|min:0',
             'items.*.discount_percent' => 'nullable|numeric|min:0|max:100',
             'items.*.discount_amount'  => 'nullable|numeric|min:0',
-            'items.*.serials'          => 'nullable|array',
-            'items.*.serials.*'        => 'nullable|string|max:255',
+            'items.*.serials'          => 'required|array|min:1',
+            'items.*.serials.*'        => 'required|string|max:255',
             'downpayment_amount'       => 'nullable|numeric|min:0',
             'downpayment_date'         => 'nullable|date',
             'downpayment_method'       => ['nullable', Rule::in(PaymentMethod::values())],
@@ -115,30 +117,29 @@ class PurchaseOrderController extends Controller
         foreach ($request->items as $index => $item) {
             $serials = collect($item['serials'] ?? [])->filter()->values();
 
-            if ($serials->count() > 0 && $serials->count() !== (int) $item['quantity']) {
+            // Serials are required — one per unit, count must match quantity
+            if ($serials->count() !== (int) $item['quantity']) {
                 return back()->withInput()->withErrors([
                     "items.{$index}.serials" => "Serial count ({$serials->count()}) must match quantity ({$item['quantity']}) for this item.",
                 ]);
             }
 
-            if ($serials->count() > 0) {
-                // Check duplicates within submission
-                $dupes = $serials->duplicates();
-                if ($dupes->isNotEmpty()) {
-                    return back()->withInput()->withErrors([
-                        "items.{$index}.serials" => "Duplicate serial numbers found: " . $dupes->unique()->implode(', '),
-                    ]);
-                }
+            // Check duplicates within submission
+            $dupes = $serials->duplicates();
+            if ($dupes->isNotEmpty()) {
+                return back()->withInput()->withErrors([
+                    "items.{$index}.serials" => "Duplicate serial numbers found: " . $dupes->unique()->implode(', '),
+                ]);
+            }
 
-                // Check duplicates already in DB for this product
-                $existing = ProductSerial::where('product_id', $item['product_id'])
-                    ->whereIn('serial_number', $serials)
-                    ->pluck('serial_number');
-                if ($existing->isNotEmpty()) {
-                    return back()->withInput()->withErrors([
-                        "items.{$index}.serials" => "These serials already exist for this product: " . $existing->implode(', '),
-                    ]);
-                }
+            // Check duplicates already in DB for this product
+            $existing = ProductSerial::where('product_id', $item['product_id'])
+                ->whereIn('serial_number', $serials)
+                ->pluck('serial_number');
+            if ($existing->isNotEmpty()) {
+                return back()->withInput()->withErrors([
+                    "items.{$index}.serials" => "These serials already exist for this product: " . $existing->implode(', '),
+                ]);
             }
         }
 
@@ -152,9 +153,10 @@ class PurchaseOrderController extends Controller
 
                 $discountPercent = $item['discount_percent'] ?? 0;
                 $discountAmount  = $item['discount_amount'] ?? 0;
+                $unitCost        = $item['unit_cost'] ?? 0;
 
                 // Apply percent first
-                $netCost = $item['unit_cost'] * (1 - ($discountPercent / 100));
+                $netCost = $unitCost * (1 - ($discountPercent / 100));
 
                 // Apply fixed discount distributed per quantity
                 if ($item['quantity'] > 0 && $discountAmount > 0) {
@@ -190,8 +192,13 @@ class PurchaseOrderController extends Controller
                 $paymentStatus = 'paid';
             }
 
-            // ── Create PO ──
+            // ── Create PO (received immediately — PO creation = encoding the delivery receipt) ──
+            $receivedDate = $request->order_date;
+
             $po = PurchaseOrder::create([
+                'po_number'              => $request->filled('po_number') ? $request->po_number : null,
+                'so_number'              => $request->so_number,
+                'delivery_number'        => $request->delivery_number,
                 'supplier_id'            => $request->supplier_id,
                 'order_date'             => $request->order_date,
                 'expected_delivery_date' => $request->expected_delivery_date,
@@ -203,48 +210,73 @@ class PurchaseOrderController extends Controller
                 'amount_paid'            => $amountPaid,
                 'balance'                => $balance,
                 'payment_status'         => $paymentStatus,
-                'status'                 => 'pending',
+                'status'                 => 'received',
+                'received_date'          => $receivedDate,
                 'notes'                  => $request->notes,
                 'user_id'                => auth()->id(),
             ]);
 
-            // ── Create PO items + save optional serials as pending ──
+            // ── Create PO items, store serials in stock, log inventory movements ──
             foreach ($request->items as $item) {
                 $discountPercent = $item['discount_percent'] ?? 0;
-                    $discountAmount  = $item['discount_amount'] ?? 0;
+                $discountAmount  = $item['discount_amount'] ?? 0;
+                $unitCost        = $item['unit_cost'] ?? 0;
 
-                    // Apply percent first
-                    $netCost = $item['unit_cost'] * (1 - ($discountPercent / 100));
+                // Apply percent first
+                $netCost = $unitCost * (1 - ($discountPercent / 100));
 
-                    // Apply fixed discount
-                    if ($item['quantity'] > 0 && $discountAmount > 0) {
-                        $netCost -= ($discountAmount / $item['quantity']);
-                    }
+                // Apply fixed discount
+                if ($item['quantity'] > 0 && $discountAmount > 0) {
+                    $netCost -= ($discountAmount / $item['quantity']);
+                }
 
-                    // Prevent negative
-                    $netCost = max(0, $netCost);
+                // Prevent negative
+                $netCost = max(0, $netCost);
 
-                    PurchaseOrderItem::create([
-                        'purchase_order_id' => $po->id,
-                        'product_id'        => $item['product_id'],
-                        'quantity_ordered'  => $item['quantity'],
-                        'unit_cost'         => $item['unit_cost'],
-                        'discount_percent'  => $discountPercent,
-                        'discount_amount'   => $discountAmount,
-                        'discounted_cost'   => $netCost,
-                        'total_cost'        => $item['quantity'] * $netCost,
-                    ]);
+                $poItem = PurchaseOrderItem::create([
+                    'purchase_order_id' => $po->id,
+                    'product_id'        => $item['product_id'],
+                    'quantity_ordered'  => $item['quantity'],
+                    'quantity_received' => $item['quantity'],
+                    'unit_cost'         => $unitCost,
+                    'discount_percent'  => $discountPercent,
+                    'discount_amount'   => $discountAmount,
+                    'discounted_cost'   => $netCost,
+                    'total_cost'        => $item['quantity'] * $netCost,
+                ]);
 
-                // Save serials as 'pending' — not yet in stock
+                // Store every serial directly in stock
                 $serials = collect($item['serials'] ?? [])->filter()->values();
                 foreach ($serials as $serialNumber) {
                     ProductSerial::create([
                         'product_id'        => $item['product_id'],
                         'purchase_order_id' => $po->id,
                         'serial_number'     => trim($serialNumber),
-                        'status'            => 'pending',
+                        'status'            => 'in_stock',
+                        'received_date'     => $receivedDate,
                     ]);
                 }
+
+                // Update product cost from this PO
+                $product = $poItem->product;
+                $product->update(['cost' => $netCost]);
+
+                // Audit log — stock counts come from serials
+                $stockAfter  = $product->inStockSerials()->count();
+                $stockBefore = $stockAfter - $serials->count();
+
+                InventoryMovement::create([
+                    'product_id'     => $product->id,
+                    'type'           => 'stock_in',
+                    'quantity'       => $serials->count(),
+                    'stock_before'   => max(0, $stockBefore),
+                    'stock_after'    => $stockAfter,
+                    'reference_type' => 'PurchaseOrder',
+                    'reference_id'   => $po->id,
+                    'notes'          => 'Received on PO creation: ' . $po->po_number .
+                        ' at ₱' . number_format($netCost, 2) . '/unit',
+                    'user_id'        => auth()->id(),
+                ]);
             }
 
             // ── Record payment ──
@@ -277,11 +309,13 @@ class PurchaseOrderController extends Controller
 
             DB::commit();
 
+            $success = 'Purchase order created and stock received. Serial numbers are now in inventory.' .
+                ($amountPaid > 0 && $request->payment_type === '45days'
+                    ? ' Downpayment of ₱' . number_format($amountPaid, 2) . ' recorded.'
+                    : '');
+
             return redirect()->route('purchase-orders.show', $po)
-                ->with('success', 'Purchase order created successfully.' .
-                    ($amountPaid > 0 && $request->payment_type === '45days'
-                        ? ' Downpayment of ₱' . number_format($amountPaid, 2) . ' recorded.'
-                        : ''));
+                ->with('success', $success);
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -509,15 +543,16 @@ class PurchaseOrderController extends Controller
 
     public function edit(PurchaseOrder $purchaseOrder)
     {
-        if ($purchaseOrder->status === 'received') {
-            return back()->with('error', 'Cannot edit a received purchase order.');
+        if ($this->hasSoldSerials($purchaseOrder)) {
+            return back()->with('error',
+                'Cannot edit this purchase order — one or more units from it have already been sold.');
         }
 
         $purchaseOrder->load(['supplier', 'items.product.brand']);
 
-        // Load existing pending serials grouped by product_id
+        // Load this PO's serials (in stock or still pending) grouped by product_id
         $existingSerials = ProductSerial::where('purchase_order_id', $purchaseOrder->id)
-            ->where('status', 'pending')
+            ->whereIn('status', ['in_stock', 'pending'])
             ->get()
             ->groupBy('product_id')
             ->map(fn($serials) => $serials->pluck('serial_number')->toArray());
@@ -530,13 +565,25 @@ class PurchaseOrderController extends Controller
         ));
     }
 
+    /** True if any serial received under this PO has already been sold. */
+    private function hasSoldSerials(PurchaseOrder $purchaseOrder): bool
+    {
+        return ProductSerial::where('purchase_order_id', $purchaseOrder->id)
+            ->where('status', 'sold')
+            ->exists();
+    }
+
     public function update(Request $request, PurchaseOrder $purchaseOrder)
     {
-        if ($purchaseOrder->status === 'received') {
-            return back()->with('error', 'Cannot edit a received purchase order.');
+        if ($this->hasSoldSerials($purchaseOrder)) {
+            return back()->with('error',
+                'Cannot edit this purchase order — one or more units from it have already been sold.');
         }
 
         $request->validate([
+            'po_number'                => 'nullable|string|max:255',
+            'so_number'                => 'nullable|string|max:255',
+            'delivery_number'          => 'nullable|string|max:255',
             'supplier_id'              => 'required|exists:suppliers,id',
             'order_date'               => 'required|date',
             'expected_delivery_date'   => 'nullable|date',
@@ -545,129 +592,81 @@ class PurchaseOrderController extends Controller
             'items'                    => 'required|array|min:1',
             'items.*.product_id'       => 'required|exists:products,id',
             'items.*.quantity'         => 'required|integer|min:1',
-            'items.*.unit_cost'        => 'required|numeric|min:0',
-            'items.*.discount_amount' => 'nullable|numeric|min:0',
+            'items.*.unit_cost'        => 'nullable|numeric|min:0',
+            'items.*.discount_amount'  => 'nullable|numeric|min:0',
             'items.*.discount_percent' => 'nullable|numeric|min:0|max:100',
-            'items.*.serials'          => 'nullable|array',
-            'items.*.serials.*'        => 'nullable|string|max:255',
+            'items.*.serials'          => 'required|array|min:1',
+            'items.*.serials.*'        => 'required|string|max:255',
         ]);
 
-        // ── Validate serials count if any provided ──
+        // ── Validate serials: one per unit, no dupes, no clash with OTHER POs ──
         foreach ($request->items as $index => $item) {
             $serials = collect($item['serials'] ?? [])->filter()->values();
-            if ($serials->count() > 0 && $serials->count() !== (int) $item['quantity']) {
+
+            if ($serials->count() !== (int) $item['quantity']) {
                 return back()->withInput()->withErrors([
                     "items.{$index}.serials" => "Serial count ({$serials->count()}) must match quantity ({$item['quantity']}).",
                 ]);
             }
 
-            if ($serials->count() > 0) {
-                $dupes = $serials->duplicates();
-                if ($dupes->isNotEmpty()) {
-                    return back()->withInput()->withErrors([
-                        "items.{$index}.serials" => 'Duplicate serial numbers found: ' . $dupes->unique()->implode(', '),
-                    ]);
-                }
+            $dupes = $serials->duplicates();
+            if ($dupes->isNotEmpty()) {
+                return back()->withInput()->withErrors([
+                    "items.{$index}.serials" => 'Duplicate serial numbers found: ' . $dupes->unique()->implode(', '),
+                ]);
+            }
 
-                $existing = ProductSerial::where('product_id', $item['product_id'])
-                    ->whereIn('serial_number', $serials)
-                    ->where(function ($q) use ($purchaseOrder) {
-                        $q->where('purchase_order_id', '!=', $purchaseOrder->id)
-                            ->orWhere('status', '!=', 'pending');
-                    })
-                    ->pluck('serial_number');
-                if ($existing->isNotEmpty()) {
-                    return back()->withInput()->withErrors([
-                        "items.{$index}.serials" => 'These serials already exist for this product: ' . $existing->implode(', '),
-                    ]);
-                }
+            // This PO's own serials are about to be replaced, so only clash against other POs
+            $existing = ProductSerial::where('product_id', $item['product_id'])
+                ->whereIn('serial_number', $serials)
+                ->where('purchase_order_id', '!=', $purchaseOrder->id)
+                ->pluck('serial_number');
+            if ($existing->isNotEmpty()) {
+                return back()->withInput()->withErrors([
+                    "items.{$index}.serials" => 'These serials already exist for this product: ' . $existing->implode(', '),
+                ]);
             }
         }
 
         DB::beginTransaction();
         try {
-            $subtotal = 0;
+            $receivedDate = $request->order_date;
 
-                foreach ($request->items as $item) {
-
-                    $discountPercent = $item['discount_percent'] ?? 0;
-                    $discountAmount  = $item['discount_amount'] ?? 0;
-
-                    $netCost = $item['unit_cost'] * (1 - ($discountPercent / 100));
-
-                    if ($item['quantity'] > 0 && $discountAmount > 0) {
-                        $netCost -= ($discountAmount / $item['quantity']);
-                    }
-
-                    $netCost = max(0, $netCost);
-
-                    $subtotal += $item['quantity'] * $netCost;
-                }
-
-                $tax = 0;
-                $total = $subtotal + $tax;
-
-            $paymentDueDate = $purchaseOrder->payment_due_date;
-            if ($request->payment_type === '45days') {
-                if (!$paymentDueDate) {
-                    $paymentDueDate = Carbon::parse($request->order_date)->addDays(45);
-                }
-            } else {
-                $paymentDueDate = null;
-            }
-
-            $newBalance = max(0, $total - $purchaseOrder->amount_paid);
-
-            if ($purchaseOrder->amount_paid >= $total) {
-                $paymentStatus = 'paid';
-            } elseif ($purchaseOrder->amount_paid > 0) {
-                $paymentStatus = 'partial';
-            } else {
-                $paymentStatus = 'unpaid';
-            }
-
-            $purchaseOrder->update([
-                'supplier_id'            => $request->supplier_id,
-                'order_date'             => $request->order_date,
-                'expected_delivery_date' => $request->expected_delivery_date,
-                'subtotal'               => $subtotal,
-                'total'                  => $total,
-                'balance'                => max(0, $newBalance),
-                'payment_type'           => $request->payment_type,
-                'payment_due_date'       => $paymentDueDate,
-                'payment_status'         => $paymentStatus,
-                'notes'                  => $request->notes,
-            ]);
-
-            // Delete old items and their pending serials only
-            $purchaseOrder->items()->delete();
+            // ── Reverse the previous receive: drop this PO's serials, movements, items ──
             ProductSerial::where('purchase_order_id', $purchaseOrder->id)
-                ->where('status', 'pending')
+                ->whereIn('status', ['in_stock', 'pending'])
                 ->delete();
+            InventoryMovement::where('reference_type', 'PurchaseOrder')
+                ->where('reference_id', $purchaseOrder->id)
+                ->delete();
+            $purchaseOrder->items()->delete();
 
-            // Recreate items + serials
+            // ── Re-apply: recreate items, put serials back in stock, log movements ──
+            $subtotal = 0;
             foreach ($request->items as $item) {
                 $discountPercent = $item['discount_percent'] ?? 0;
-            $discountAmount  = $item['discount_amount'] ?? 0;
+                $discountAmount  = $item['discount_amount'] ?? 0;
+                $unitCost        = $item['unit_cost'] ?? 0;
 
-            $netCost = $item['unit_cost'] * (1 - ($discountPercent / 100));
+                $netCost = $unitCost * (1 - ($discountPercent / 100));
+                if ($item['quantity'] > 0 && $discountAmount > 0) {
+                    $netCost -= ($discountAmount / $item['quantity']);
+                }
+                $netCost = max(0, $netCost);
 
-            if ($item['quantity'] > 0 && $discountAmount > 0) {
-                $netCost -= ($discountAmount / $item['quantity']);
-            }
+                $subtotal += $item['quantity'] * $netCost;
 
-            $netCost = max(0, $netCost);
-
-            PurchaseOrderItem::create([
-                'purchase_order_id' => $purchaseOrder->id,
-                'product_id'        => $item['product_id'],
-                'quantity_ordered'  => $item['quantity'],
-                'unit_cost'         => $item['unit_cost'],
-                'discount_percent'  => $discountPercent,
-                'discount_amount'   => $discountAmount,
-                'discounted_cost'   => $netCost,
-                'total_cost'        => $item['quantity'] * $netCost,
-            ]);
+                $poItem = PurchaseOrderItem::create([
+                    'purchase_order_id' => $purchaseOrder->id,
+                    'product_id'        => $item['product_id'],
+                    'quantity_ordered'  => $item['quantity'],
+                    'quantity_received' => $item['quantity'],
+                    'unit_cost'         => $unitCost,
+                    'discount_percent'  => $discountPercent,
+                    'discount_amount'   => $discountAmount,
+                    'discounted_cost'   => $netCost,
+                    'total_cost'        => $item['quantity'] * $netCost,
+                ]);
 
                 $serials = collect($item['serials'] ?? [])->filter()->values();
                 foreach ($serials as $serialNumber) {
@@ -675,14 +674,84 @@ class PurchaseOrderController extends Controller
                         'product_id'        => $item['product_id'],
                         'purchase_order_id' => $purchaseOrder->id,
                         'serial_number'     => trim($serialNumber),
-                        'status'            => 'pending',
+                        'status'            => 'in_stock',
+                        'received_date'     => $receivedDate,
                     ]);
                 }
+
+                $product = $poItem->product;
+                $product->update(['cost' => $netCost]);
+
+                $stockAfter  = $product->inStockSerials()->count();
+                $stockBefore = $stockAfter - $serials->count();
+
+                InventoryMovement::create([
+                    'product_id'     => $product->id,
+                    'type'           => 'stock_in',
+                    'quantity'       => $serials->count(),
+                    'stock_before'   => max(0, $stockBefore),
+                    'stock_after'    => $stockAfter,
+                    'reference_type' => 'PurchaseOrder',
+                    'reference_id'   => $purchaseOrder->id,
+                    'notes'          => 'Updated PO ' . $purchaseOrder->po_number .
+                        ' at ₱' . number_format($netCost, 2) . '/unit',
+                    'user_id'        => auth()->id(),
+                ]);
+            }
+
+            $total = $subtotal;
+
+            // ── Recompute payment fields ──
+            if ($request->payment_type === 'full') {
+                $amountPaid     = $total;
+                $balance        = 0;
+                $paymentStatus  = 'paid';
+                $paymentDueDate = null;
+                // Re-sync the auto full-payment record to the new total
+                $purchaseOrder->payments()->delete();
+            } else {
+                $amountPaid     = (float) $purchaseOrder->amount_paid; // money already paid stands
+                $balance        = max(0, $total - $amountPaid);
+                $paymentStatus  = $balance <= 0 ? 'paid' : ($amountPaid > 0 ? 'partial' : 'unpaid');
+                $paymentDueDate = $purchaseOrder->payment_due_date
+                    ?: Carbon::parse($request->order_date)->addDays(45);
+            }
+
+            $purchaseOrder->update([
+                'po_number'              => $request->filled('po_number') ? $request->po_number : $purchaseOrder->po_number,
+                'so_number'              => $request->so_number,
+                'delivery_number'        => $request->delivery_number,
+                'supplier_id'            => $request->supplier_id,
+                'order_date'             => $request->order_date,
+                'expected_delivery_date' => $request->expected_delivery_date,
+                'subtotal'               => $subtotal,
+                'total'                  => $total,
+                'amount_paid'            => $amountPaid,
+                'balance'                => $balance,
+                'payment_type'           => $request->payment_type,
+                'payment_due_date'       => $paymentDueDate,
+                'payment_status'         => $paymentStatus,
+                'status'                 => 'received',
+                'received_date'          => $receivedDate,
+                'notes'                  => $request->notes,
+            ]);
+
+            if ($request->payment_type === 'full') {
+                SupplierPayment::create([
+                    'purchase_order_id' => $purchaseOrder->id,
+                    'payment_number'    => 'Full Payment',
+                    'amount'            => $total,
+                    'payment_date'      => $request->order_date,
+                    'payment_method'    => 'cash',
+                    'notes'             => 'Full payment on purchase order (updated)',
+                    'user_id'           => auth()->id(),
+                ]);
             }
 
             DB::commit();
+
             return redirect()->route('purchase-orders.show', $purchaseOrder)
-                ->with('success', 'Purchase order updated successfully.');
+                ->with('success', 'Purchase order updated. Inventory and serial numbers were re-synced.');
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -706,19 +775,21 @@ class PurchaseOrderController extends Controller
 
     public function destroy(PurchaseOrder $purchaseOrder)
     {
-        if ($purchaseOrder->status === 'received') {
+        if ($this->hasSoldSerials($purchaseOrder)) {
             return back()->with('error',
-                'Cannot delete a received purchase order — stock has already been added to inventory. ' .
-                'Create a return/adjustment instead.'
-            );
+                'Cannot delete this purchase order — one or more units from it have already been sold. ' .
+                'Process a return/adjustment instead.');
         }
 
         DB::beginTransaction();
 
         try {
-            // Only delete pending serials — never touch in_stock/sold
+            // Reverse inventory: remove the serials this PO put in stock and its movements
             ProductSerial::where('purchase_order_id', $purchaseOrder->id)
-                ->where('status', 'pending')
+                ->whereIn('status', ['in_stock', 'pending'])
+                ->delete();
+            InventoryMovement::where('reference_type', 'PurchaseOrder')
+                ->where('reference_id', $purchaseOrder->id)
                 ->delete();
 
             $purchaseOrder->items()->delete();
@@ -728,7 +799,7 @@ class PurchaseOrderController extends Controller
             DB::commit();
 
             return redirect()->route('purchase-orders.index')
-                ->with('success', 'Purchase order deleted successfully.');
+                ->with('success', 'Purchase order deleted. Its stock and serial numbers were removed from inventory.');
 
         } catch (\Exception $e) {
             DB::rollBack();

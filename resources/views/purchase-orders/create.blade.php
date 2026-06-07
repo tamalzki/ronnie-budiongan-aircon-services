@@ -5,22 +5,39 @@
 @section('content')
 <div class="container-fluid">
 
-    {{-- Header --}}
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2 class="mb-1"><i class="bi bi-cart-plus text-primary"></i> Create Purchase Order</h2>
-            <p class="text-muted mb-0">Order products from supplier</p>
-        </div>
-        <a href="{{ route('purchase-orders.index') }}" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-arrow-left"></i> Back to Orders
-        </a>
-    </div>
+    <x-page-header title="Create Purchase Order" subtitle="Order products from supplier" icon="bi-cart-plus">
+        <x-slot name="actions">
+            <a href="{{ route('purchase-orders.index') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Back to Orders
+            </a>
+        </x-slot>
+    </x-page-header>
 
     @if($errors->any())
     <div class="alert alert-danger border-0 shadow-sm">
         <ul class="mb-0">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>
     </div>
     @endif
+
+    {{-- ── SOLD TO / DELIVERED TO header (static, compact) ── --}}
+    <div class="row g-2 mb-3">
+        <div class="col-md-6">
+            <div class="border rounded bg-white px-2 py-1 h-100" style="font-size:0.72rem;line-height:1.35;">
+                <span class="fw-bold text-uppercase text-primary" style="font-size:0.66rem;letter-spacing:.5px;"><i class="bi bi-person-badge"></i> Sold To</span>
+                <div class="text-muted">Customer No. : 1378</div>
+                <div class="fw-semibold">RONNIE BUDIONGAN AIRCON SUPPLY AND SERVICES</div>
+                <div>DOOR 7 SORONGON BUILDING QUEZON AVE. TRES DE MAYO DIGOS DAVAO DEL SUR 8002 PH 11</div>
+                <div>TIN: 123-962-440-00000</div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="border rounded bg-white px-2 py-1 h-100" style="font-size:0.72rem;line-height:1.35;">
+                <span class="fw-bold text-uppercase text-primary" style="font-size:0.66rem;letter-spacing:.5px;"><i class="bi bi-truck"></i> Delivered To</span>
+                <div class="text-muted">Customer No. : 1378</div>
+                <div class="fw-semibold">RONNIE BUDIONGAN AIRCON SUPPLY AND SERVICES</div>
+            </div>
+        </div>
+    </div>
 
     <form action="{{ route('purchase-orders.store') }}" method="POST" id="poForm">
         @csrf
@@ -30,13 +47,14 @@
             {{-- Left Column --}}
             <div class="col-md-8">
 
-                {{-- Supplier & Dates --}}
+                {{-- Supplier & Document Reference --}}
                 <div class="card border-0 shadow-sm mb-3">
                     <div class="card-header bg-light border-0 py-2">
                         <h6 class="mb-0"><i class="bi bi-building"></i> Supplier & Order Details</h6>
                     </div>
                     <div class="card-body">
                         <div class="row g-3">
+                            {{-- Row 1: Supplier + Dates --}}
                             <div class="col-md-4">
                                 <label class="form-label small fw-semibold">Supplier <span class="text-danger">*</span></label>
                                 <select class="form-select form-select-sm" name="supplier_id" required>
@@ -49,14 +67,38 @@
                                 </select>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label small fw-semibold">Order Date <span class="text-danger">*</span></label>
+                                <label class="form-label small fw-semibold">Order / DR Date <span class="text-danger">*</span></label>
                                 <input type="date" class="form-control form-control-sm" name="order_date"
                                        value="{{ old('order_date', date('Y-m-d')) }}" required id="orderDate">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label small fw-semibold">Expected Delivery</label>
                                 <input type="date" class="form-control form-control-sm" name="expected_delivery_date"
-                                       value="{{ old('expected_delivery_date') }}">
+                                       value="{{ old('expected_delivery_date', date('Y-m-d')) }}">
+                            </div>
+
+                            {{-- Row 2: Document Reference Numbers --}}
+                            <div class="col-md-4">
+                                <label class="form-label small fw-semibold">Document No. <small class="text-muted">(DR from supplier)</small></label>
+                                <input type="text" class="form-control form-control-sm" name="delivery_number"
+                                       value="{{ old('delivery_number') }}"
+                                       placeholder="e.g. 8010361871"
+                                       style="font-family:monospace;">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-semibold">PO No. <small class="text-muted">(supplier's PO)</small></label>
+                                <input type="text" class="form-control form-control-sm" name="po_number"
+                                       value="{{ old('po_number') }}"
+                                       placeholder="e.g. 653"
+                                       style="font-family:monospace;">
+                                <small class="text-muted">Leave blank to auto-generate</small>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-semibold">SO No. <small class="text-muted">(supplier's SO)</small></label>
+                                <input type="text" class="form-control form-control-sm" name="so_number"
+                                       value="{{ old('so_number') }}"
+                                       placeholder="e.g. 1010260605"
+                                       style="font-family:monospace;">
                             </div>
                         </div>
                     </div>
@@ -71,12 +113,29 @@
                         </button>
                     </div>
                     <div class="card-body p-0">
-                        <div id="itemsContainer" class="p-3">
-                            <div class="text-center text-muted py-4" id="emptyState">
-                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                                <p class="mb-0">No products added yet. Click "Add Product" above.</p>
-                            </div>
-                        </div>
+                        <table class="table table-sm align-middle mb-0" id="itemsTable" style="font-size:0.82rem;table-layout:fixed;width:100%;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width:30px;" class="text-center">#</th>
+                                    <th>Product <span class="text-danger">*</span></th>
+                                    <th style="width:62px;" class="text-center">QTY <span class="text-danger">*</span></th>
+                                    <th style="width:118px;">Unit Cost</th>
+                                    <th style="width:62px;" class="text-center">Disc %</th>
+                                    <th style="width:108px;">Disc (₱)</th>
+                                    <th style="width:80px;" class="text-end">Net</th>
+                                    <th style="width:92px;" class="text-end">Total</th>
+                                    <th style="width:40px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="itemsTableBody">
+                                <tr id="emptyState">
+                                    <td colspan="9" class="text-center text-muted py-4">
+                                        <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                                        No products added yet. Click "Add Product" above.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
@@ -231,133 +290,129 @@ function addItem(prefill) {
     }).join('');
 
     const html = `
-    <div class="border rounded mb-3 item-row bg-white shadow-sm" id="row-${idx}">
+    <tr class="item-row" id="row-${idx}" data-item="${idx}">
+        <td class="text-center text-muted fw-semibold" id="row-label-${idx}">${idx}</td>
 
-        {{-- ── Top: product selector + qty/cost/disc ── --}}
-        <div class="p-3">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <span class="badge bg-secondary" id="row-label-${idx}">Item #${idx}</span>
-                <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeRow(${idx})" style="padding:1px 8px;font-size:0.78rem;">
-                    <i class="bi bi-trash"></i> Remove
-                </button>
-            </div>
-
+        {{-- Product --}}
+        <td>
             <select name="items[${idx}][product_id]" class="product-select d-none" data-row="${idx}" required>
                 <option value="">-- Select --</option>
                 ${products.map(p => `<option value="${p.id}" data-cost="${p.cost}">${p.label}</option>`).join('')}
             </select>
-
-            {{-- Combobox --}}
-            <div class="mb-2">
-                <label class="form-label small fw-semibold mb-1">Product <span class="text-danger">*</span></label>
-                <div class="combobox position-relative" id="pocb-${idx}">
-                    <div class="form-control form-control-sm d-flex justify-content-between align-items-center gap-2"
-                         style="cursor:pointer;user-select:none;background:#fff;"
-                         onclick="togglePOCombo(${idx})">
-                        <div class="d-flex align-items-center gap-2 flex-wrap" style="flex:1;min-width:0;">
-                            <span class="pocb-display-${idx} text-muted" style="font-size:0.82rem;">-- Select Product --</span>
-                            <span class="pocb-badge-${idx}"></span>
-                        </div>
-                        <i class="bi bi-chevron-down flex-shrink-0" style="font-size:0.7rem;color:#888;"></i>
+            <div class="combobox position-relative" id="pocb-${idx}">
+                <div class="form-control form-control-sm d-flex justify-content-between align-items-center gap-1"
+                     style="cursor:pointer;user-select:none;background:#fff;overflow:hidden;"
+                     onclick="togglePOCombo(${idx})">
+                    <div class="d-flex align-items-center gap-1 flex-nowrap" style="flex:1;min-width:0;overflow:hidden;">
+                        <span class="pocb-display-${idx} text-muted text-truncate" style="font-size:0.82rem;min-width:0;">-- Select Product --</span>
+                        <span class="pocb-badge-${idx} flex-shrink-0"></span>
                     </div>
-                    <div class="pocb-panel-${idx} position-absolute w-100 bg-white border rounded shadow-sm"
-                         style="display:none;z-index:9999;top:100%;left:0;">
-                        <div class="p-2 border-bottom">
-                            <input type="text" class="form-control form-control-sm pocb-search-${idx}"
-                                   placeholder="🔍 Search product…"
-                                   oninput="searchPOCombo(${idx})"
-                                   onclick="event.stopPropagation()">
-                        </div>
-                        <div class="pocb-list-${idx}" style="max-height:220px;overflow-y:auto;">
-                            ${cbOpts}
-                        </div>
+                    <i class="bi bi-chevron-down flex-shrink-0" style="font-size:0.7rem;color:#888;"></i>
+                </div>
+                <div class="pocb-panel-${idx} position-absolute bg-white border rounded shadow-sm"
+                     style="display:none;z-index:9999;top:100%;left:0;min-width:280px;">
+                    <div class="p-2 border-bottom">
+                        <input type="text" class="form-control form-control-sm pocb-search-${idx}"
+                               placeholder="🔍 Search product…"
+                               oninput="searchPOCombo(${idx})"
+                               onclick="event.stopPropagation()">
+                    </div>
+                    <div class="pocb-list-${idx}" style="max-height:220px;overflow-y:auto;">
+                        ${cbOpts}
                     </div>
                 </div>
             </div>
+        </td>
 
-            {{-- Qty / Cost / Disc / Net / Total --}}
-            <div class="row g-2 align-items-end">
-                <div class="col-md-2">
-                    <label class="form-label small fw-semibold mb-1">Qty <span class="text-danger">*</span></label>
-                    <input type="number" class="form-control form-control-sm qty-input" name="items[${idx}][quantity]"
-                           value="1" min="1" required onchange="onQtyChange(${idx})">
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label small fw-semibold mb-1">Unit Cost</label>
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text">₱</span>
-                        <input type="number" step="0.01" class="form-control cost-input" name="items[${idx}][unit_cost]"
-                               value="" min="0" required onchange="calcRow(${idx})">
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label small fw-semibold mb-1">Disc %</label>
-                    <input type="number" step="0.01" class="form-control form-control-sm disc-input"
-                           name="items[${idx}][discount_percent]" value="0" min="0" max="100" onchange="calcRow(${idx})">
-                </div>
+        {{-- Qty --}}
+        <td>
+            <input type="number" class="form-control form-control-sm qty-input text-center" name="items[${idx}][quantity]"
+                   value="1" min="1" required onchange="onQtyChange(${idx})">
+        </td>
 
-                <div class="col-md-2">
-                    <label class="form-label small fw-semibold mb-1">Discount (₱)</label>
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text">₱</span>
-                        <input type="number" step="0.01"
-                            class="form-control discount-amount-input"
-                            name="items[${idx}][discount_amount]"
-                            value="0" min="0"
-                            onchange="calcRow(${idx})">
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label small fw-semibold mb-1">Net Cost</label>
-                    <input type="text" class="form-control form-control-sm" id="net-${idx}" readonly value="0.00"
-                           style="background:#f8f9fa;">
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label small fw-semibold mb-1">Row Total</label>
-                    <div class="bg-primary bg-opacity-10 rounded text-center fw-bold text-primary px-2 py-1" style="font-size:0.85rem;height:31px;line-height:1.8;">
-                        ₱<span id="total-${idx}" class="total-display">0.00</span>
-                    </div>
-                </div>
+        {{-- Unit Cost (optional) --}}
+        <td>
+            <div class="input-group input-group-sm">
+                <span class="input-group-text">₱</span>
+                <input type="number" step="0.01" class="form-control cost-input" name="items[${idx}][unit_cost]"
+                       value="" min="0" placeholder="0.00" onchange="calcRow(${idx})">
             </div>
-        </div>
+        </td>
 
-        {{-- ── Serial Numbers Section ── --}}
-        <div class="border-top bg-light px-3 py-2" id="serials-section-${idx}">
+        {{-- Disc % --}}
+        <td>
+            <input type="number" step="0.01" class="form-control form-control-sm disc-input text-center"
+                   name="items[${idx}][discount_percent]" value="0" min="0" max="100" onchange="calcRow(${idx})">
+        </td>
+
+        {{-- Disc ₱ --}}
+        <td>
+            <div class="input-group input-group-sm">
+                <span class="input-group-text">₱</span>
+                <input type="number" step="0.01" class="form-control discount-amount-input"
+                       name="items[${idx}][discount_amount]" value="0" min="0" onchange="calcRow(${idx})">
+            </div>
+        </td>
+
+        {{-- Net --}}
+        <td class="text-end">
+            <input type="text" class="form-control form-control-sm text-end" id="net-${idx}" readonly value="0.00"
+                   style="background:#f8f9fa;">
+        </td>
+
+        {{-- Total --}}
+        <td class="text-end fw-bold text-primary">₱<span id="total-${idx}" class="total-display">0.00</span></td>
+
+        {{-- Action --}}
+        <td class="text-center">
+            <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeRow(${idx})" style="padding:1px 7px;">
+                <i class="bi bi-trash"></i>
+            </button>
+        </td>
+    </tr>
+
+    {{-- ── Serial Numbers sub-row ── --}}
+    <tr class="serial-subrow" data-item="${idx}">
+        <td></td>
+        <td colspan="8" class="bg-light">
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <div>
                     <i class="bi bi-upc-scan text-primary"></i>
                     <span class="small fw-semibold text-primary ms-1">Serial Numbers</span>
-                    <span class="text-muted small ms-1">(optional — required when receiving)</span>
+                    <span class="text-danger small ms-1">* (one per unit)</span>
                 </div>
                 <span class="badge bg-secondary" id="serial-count-${idx}">0 / 0</span>
             </div>
             <div id="serials-inputs-${idx}" class="row g-1">
                 {{-- dynamically populated based on qty --}}
             </div>
-        </div>
+        </td>
+    </tr>`;
 
-    </div>`;
-
-    document.getElementById('itemsContainer').insertAdjacentHTML('beforeend', html);
+    document.getElementById('itemsTableBody').insertAdjacentHTML('beforeend', html);
 
     // Build initial serial inputs for qty=1
     rebuildSerialInputs(idx, 1, []);
     refreshDropdowns();
 
-    // Pre-fill if editing
+    // Pre-fill (editing or restoring after a validation error)
     if (prefill) {
         const sel = document.querySelector(`select[name="items[${idx}][product_id]"]`);
         sel.value = prefill.product_id;
 
         const disp = document.querySelector(`.pocb-display-${idx}`);
-        if (disp) { disp.textContent = prefill.label; disp.style.color = '#212529'; }
+        if (disp && prefill.label) { disp.textContent = prefill.label; disp.style.color = '#212529'; }
 
         const badge = document.querySelector(`.pocb-badge-${idx}`);
         if (badge && prefill.unit_type) badge.innerHTML = unitTypeBadge(prefill.unit_type);
 
-        document.getElementById(`row-${idx}`).querySelector('.qty-input').value  = prefill.quantity;
-        document.getElementById(`row-${idx}`).querySelector('.cost-input').value = parseFloat(prefill.unit_cost).toFixed(2);
-        document.getElementById(`row-${idx}`).querySelector('.disc-input').value = prefill.discount ?? 0;
+        const row = document.getElementById(`row-${idx}`);
+        row.querySelector('.qty-input').value = prefill.quantity;
+        if (prefill.unit_cost !== '' && prefill.unit_cost != null) {
+            row.querySelector('.cost-input').value = parseFloat(prefill.unit_cost).toFixed(2);
+        }
+        row.querySelector('.disc-input').value = prefill.discount_percent ?? prefill.discount ?? 0;
+        row.querySelector('.discount-amount-input').value = prefill.discount_amount ?? 0;
 
         rebuildSerialInputs(idx, prefill.quantity, prefill.serials || []);
         calcRow(idx);
@@ -526,13 +581,15 @@ function calcGrandTotal() {
 }
 
 function removeRow(idx) {
-    document.getElementById(`row-${idx}`)?.remove();
+    document.querySelectorAll(`[data-item="${idx}"]`).forEach(el => el.remove());
     if (!document.querySelector('.item-row')) {
-        document.getElementById('itemsContainer').innerHTML = `
-            <div class="text-center text-muted py-4" id="emptyState">
-                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                <p class="mb-0">No products added yet. Click "Add Product" above.</p>
-            </div>`;
+        document.getElementById('itemsTableBody').innerHTML = `
+            <tr id="emptyState">
+                <td colspan="9" class="text-center text-muted py-4">
+                    <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                    No products added yet. Click "Add Product" above.
+                </td>
+            </tr>`;
     }
     refreshDropdowns();
     calcGrandTotal();
@@ -606,14 +663,14 @@ document.getElementById('poForm').addEventListener('submit', function (e) {
     if (!document.getElementById('paymentType').value) {
         e.preventDefault(); alert('Please select a payment type.'); return;
     }
-    // Validate: if any serial entered for a row, ALL must be filled
+    // Validate: every unit must have a serial number (required on save)
     let valid = true;
     document.querySelectorAll('.item-row').forEach(row => {
         const idx     = row.id.replace('row-', '');
-        const inputs  = row.querySelectorAll('.serial-input');
+        const inputs  = document.querySelectorAll(`#serials-inputs-${idx} .serial-input`);
         const filled  = [...inputs].filter(i => i.value.trim() !== '').length;
         const total   = inputs.length;
-        if (filled > 0 && filled !== total) {
+        if (total === 0 || filled !== total) {
             valid = false;
             document.getElementById(`serial-count-${idx}`).classList.add('bg-danger');
             document.getElementById(`serial-count-${idx}`).classList.remove('bg-warning', 'bg-secondary', 'bg-success');
@@ -621,15 +678,39 @@ document.getElementById('poForm').addEventListener('submit', function (e) {
     });
     if (!valid) {
         e.preventDefault();
-        alert('Serial number count must match quantity for all items, or leave all blank to enter when receiving.');
+        alert('Each unit needs a serial number. Fill in a serial for every quantity on every item.');
     }
 });
+
+/* ── Restore item rows after a validation error ── */
+@if(old('items'))
+(function () {
+    const oldItems   = @json(array_values(old('items', [])));
+    const productMap = {};
+    products.forEach(p => productMap[p.id] = p);
+
+    oldItems.forEach(it => {
+        if (!it || !it.product_id) return;
+        const p = productMap[it.product_id] || {};
+        addItem({
+            product_id:       it.product_id,
+            label:            p.label || '',
+            unit_type:        p.unit_type || '',
+            quantity:         parseInt(it.quantity) || 1,
+            unit_cost:        it.unit_cost ?? '',
+            discount_percent: it.discount_percent ?? 0,
+            discount_amount:  it.discount_amount ?? 0,
+            serials:          Array.isArray(it.serials) ? it.serials : [],
+        });
+    });
+})();
+@endif
 
 if (document.getElementById('paymentType').value === '45days') {
     document.getElementById('downpaymentSection').style.display = '';
     document.getElementById('deadlinePreview').style.display    = '';
     updateDeadline();
-    updateBalancePreview(); 
+    updateBalancePreview();
 }
 </script>
 @endpush

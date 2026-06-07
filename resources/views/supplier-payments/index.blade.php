@@ -115,16 +115,16 @@
 
             {{-- Table --}}
             <div class="table-responsive">
-                <table class="table table-hover table-sm mb-0" id="paymentsTable" style="font-size:0.875rem;">
-                    <thead class="bg-light">
+                <table class="table table-hover table-sm align-middle mb-0 app-table" id="paymentsTable">
+                    <thead>
                         <tr>
-                            <th class="border-0 px-3 py-2" style="white-space:nowrap">Payment Date</th>
-                            <th class="border-0 px-3 py-2">PO Number</th>
-                            <th class="border-0 px-3 py-2">Supplier</th>
-                            <th class="border-0 px-3 py-2">Amount</th>
-                            <th class="border-0 px-3 py-2">Method</th>
-                            <th class="border-0 px-3 py-2">Reference</th>
-                            <th class="border-0 px-3 py-2">By</th>
+                            <th>Payment Date</th>
+                            <th>PO Number</th>
+                            <th>Supplier</th>
+                            <th class="text-end">Amount</th>
+                            <th>Method</th>
+                            <th>Reference</th>
+                            <th>By</th>
                         </tr>
                     </thead>
                     <tbody id="paymentsTableBody">
@@ -187,18 +187,18 @@
                 <i class="bi bi-exclamation-triangle text-danger"></i> Outstanding Payments — {{ $unpaidPOs->count() }} Order(s)
             </h6>
             <div class="table-responsive">
-                <table class="table table-hover table-sm mb-0" style="font-size:0.875rem;">
-                    <thead class="bg-light">
+                <table class="table table-hover table-sm align-middle mb-0 app-table">
+                    <thead>
                         <tr>
-                            <th class="border-0 px-3 py-2">PO Number</th>
-                            <th class="border-0 px-3 py-2">Supplier</th>
-                            <th class="border-0 px-3 py-2" style="white-space:nowrap">Order Date</th>
-                            <th class="border-0 px-3 py-2" style="white-space:nowrap">Delivery Date</th>
-                            <th class="border-0 px-3 py-2" style="white-space:nowrap">Due Date</th>
-                            <th class="border-0 px-3 py-2">Total</th>
-                            <th class="border-0 px-3 py-2">Paid</th>
-                            <th class="border-0 px-3 py-2">Balance</th>
-                            <th class="border-0 px-3 py-2">Action</th>
+                            <th>PO Number</th>
+                            <th>Supplier</th>
+                            <th>Order Date</th>
+                            <th>Delivery Date</th>
+                            <th>Due Date</th>
+                            <th class="text-end">Total</th>
+                            <th class="text-end">Paid</th>
+                            <th class="text-end">Balance</th>
+                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -246,11 +246,9 @@
                             <td class="px-3 py-2 fw-semibold" style="white-space:nowrap">₱{{ number_format($po->total, 2) }}</td>
                             <td class="px-3 py-2 text-success" style="white-space:nowrap">₱{{ number_format($po->amount_paid, 2) }}</td>
                             <td class="px-3 py-2 fw-semibold text-danger" style="white-space:nowrap">₱{{ number_format($po->balance, 2) }}</td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
-                                <a href="{{ route('purchase-orders.show', $po) }}"
-                                   class="btn btn-primary"
-                                   style="padding:2px 8px;font-size:0.78rem">
-                                    <i class="bi bi-cash-coin"></i> Pay Now
+                            <td style="white-space:nowrap">
+                                <a href="{{ route('purchase-orders.show', $po) }}" class="btn btn-light border app-act text-primary">
+                                    <i class="bi bi-cash-coin"></i><span class="act-label"> Pay Now</span>
                                 </a>
                             </td>
                         </tr>

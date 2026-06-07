@@ -3,15 +3,13 @@
 @section('content')
 <div class="container-fluid">
 
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2 class="mb-1"><i class="bi bi-cart-plus text-primary"></i> Create New Sale</h2>
-            <p class="text-muted mb-0">Add products/services and generate invoice</p>
-        </div>
-        <a href="{{ route('sales.index') }}" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-arrow-left"></i> Back to Sales
-        </a>
-    </div>
+    <x-page-header title="Create New Sale" subtitle="Add products/services and generate invoice" icon="bi-cart-plus">
+        <x-slot name="actions">
+            <a href="{{ route('sales.index') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Back to Sales
+            </a>
+        </x-slot>
+    </x-page-header>
 
     @if($errors->any())
     <div class="alert alert-danger border-0 shadow-sm mb-3">
@@ -216,6 +214,33 @@
     </form>
 </div>
 
+{{-- Pick warehouse / new serials (same POST fields as before: serial_ids + new_serials_raw) --}}
+<div class="modal fade" id="salePickSerialModal" tabindex="-1" aria-labelledby="salePickSerialModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-primary text-white border-0 py-3">
+                <h5 class="modal-title" id="salePickSerialModalLabel"><i class="bi bi-upc-scan me-2"></i>Serial numbers</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-1 fw-semibold text-dark" id="saleSerialModalLead" style="font-size:0.95rem;"></p>
+                <p class="small text-muted mb-3 d-none" id="saleSerialNoStockHint"></p>
+                <div id="saleSerialSlotsWrap" class="overflow-auto" style="max-height:min(360px,50vh);"></div>
+                <div class="form-check mt-3 pt-3 border-top" id="saleSerialSkipWrap">
+                    <input class="form-check-input" type="checkbox" id="saleSerialSkip">
+                    <label class="form-check-label small text-muted" for="saleSerialSkip">
+                        Sell this line without serial numbers (no inventory tracking)
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer border-0 bg-light">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm" id="saleSerialApplyBtn"><i class="bi bi-check2"></i> Apply</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @push('scripts')
 <script>
 const products = @json($products);
@@ -265,11 +290,10 @@ function buildProductRow(id) {
       </div>
       <input type="hidden" name="items[${id}][type]" value="product">
       <input type="hidden" name="items[${id}][id]"       id="prod-id-${id}" value="">
-      <input type="hidden" name="items[${id}][quantity]" id="qty-${id}"     value="0">
       <input type="hidden" name="items[${id}][price]"    id="price-${id}"   value="0">
 
       <div class="row g-2 align-items-end mb-2">
-        <div class="col-md-7">
+        <div class="col-md-5">
           <label class="form-label small fw-semibold mb-1">Product <span class="text-danger">*</span></label>
           <div class="combobox position-relative" id="cb-${id}">
             <div class="form-control form-control-sm d-flex justify-content-between align-items-center gap-2"
@@ -291,6 +315,12 @@ function buildProductRow(id) {
           </div>
         </div>
         <div class="col-md-2">
+          <label class="form-label small fw-semibold mb-1">Qty <span class="text-danger">*</span></label>
+          <input type="number" min="1" value="1" name="items[${id}][quantity]" id="qty-${id}"
+                 class="form-control form-control-sm" required
+                 oninput="onProductQtyChange(${id}); calculateTotals();">
+        </div>
+        <div class="col-md-2">
           <label class="form-label small fw-semibold mb-1">Unit Price</label>
           <div class="bg-light rounded text-center fw-semibold px-1 py-1 text-danger"
                id="price-display-${id}" style="font-size:0.82rem;height:31px;line-height:2;">₱—</div>
@@ -302,17 +332,17 @@ function buildProductRow(id) {
         </div>
       </div>
 
-      {{-- Serial picker (shown after product selected) --}}
+      {{-- Serials via modal → hidden fields preserved for SaleController / inventory --}}
       <div id="serial-section-${id}" style="display:none;">
-        <div class="border rounded p-2 mt-1" style="background:#f8faff;">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <span class="small fw-semibold text-primary"><i class="bi bi-upc-scan"></i> Select Serial Numbers to Sell</span>
-            <span class="badge bg-secondary" id="serial-badge-${id}">0 selected</span>
+        <div class="border rounded px-3 py-2 mt-2" style="background:#f8faff;">
+          <div class="d-flex flex-wrap align-items-center gap-2 justify-content-between">
+            <div id="serial-summary-${id}" class="flex-grow-1" style="font-size:0.92rem;line-height:1.35;min-height:1.35em;"></div>
+            <button type="button" class="btn btn-outline-primary btn-sm flex-shrink-0" onclick="openSalePickSerialModal(${id})">
+              <i class="bi bi-box-seam"></i> Warehouse / serials
+            </button>
           </div>
-          <div id="serial-boxes-${id}" class="row g-1"></div>
-          <small class="text-muted mt-1 d-block">
-            <i class="bi bi-info-circle"></i> Check each unit being sold. Quantity = number checked.
-          </small>
+          <div id="serial-ids-mount-${id}" class="d-none"></div>
+          <textarea name="items[${id}][new_serials_raw]" id="new-sn-${id}" class="d-none" aria-hidden="true"></textarea>
         </div>
       </div>
     </div>`;
@@ -377,7 +407,332 @@ function buildServiceRow(id) {
     </div>`;
 }
 
-/* ─── PICK PRODUCT → show serial checkboxes ─── */
+/* ─── SERIAL MODAL / INVENTORY SYNC (SaleController unchanged) ─── */
+let saleSerialDraftItemKey = null;
+
+function getSalePickSerialBsModal() {
+    return bootstrap.Modal.getOrCreateInstance(document.getElementById('salePickSerialModal'));
+}
+
+function escapeHtml(s) {
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function clearSerialRowAttachments(id) {
+    const row = document.getElementById(`item-${id}`);
+    if (row) delete row.dataset.serialDraftJson;
+    const m = document.getElementById(`serial-ids-mount-${id}`);
+    if (m) m.innerHTML = '';
+    const ta = document.getElementById(`new-sn-${id}`);
+    if (ta) ta.value = '';
+    updateSerialRowSummary(id);
+}
+
+function productForRow(id) {
+    const pid = parseInt(document.getElementById(`prod-id-${id}`)?.value, 10);
+    if (!pid) return null;
+    return products.find(p => p.id === pid) || null;
+}
+
+function updateSerialRowSummary(id) {
+    const el = document.getElementById(`serial-summary-${id}`);
+    if (!el) return;
+
+    const prod = productForRow(id);
+    const hasStock = (prod?.serials?.length || 0) > 0;
+    const row = document.getElementById(`item-${id}`);
+
+    let draft = null;
+    try { draft = row?.dataset.serialDraftJson ? JSON.parse(row.dataset.serialDraftJson) : null; } catch (e) { draft = null; }
+
+    // Resolve the actual serial numbers from the draft so the cashier can review them on the page.
+    const entries = [];
+    if (draft && Array.isArray(draft.slots)) {
+        for (const s of draft.slots) {
+            if (s.stockId) {
+                const found = (prod?.serials || []).find(x => Number(x.id) === Number(s.stockId));
+                entries.push({ label: found ? found.serial_number : ('#' + s.stockId), kind: 'stock' });
+            } else if (s.newTxt && String(s.newTxt).trim()) {
+                entries.push({ label: String(s.newTxt).trim(), kind: 'new' });
+            }
+        }
+    }
+
+    if (entries.length === 0) {
+        if (draft && draft.attach === false) {
+            el.innerHTML = '<span class="text-warning"><i class="bi bi-exclamation-triangle"></i> Selling without serial numbers.</span>';
+        } else if (!hasStock) {
+            el.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-circle"></i> Serial number required — click “Warehouse / serials” to encode.</span>';
+        } else {
+            el.innerHTML = '<span class="text-muted">Click “Warehouse / serials” to choose or encode serials.</span>';
+        }
+        return;
+    }
+
+    const chips = entries.map(e =>
+        `<span class="badge ${e.kind === 'new' ? 'bg-info text-dark' : 'bg-success'} me-1 mb-1" style="font-weight:600;font-size:0.72rem;">`
+        + `<i class="bi ${e.kind === 'new' ? 'bi-plus-circle' : 'bi-upc-scan'}"></i> ${escapeHtml(e.label)}${e.kind === 'new' ? ' · new' : ''}`
+        + `</span>`).join('');
+
+    el.innerHTML =
+        `<div class="mb-1"><i class="bi bi-check-circle text-success"></i> <strong>${entries.length}</strong> serial(s) for this line:</div>`
+        + `<div class="d-flex flex-wrap">${chips}</div>`;
+}
+
+function writeMountsAndTextarea(id, ids, news) {
+    const m = document.getElementById(`serial-ids-mount-${id}`);
+    if (m) m.innerHTML = ids.map(V => `<input type="hidden" name="items[${id}][serial_ids][]" value="${V}">`).join('');
+    const ta = document.getElementById(`new-sn-${id}`);
+    if (ta) ta.value = news.filter(Boolean).join('\n');
+    updateSerialRowSummary(id);
+}
+
+function onSaleSlotStockChange(sel) {
+    const row = sel.closest('.sale-sn-slot');
+    if (!row) return;
+    const input = row.querySelector('.sale-sn-newin');
+    if (!input) return;
+    const showNew = sel.value === '__new__';
+    input.style.display = showNew ? '' : 'none';
+    if (!showNew) input.value = '';
+    else input.focus();
+}
+
+function renderSaleSerialSlots(serials, qty, slotsDraft) {
+    const wrap = document.getElementById('saleSerialSlotsWrap');
+    const hint = document.getElementById('saleSerialNoStockHint');
+    if (!wrap) return;
+
+    wrap.innerHTML = '';
+    const hasStock = serials.length > 0;
+
+    if (hasStock) {
+        hint.textContent = 'Pick a warehouse serial for each piece, or choose “Type a new serial” to encode one that isn’t recorded yet.';
+        hint.classList.remove('d-none');
+    } else {
+        hint.textContent = 'No serials are recorded for this model yet. Type each sticker number below — they’ll be saved to inventory when you save the sale.';
+        hint.classList.remove('d-none');
+    }
+
+    for (let i = 0; i < qty; i++) {
+        const d = slotsDraft[i] || { stockId: null, newTxt: '' };
+        if (hasStock) {
+            let opts = '<option value="">Choose serial…</option>';
+            for (const s of serials) {
+                const selAttr = Number(d.stockId) === Number(s.id) ? ' selected' : '';
+                opts += `<option value="${s.id}"${selAttr}>${escapeHtml(s.serial_number)}</option>`;
+            }
+            const useNew = !d.stockId && !!String(d.newTxt || '').trim();
+            opts += `<option value="__new__"${useNew ? ' selected' : ''}>➕ Type a new serial…</option>`;
+
+            const initialNewVal = useNew ? escapeHtml(String(d.newTxt || '').trim()) : '';
+
+            wrap.insertAdjacentHTML('beforeend',
+                `<div class="sale-sn-slot border rounded p-2 mb-2" data-index="${i}" data-hasstock="1">
+                  <label class="form-label small fw-semibold mb-1 text-muted">Piece ${i + 1} of ${qty}</label>
+                  <select class="form-select form-select-sm sale-sn-stocksel" onchange="onSaleSlotStockChange(this)">${opts}</select>
+                  <input type="text" class="form-control form-control-sm mt-2 sale-sn-newin" autocomplete="off"
+                         placeholder="Type the serial number from the unit"
+                         value="${initialNewVal}" style="display:${useNew ? '' : 'none'}">
+                </div>`);
+
+            const rowEl = wrap.lastElementChild;
+            if (rowEl && d.stockId) {
+                const ni = rowEl.querySelector('.sale-sn-newin');
+                if (ni) { ni.style.display = 'none'; ni.value = ''; }
+            }
+        } else {
+            wrap.insertAdjacentHTML('beforeend',
+                `<div class="sale-sn-slot border rounded p-2 mb-2" data-index="${i}" data-hasstock="0">
+                  <label class="form-label small fw-semibold mb-1 text-muted">Piece ${i + 1} of ${qty}</label>
+                  <input type="text" class="form-control form-control-sm sale-sn-newonly" autocomplete="off"
+                         placeholder="Serial from sticker — saved to inventory"
+                         value="${escapeHtml(d.newTxt || '')}">
+                </div>`);
+        }
+    }
+}
+
+function saleSerialDraftFromRow(row, qty, defaultAttach) {
+    if (!row || !qty) return { attach: false, slots: [] };
+    const raw = row.dataset.serialDraftJson;
+    try {
+        if (raw) {
+            const j = JSON.parse(raw);
+            if (j && j.attach === false && (!Array.isArray(j.slots) || j.slots.length === 0)) {
+                return {
+                    attach: false,
+                    slots: Array.from({ length: qty }, () => ({ stockId: null, newTxt: '' })),
+                };
+            }
+            if (j && Array.isArray(j.slots) && j.slots.length === qty) {
+                return { attach: !!j.attach, slots: j.slots };
+            }
+        }
+    } catch (e) { /* fallback */ }
+
+    const slots = Array.from({ length: qty }, () => ({ stockId: null, newTxt: '' }));
+    return { attach: defaultAttach, slots };
+}
+
+function openSalePickSerialModal(id) {
+    const prodId = document.getElementById(`prod-id-${id}`)?.value;
+    if (!prodId) {
+        alert('Choose a product first.');
+        return;
+    }
+    const qty = parseInt(document.getElementById(`qty-${id}`)?.value, 10) || 0;
+    if (qty < 1) {
+        alert('Quantity must be at least 1.');
+        return;
+    }
+
+    saleSerialDraftItemKey = id;
+    const prod = products.find(p => p.id === parseInt(prodId, 10));
+    const serials = prod?.serials || [];
+    const label = prod ? prod.label : 'Product';
+
+    document.getElementById('saleSerialModalLead').textContent = `${label} · Quantity ${qty}`;
+
+    const row = document.getElementById(`item-${id}`);
+    const hasStock = serials.length > 0;
+    // Default to attaching serials; required (no skip) when the product has no recorded serials.
+    let draft = saleSerialDraftFromRow(row, qty, true);
+
+    const skipWrap = document.getElementById('saleSerialSkipWrap');
+    const skipBox  = document.getElementById('saleSerialSkip');
+    if (hasStock) {
+        skipWrap.classList.remove('d-none');
+        skipBox.disabled = false;
+        skipBox.checked = !draft.attach;
+    } else {
+        // No serials on file → encoding is mandatory.
+        skipWrap.classList.add('d-none');
+        skipBox.disabled = true;
+        skipBox.checked = false;
+    }
+
+    renderSaleSerialSlots(serials, qty, draft.slots || []);
+    saleSerialToggleSlotsVisibility();
+
+    getSalePickSerialBsModal().show();
+}
+
+function saleSerialToggleSlotsVisibility() {
+    const skip = document.getElementById('saleSerialSkip').checked;
+    const wrap = document.getElementById('saleSerialSlotsWrap');
+    const hint = document.getElementById('saleSerialNoStockHint');
+    if (wrap) wrap.style.display = skip ? 'none' : '';
+    if (hint) {
+        if (skip) hint.style.display = 'none';
+        else if (hint.textContent.trim()) hint.style.display = '';
+        else hint.style.display = 'none';
+    }
+}
+
+function applySalePickSerialModal() {
+    const id = saleSerialDraftItemKey;
+    if (id === null || id === undefined) return;
+
+    const qty = parseInt(document.getElementById(`qty-${id}`)?.value, 10) || 0;
+    if (qty < 1) {
+        alert('Invalid quantity.');
+        return;
+    }
+
+    const prodId = document.getElementById(`prod-id-${id}`)?.value;
+    const row = document.getElementById(`item-${id}`);
+
+    const skip = document.getElementById('saleSerialSkip').checked;
+    if (skip) {
+        clearSerialRowAttachments(id);
+        if (row) row.dataset.serialDraftJson = JSON.stringify({ attach: false, slots: [] });
+        updateSerialRowSummary(id);
+        getSalePickSerialBsModal().hide();
+        calculateTotals();
+        return;
+    }
+
+    const ids = [];
+    const news = [];
+    const slots = [];
+    let applyError = null;
+
+    for (const slotEl of document.querySelectorAll('#saleSerialSlotsWrap .sale-sn-slot')) {
+        const hs = slotEl.dataset.hasstock === '1';
+        if (hs) {
+            const sel = slotEl.querySelector('.sale-sn-stocksel');
+            const ni = slotEl.querySelector('.sale-sn-newin');
+            const v = sel ? sel.value : '';
+            if (v === '') {
+                applyError = 'Pick a warehouse serial or choose “New serial” for each piece.';
+                break;
+            }
+            if (v === '__new__') {
+                const txt = (ni && ni.value) ? ni.value.trim() : '';
+                if (!txt) {
+                    applyError = 'Type the new serial number for each piece you marked as new.';
+                    break;
+                }
+                news.push(txt);
+                slots.push({ stockId: null, newTxt: txt });
+            } else {
+                const nid = parseInt(v, 10);
+                if (!nid) {
+                    applyError = 'Pick a warehouse serial or choose “New serial” for each piece.';
+                    break;
+                }
+                ids.push(nid);
+                slots.push({ stockId: nid, newTxt: '' });
+            }
+        } else {
+            const inp = slotEl.querySelector('.sale-sn-newonly');
+            const txt = inp ? inp.value.trim() : '';
+            if (!txt) {
+                applyError = 'Enter a serial number for each piece.';
+                break;
+            }
+            news.push(txt);
+            slots.push({ stockId: null, newTxt: txt });
+        }
+    }
+
+    if (applyError) {
+        alert(applyError);
+        return;
+    }
+
+    if (slots.length !== qty) return;
+
+    const idSet = new Set(ids);
+    if (idSet.size !== ids.length) {
+        alert('You chose the same warehouse serial twice. Each piece needs a different one.');
+        return;
+    }
+
+    const nSet = new Set(news);
+    if (nSet.size !== news.length) {
+        alert('Duplicate new serial entries — use a unique number per piece.');
+        return;
+    }
+
+    if (ids.length + news.length !== qty) {
+        alert(`This line is quantity ${qty}. You must assign exactly that many serials.`);
+        return;
+    }
+
+    if (row) row.dataset.serialDraftJson = JSON.stringify({ attach: true, slots });
+    writeMountsAndTextarea(id, ids, news);
+
+    getSalePickSerialBsModal().hide();
+    calculateTotals();
+}
+
+/* ─── PICK PRODUCT ─── */
 function pickProduct(id, productId, price, label, unitType) {
     document.getElementById(`prod-id-${id}`).value      = productId;
     document.getElementById(`price-${id}`).value        = price;
@@ -390,51 +745,36 @@ function pickProduct(id, productId, price, label, unitType) {
     document.querySelector(`.cb-search-${id}`).value = '';
     searchCombo(id);
 
-    const prod    = products.find(p => p.id === productId);
-    const serials = prod ? prod.serials : [];
+    clearSerialRowAttachments(id);
     const section = document.getElementById(`serial-section-${id}`);
-    const boxes   = document.getElementById(`serial-boxes-${id}`);
+    if (section) section.style.display = '';
 
-    section.style.display = '';
-    if (serials.length === 0) {
-        boxes.innerHTML = `<div class="col-12 text-danger small"><i class="bi bi-exclamation-triangle"></i> No in-stock serials available.</div>`;
-    } else {
-        boxes.innerHTML = serials.map(s => `
-            <div class="col-md-4 col-sm-6 col-12">
-              <label class="d-flex align-items-center gap-2 border rounded px-2 py-1 mb-1 serial-card"
-                     for="sn-${id}-${s.id}"
-                     style="cursor:pointer;background:#fff;font-family:monospace;font-size:0.82rem;">
-                <input class="form-check-input serial-cb flex-shrink-0" type="checkbox"
-                       name="items[${id}][serial_ids][]"
-                       value="${s.id}" id="sn-${id}-${s.id}"
-                       onchange="onSerialChange(${id}, this)">
-                ${s.serial_number}
-              </label>
-            </div>`).join('');
-    }
-    updateSerialBadge(id);
     calculateTotals();
     refreshDropdowns();
+
+    setTimeout(() => openSalePickSerialModal(id), 0);
 }
 
-function onSerialChange(id, cb) {
-    const card = cb.closest('.serial-card');
-    card.style.background   = cb.checked ? '#e8f4fd' : '#fff';
-    card.style.borderColor  = cb.checked ? '#0d6efd' : '';
-    card.style.fontWeight   = cb.checked ? '700' : '';
-    updateSerialBadge(id);
-    calculateTotals();
-}
-
-function updateSerialBadge(id) {
-    const count = document.querySelectorAll(`#serial-boxes-${id} .serial-cb:checked`).length;
-    const badge = document.getElementById(`serial-badge-${id}`);
-    if (badge) {
-        badge.textContent = count + ' selected';
-        badge.className   = count > 0 ? 'badge bg-success' : 'badge bg-secondary';
+function onProductQtyChange(id) {
+    const qty = parseInt(document.getElementById(`qty-${id}`)?.value, 10) || 1;
+    const row = document.getElementById(`item-${id}`);
+    if (!row?.dataset.serialDraftJson) return;
+    try {
+        const j = JSON.parse(row.dataset.serialDraftJson);
+        const hadSerials =
+            !!(j.attach)
+            || (Array.isArray(j.slots) && j.slots.some(s => (s.stockId != null && s.stockId !== '') || (s.newTxt != null && String(s.newTxt).trim() !== '')));
+        if (Array.isArray(j.slots) && j.slots.length !== qty && hadSerials) {
+            clearSerialRowAttachments(id);
+        }
+    } catch (e) {
+        clearSerialRowAttachments(id);
     }
-    const qtyHidden = document.getElementById(`qty-${id}`);
-    if (qtyHidden) qtyHidden.value = count;
+}
+
+function parseNewSerialLinesFromTextarea(val) {
+    if (!val || !String(val).trim()) return [];
+    return String(val).split(/\r\n|\r|\n/).map(s => s.trim()).filter(Boolean);
 }
 
 /* ─── PICK SERVICE ─── */
@@ -510,7 +850,7 @@ function calculateTotals() {
         const price = parseFloat(document.getElementById(`price-${id}`)?.value) || 0;
         let   qty   = 0;
         if (type === 'product') {
-            qty = document.querySelectorAll(`#serial-boxes-${id} .serial-cb:checked`).length;
+            qty = parseInt(document.getElementById(`qty-${id}`)?.value) || 0;
         } else {
             qty = parseFloat(r.querySelector('.qty-input')?.value) || 0;
         }
@@ -564,6 +904,9 @@ document.addEventListener('DOMContentLoaded', function () {
         calculateTotals();
     }
 
+    document.getElementById('saleSerialApplyBtn')?.addEventListener('click', applySalePickSerialModal);
+    document.getElementById('saleSerialSkip')?.addEventListener('change', saleSerialToggleSlotsVisibility);
+
     document.getElementById('saleForm').addEventListener('submit', function (e) {
         if (!document.querySelector('.item-row')) {
             e.preventDefault(); alert('Add at least one item.'); return;
@@ -574,11 +917,25 @@ document.addEventListener('DOMContentLoaded', function () {
             const id     = r.id.replace('item-', '');
             const prodId = document.getElementById(`prod-id-${id}`)?.value;
             if (!prodId) { valid = false; alert('Please select a product for all product rows.'); return; }
-            const count = document.querySelectorAll(`#serial-boxes-${id} .serial-cb:checked`).length;
-            if (count === 0) { valid = false; alert('Please select at least one serial number for each product item.'); }
-            // Sync qty
-            const qtyEl = document.getElementById(`qty-${id}`);
-            if (qtyEl) qtyEl.value = count;
+            const qty = parseInt(document.getElementById(`qty-${id}`)?.value) || 0;
+            if (qty < 1) { valid = false; alert('Product Qty must be at least 1 for each product row.'); return; }
+            const mount = document.getElementById(`serial-ids-mount-${id}`);
+            const sel = mount ? mount.querySelectorAll('input[type="hidden"]').length : 0;
+            const newLines = parseNewSerialLinesFromTextarea(document.getElementById(`new-sn-${id}`)?.value);
+            const attached = sel + newLines.length;
+
+            const prod = products.find(p => p.id === parseInt(prodId, 10));
+            const noStock = prod && ((prod.stock || 0) === 0 || (prod.serials || []).length === 0);
+            if (noStock && attached !== qty) {
+                valid = false;
+                alert('This product has no recorded serials, so a serial number is required for each unit. Open “Warehouse / serials” and encode ' + qty + ' serial(s).');
+                return;
+            }
+
+            if (attached !== qty && attached !== 0) {
+                valid = false;
+                alert('Product line: Quantity is ' + qty + ', but warehouse + new serials add up to ' + attached + '. Open “Warehouse / serials” or leave all empty.');
+            }
         });
         if (!valid) e.preventDefault();
     });

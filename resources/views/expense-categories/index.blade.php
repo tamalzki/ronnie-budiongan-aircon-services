@@ -21,13 +21,13 @@
     <div class="card app-card-panel">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover table-sm mb-0" style="font-size:0.875rem;">
-                    <thead class="bg-light">
+                <table class="table table-hover table-sm align-middle mb-0 app-table">
+                    <thead>
                         <tr>
-                            <th class="border-0 px-3 py-2">Name</th>
-                            <th class="border-0 px-3 py-2 text-center">Sort</th>
-                            <th class="border-0 px-3 py-2 text-center">Expenses</th>
-                            <th class="border-0 px-3 py-2">Actions</th>
+                            <th>Name</th>
+                            <th class="text-center">Sort</th>
+                            <th class="text-center">Expenses</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -38,18 +38,20 @@
                             <td class="px-3 py-2 text-center">
                                 <span class="badge bg-secondary bg-opacity-10 text-secondary">{{ $cat->operation_expenses_count }}</span>
                             </td>
-                            <td class="px-3 py-2">
-                                <a href="{{ route('expense-categories.edit', $cat) }}" class="btn btn-outline-primary btn-sm py-0" style="font-size:0.78rem">
-                                    <i class="bi bi-pencil"></i> Edit
-                                </a>
-                                <form action="{{ route('expense-categories.destroy', $cat) }}" method="POST" class="d-inline"
-                                      onsubmit="return confirm('Delete this category?')">
-                                    @csrf @method('DELETE')
-                                    <button type="submit" class="btn btn-outline-danger btn-sm py-0" style="font-size:0.78rem"
+                            <td>
+                                <div class="app-act-wrap">
+                                    <a href="{{ route('expense-categories.edit', $cat) }}" class="btn btn-light border app-act">
+                                        <i class="bi bi-pencil"></i><span class="act-label"> Edit</span>
+                                    </a>
+                                    <form action="{{ route('expense-categories.destroy', $cat) }}" method="POST" class="app-act-form"
+                                          onsubmit="return confirm('Delete this category?')">
+                                        @csrf @method('DELETE')
+                                    <button type="submit" class="btn btn-light border app-act text-danger"
                                             @if($cat->operation_expenses_count > 0) disabled title="Remove or reassign expenses first" @endif>
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </form>
+                                            <i class="bi bi-trash"></i> Delete
+                                        </button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                         @empty

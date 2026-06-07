@@ -34,6 +34,21 @@ class InventoryController extends Controller
         $totalReturns       = abs($movements->where('type', 'return')->sum('quantity'));
         $totalAdjustments   = $movements->where('type', 'adjustment')->count();
 
+        $serials = ProductSerial::where('product_id', $product->id)
+            ->with(['purchaseOrder', 'sale'])
+            ->orderByRaw("FIELD(status,'in_stock','pending','sold','returned','defective','lost')")
+            ->orderBy('serial_number')
+            ->get();
+
+        $serialCounts = [
+            'in_stock'  => $serials->where('status', 'in_stock')->count(),
+            'pending'   => $serials->where('status', 'pending')->count(),
+            'sold'      => $serials->where('status', 'sold')->count(),
+            'returned'  => $serials->where('status', 'returned')->count(),
+            'defective' => $serials->where('status', 'defective')->count(),
+            'lost'      => $serials->where('status', 'lost')->count(),
+        ];
+
         $suppliers = Supplier::where('is_active', true)->orderBy('name')->get();
 
         return view('inventory.show', compact(
@@ -43,6 +58,8 @@ class InventoryController extends Controller
             'totalStockOut',
             'totalReturns',
             'totalAdjustments',
+            'serials',
+            'serialCounts',
             'suppliers'
         ));
     }

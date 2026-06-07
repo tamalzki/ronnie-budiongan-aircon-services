@@ -38,15 +38,15 @@
     <div class="card app-card-panel">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover table-sm mb-0 app-table-compact">
-                    <thead class="bg-light">
+                <table class="table table-hover table-sm align-middle mb-0 app-table">
+                    <thead>
                         <tr>
-                            <th class="border-0 px-3 py-2">Date</th>
-                            <th class="border-0 px-3 py-2">Category</th>
-                            <th class="border-0 px-3 py-2">Description</th>
-                            <th class="border-0 px-3 py-2 text-end">Amount</th>
-                            <th class="border-0 px-3 py-2">Recorded by</th>
-                            <th class="border-0 px-3 py-2">Actions</th>
+                            <th>Date</th>
+                            <th>Category</th>
+                            <th>Description</th>
+                            <th class="text-end">Amount</th>
+                            <th>Recorded by</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -59,12 +59,18 @@
                             <td class="px-3 py-2">{{ Str::limit($row->description, 80) }}</td>
                             <td class="px-3 py-2 text-end fw-semibold">₱{{ number_format($row->amount, 2) }}</td>
                             <td class="px-3 py-2 text-muted small">{{ $row->user->name ?? '—' }}</td>
-                            <td class="px-3 py-2">
-                                <a href="{{ route('operation-expenses.edit', $row) }}" class="btn btn-outline-primary btn-sm py-0" style="font-size:0.75rem">Edit</a>
-                                <form action="{{ route('operation-expenses.destroy', $row) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this operational expense?')">
-                                    @csrf @method('DELETE')
-                                    <button type="submit" class="btn btn-outline-danger btn-sm py-0" style="font-size:0.75rem">Delete</button>
-                                </form>
+                            <td>
+                                <div class="app-act-wrap">
+                                    <a href="{{ route('operation-expenses.edit', $row) }}" class="btn btn-light border app-act">
+                                        <i class="bi bi-pencil"></i><span class="act-label"> Edit</span>
+                                    </a>
+                                    <form action="{{ route('operation-expenses.destroy', $row) }}" method="POST" class="app-act-form" onsubmit="return confirm('Delete this operational expense?')">
+                                        @csrf @method('DELETE')
+                                        <button type="submit" class="btn btn-light border app-act text-danger">
+                                            <i class="bi bi-trash"></i> Delete
+                                        </button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                         @empty

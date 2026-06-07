@@ -3,18 +3,11 @@
 @section('content')
 <div class="container-fluid">
 
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb mb-1">
-                    <li class="breadcrumb-item"><a href="{{ route('sales.index') }}">Sales</a></li>
-                    <li class="breadcrumb-item active">{{ $sale->invoice_number }}</li>
-                </ol>
-            </nav>
-            <h2 class="mb-1"><i class="bi bi-receipt text-primary"></i> {{ $sale->invoice_number }}</h2>
-            <p class="text-muted mb-0">{{ $sale->sale_date->format('F d, Y') }} &mdash; {{ $sale->customer_name }}</p>
-        </div>
-        <div class="d-flex gap-2">
+    <x-page-header
+        title="{{ $sale->invoice_number }}"
+        subtitle="{{ $sale->sale_date->format('F d, Y') }} — {{ $sale->customer_name }}"
+        icon="bi-receipt">
+        <x-slot name="actions">
             <a href="{{ route('sales.index') }}" class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-arrow-left"></i> Back to Sales
             </a>
@@ -24,19 +17,10 @@
                 <i class="bi bi-calendar-check"></i> Installment Schedule
             </a>
             @endif
-        </div>
-    </div>
+        </x-slot>
+    </x-page-header>
 
-    @if(session('success'))
-    <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-3">
-        {{ session('success') }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    @endif
-    @if(session('error'))
-    <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-3">
-        {{ session('error') }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    @endif
+    <x-flash />
 
     <div class="row g-3">
 

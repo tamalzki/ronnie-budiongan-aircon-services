@@ -27,6 +27,7 @@ class PurchaseOrder extends Model
         'notes',
         'user_id',
         'delivery_number',
+        'so_number',
     ];
 
     protected $casts = [

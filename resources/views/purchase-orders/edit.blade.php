@@ -5,21 +5,44 @@
 @section('content')
 <div class="container-fluid">
 
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2 class="mb-1"><i class="bi bi-pencil text-warning"></i> Edit Purchase Order</h2>
-            <p class="text-muted mb-0">{{ $purchaseOrder->po_number }}</p>
-        </div>
-        <a href="{{ route('purchase-orders.show', $purchaseOrder) }}" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-arrow-left"></i> Back
-        </a>
-    </div>
+    <x-page-header title="Edit Purchase Order" subtitle="{{ $purchaseOrder->po_number }}" icon="bi-pencil">
+        <x-slot name="actions">
+            <a href="{{ route('purchase-orders.show', $purchaseOrder) }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </x-slot>
+    </x-page-header>
 
     @if($errors->any())
     <div class="alert alert-danger border-0 shadow-sm">
         <ul class="mb-0">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>
     </div>
     @endif
+
+    <div class="alert alert-info border-0 shadow-sm py-2" style="font-size:0.85rem;">
+        <i class="bi bi-info-circle"></i>
+        Editing re-syncs inventory: this order's serial numbers are removed and re-added in stock with your changes.
+    </div>
+
+    {{-- ── SOLD TO / DELIVERED TO header (static, compact) ── --}}
+    <div class="row g-2 mb-3">
+        <div class="col-md-6">
+            <div class="border rounded bg-white px-2 py-1 h-100" style="font-size:0.72rem;line-height:1.35;">
+                <span class="fw-bold text-uppercase text-primary" style="font-size:0.66rem;letter-spacing:.5px;"><i class="bi bi-person-badge"></i> Sold To</span>
+                <div class="text-muted">Customer No. : 1378</div>
+                <div class="fw-semibold">RONNIE BUDIONGAN AIRCON SUPPLY AND SERVICES</div>
+                <div>DOOR 7 SORONGON BUILDING QUEZON AVE. TRES DE MAYO DIGOS DAVAO DEL SUR 8002 PH 11</div>
+                <div>TIN: 123-962-440-00000</div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="border rounded bg-white px-2 py-1 h-100" style="font-size:0.72rem;line-height:1.35;">
+                <span class="fw-bold text-uppercase text-primary" style="font-size:0.66rem;letter-spacing:.5px;"><i class="bi bi-truck"></i> Delivered To</span>
+                <div class="text-muted">Customer No. : 1378</div>
+                <div class="fw-semibold">RONNIE BUDIONGAN AIRCON SUPPLY AND SERVICES</div>
+            </div>
+        </div>
+    </div>
 
     <form action="{{ route('purchase-orders.update', $purchaseOrder) }}" method="POST" id="poForm">
         @csrf
@@ -30,12 +53,14 @@
             {{-- Left Column --}}
             <div class="col-md-8">
 
+                {{-- Supplier & Document Reference --}}
                 <div class="card border-0 shadow-sm mb-3">
                     <div class="card-header bg-light border-0 py-2">
                         <h6 class="mb-0"><i class="bi bi-building"></i> Supplier & Order Details</h6>
                     </div>
                     <div class="card-body">
                         <div class="row g-3">
+                            {{-- Row 1: Supplier + Dates --}}
                             <div class="col-md-4">
                                 <label class="form-label small fw-semibold">Supplier <span class="text-danger">*</span></label>
                                 <select class="form-select form-select-sm" name="supplier_id" required>
@@ -48,7 +73,7 @@
                                 </select>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label small fw-semibold">Order Date <span class="text-danger">*</span></label>
+                                <label class="form-label small fw-semibold">Order / DR Date <span class="text-danger">*</span></label>
                                 <input type="date" class="form-control form-control-sm" name="order_date"
                                        value="{{ old('order_date', $purchaseOrder->order_date->format('Y-m-d')) }}" required id="orderDate">
                             </div>
@@ -57,10 +82,34 @@
                                 <input type="date" class="form-control form-control-sm" name="expected_delivery_date"
                                        value="{{ old('expected_delivery_date', optional($purchaseOrder->expected_delivery_date)->format('Y-m-d')) }}">
                             </div>
+
+                            {{-- Row 2: Document Reference Numbers --}}
+                            <div class="col-md-4">
+                                <label class="form-label small fw-semibold">Document No. <small class="text-muted">(DR from supplier)</small></label>
+                                <input type="text" class="form-control form-control-sm" name="delivery_number"
+                                       value="{{ old('delivery_number', $purchaseOrder->delivery_number) }}"
+                                       placeholder="e.g. 8010361871"
+                                       style="font-family:monospace;">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-semibold">PO No. <small class="text-muted">(supplier's PO)</small></label>
+                                <input type="text" class="form-control form-control-sm" name="po_number"
+                                       value="{{ old('po_number', $purchaseOrder->po_number) }}"
+                                       placeholder="e.g. 653"
+                                       style="font-family:monospace;">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-semibold">SO No. <small class="text-muted">(supplier's SO)</small></label>
+                                <input type="text" class="form-control form-control-sm" name="so_number"
+                                       value="{{ old('so_number', $purchaseOrder->so_number) }}"
+                                       placeholder="e.g. 1010260605"
+                                       style="font-family:monospace;">
+                            </div>
                         </div>
                     </div>
                 </div>
 
+                {{-- Items --}}
                 <div class="card border-0 shadow-sm mb-3">
                     <div class="card-header bg-light border-0 py-2 d-flex justify-content-between align-items-center">
                         <h6 class="mb-0"><i class="bi bi-box-seam"></i> Order Items</h6>
@@ -69,21 +118,40 @@
                         </button>
                     </div>
                     <div class="card-body p-0">
-                        <div id="itemsContainer" class="p-3">
-                            <div class="text-center text-muted py-4" id="emptyState" style="display:none;">
-                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                                <p class="mb-0">No products added yet.</p>
-                            </div>
-                        </div>
+                        <table class="table table-sm align-middle mb-0" id="itemsTable" style="font-size:0.82rem;table-layout:fixed;width:100%;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width:30px;" class="text-center">#</th>
+                                    <th>Product <span class="text-danger">*</span></th>
+                                    <th style="width:62px;" class="text-center">QTY <span class="text-danger">*</span></th>
+                                    <th style="width:118px;">Unit Cost</th>
+                                    <th style="width:62px;" class="text-center">Disc %</th>
+                                    <th style="width:108px;">Disc (₱)</th>
+                                    <th style="width:80px;" class="text-end">Net</th>
+                                    <th style="width:92px;" class="text-end">Total</th>
+                                    <th style="width:40px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="itemsTableBody">
+                                <tr id="emptyState">
+                                    <td colspan="9" class="text-center text-muted py-4">
+                                        <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                                        No products added yet. Click "Add Product" above.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
+                {{-- Notes --}}
                 <div class="card border-0 shadow-sm">
                     <div class="card-header bg-light border-0 py-2">
                         <h6 class="mb-0"><i class="bi bi-sticky"></i> Additional Notes</h6>
                     </div>
                     <div class="card-body">
-                        <textarea class="form-control form-control-sm" name="notes" rows="2">{{ old('notes', $purchaseOrder->notes) }}</textarea>
+                        <textarea class="form-control form-control-sm" name="notes" rows="2"
+                                  placeholder="Optional notes about this purchase order">{{ old('notes', $purchaseOrder->notes) }}</textarea>
                     </div>
                 </div>
 
@@ -92,6 +160,7 @@
             {{-- Right Column --}}
             <div class="col-md-4">
 
+                {{-- Order Summary --}}
                 <div class="card border-0 shadow-sm mb-3 sticky-top" style="top:20px;">
                     <div class="card-header bg-primary text-white border-0 py-2">
                         <h6 class="mb-0"><i class="bi bi-calculator"></i> Order Summary</h6>
@@ -108,74 +177,29 @@
                     </div>
                 </div>
 
+                {{-- Payment Terms --}}
                 <div class="card border-0 shadow-sm mb-3">
                     <div class="card-header bg-light border-0 py-2">
                         <h6 class="mb-0"><i class="bi bi-credit-card"></i> Payment Terms</h6>
                     </div>
                     <div class="card-body">
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label class="form-label small fw-semibold">Payment Type <span class="text-danger">*</span></label>
                             <select class="form-select form-select-sm" name="payment_type" id="paymentType" required>
-                                <option value="">-- Select Payment Type --</option>
                                 <option value="full"   {{ old('payment_type', $purchaseOrder->payment_type) == 'full'   ? 'selected' : '' }}>Full Payment</option>
                                 <option value="45days" {{ old('payment_type', $purchaseOrder->payment_type) == '45days' ? 'selected' : '' }}>45-Day Term</option>
                             </select>
                         </div>
-
-                        <div id="deadlinePreview" style="display:none;" class="mb-3">
-                            <label class="form-label small fw-semibold"><i class="bi bi-calendar-event"></i> Payment Due Date</label>
-                            <input type="date" class="form-control form-control-sm" name="payment_due_date" id="paymentDueDate"
-                                   value="{{ old('payment_due_date', optional($purchaseOrder->payment_due_date)->format('Y-m-d')) }}">
-                            <small class="text-muted">Auto-calculated, but you can override</small>
-                        </div>
-
-                        <div id="downpaymentSection" style="display:none;" class="border-top pt-3">
-                            <h6 class="small fw-semibold text-muted mb-2">Downpayment (Optional)</h6>
-                            <div class="mb-2">
-                                <label class="form-label small fw-semibold">Amount</label>
-                                <div class="input-group input-group-sm">
-                                    <span class="input-group-text">₱</span>
-                                    <input type="number" step="0.01" class="form-control" name="downpayment_amount"
-                                           id="downpaymentAmount" value="{{ old('downpayment_amount', 0) }}" min="0">
-                                </div>
-                            </div>
-                            <div class="mb-2">
-                                <label class="form-label small fw-semibold">Payment Date</label>
-                                <input type="date" class="form-control form-control-sm" name="downpayment_date"
-                                       value="{{ old('downpayment_date', date('Y-m-d')) }}">
-                            </div>
-                            <div class="mb-2">
-                                <label class="form-label small fw-semibold">Method</label>
-                                <select class="form-select form-select-sm" name="downpayment_method">
-                                    <option value="cash">💵 Cash</option>
-                                    <option value="gcash">📱 GCash</option>
-                                    <option value="bank_transfer">🏦 Bank Transfer</option>
-                                    <option value="cheque">🧾 Cheque</option>
-                                </select>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label small fw-semibold">Reference #</label>
-                                <input type="text" class="form-control form-control-sm" name="downpayment_reference"
-                                       value="{{ old('downpayment_reference') }}" placeholder="Optional">
-                            </div>
-                            <div class="alert alert-info py-2 mb-0" id="balancePreview" style="display:none;font-size:0.85rem;">
-                                <div class="fw-semibold mb-1">Balance Summary:</div>
-                                <div class="d-flex justify-content-between">
-                                    <span>Total:</span><span class="fw-semibold">₱<span id="previewTotal">0.00</span></span>
-                                </div>
-                                <div class="d-flex justify-content-between">
-                                    <span>Downpayment:</span><span class="fw-semibold text-success">₱<span id="previewDown">0.00</span></span>
-                                </div>
-                                <div class="d-flex justify-content-between border-top pt-1 mt-1">
-                                    <span class="fw-bold">Balance Due:</span><span class="fw-bold text-danger">₱<span id="previewBalance">0.00</span></span>
-                                </div>
-                            </div>
+                        <div class="small text-muted" id="paymentNote45" style="display:none;">
+                            <i class="bi bi-info-circle"></i> Amounts already paid are kept. Manage the due date and record
+                            further payments on the order page.
                         </div>
                     </div>
                 </div>
 
-                <button type="submit" class="btn btn-primary btn-lg w-100 shadow-sm">
-                    <i class="bi bi-check-circle"></i> Update Purchase Order
+                <button type="submit" class="btn btn-primary btn-lg w-100 shadow"
+                        style="font-size:1.05rem;padding:12px 0;">
+                    <i class="bi bi-check-circle-fill"></i> UPDATE PURCHASE ORDER
                 </button>
 
             </div>
@@ -185,8 +209,7 @@
 
 @push('scripts')
 <script>
-const products       = {!! json_encode($productsJson) !!};
-const existingSerials = {!! json_encode($existingSerials) !!}; // keyed by product_id
+const products = {!! json_encode($productsJson) !!};
 let rowIndex = 0;
 
 function unitTypeBadge(unitType) {
@@ -198,7 +221,7 @@ function unitTypeBadge(unitType) {
 }
 
 function addItem(prefill) {
-    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('emptyState')?.remove();
     rowIndex++;
     const idx = rowIndex;
 
@@ -218,107 +241,96 @@ function addItem(prefill) {
     }).join('');
 
     const html = `
-    <div class="border rounded mb-3 item-row bg-white shadow-sm" id="row-${idx}">
-        <div class="p-3">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <span class="badge bg-secondary">Item #${idx}</span>
-                <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeRow(${idx})" style="padding:1px 8px;font-size:0.78rem;">
-                    <i class="bi bi-trash"></i> Remove
-                </button>
-            </div>
+    <tr class="item-row" id="row-${idx}" data-item="${idx}">
+        <td class="text-center text-muted fw-semibold" id="row-label-${idx}">${idx}</td>
 
+        <td>
             <select name="items[${idx}][product_id]" class="product-select d-none" data-row="${idx}" required>
                 <option value="">-- Select --</option>
                 ${products.map(p => `<option value="${p.id}" data-cost="${p.cost}">${p.label}</option>`).join('')}
             </select>
-
-            <div class="mb-2">
-                <label class="form-label small fw-semibold mb-1">Product <span class="text-danger">*</span></label>
-                <div class="combobox position-relative" id="pocb-${idx}">
-                    <div class="form-control form-control-sm d-flex justify-content-between align-items-center gap-2"
-                         style="cursor:pointer;user-select:none;background:#fff;"
-                         onclick="togglePOCombo(${idx})">
-                        <div class="d-flex align-items-center gap-2 flex-wrap" style="flex:1;min-width:0;">
-                            <span class="pocb-display-${idx} text-muted" style="font-size:0.82rem;">-- Select Product --</span>
-                            <span class="pocb-badge-${idx}"></span>
-                        </div>
-                        <i class="bi bi-chevron-down flex-shrink-0" style="font-size:0.7rem;color:#888;"></i>
+            <div class="combobox position-relative" id="pocb-${idx}">
+                <div class="form-control form-control-sm d-flex justify-content-between align-items-center gap-1"
+                     style="cursor:pointer;user-select:none;background:#fff;overflow:hidden;"
+                     onclick="togglePOCombo(${idx})">
+                    <div class="d-flex align-items-center gap-1 flex-nowrap" style="flex:1;min-width:0;overflow:hidden;">
+                        <span class="pocb-display-${idx} text-muted text-truncate" style="font-size:0.82rem;min-width:0;">-- Select Product --</span>
+                        <span class="pocb-badge-${idx} flex-shrink-0"></span>
                     </div>
-                    <div class="pocb-panel-${idx} position-absolute w-100 bg-white border rounded shadow-sm"
-                         style="display:none;z-index:9999;top:100%;left:0;">
-                        <div class="p-2 border-bottom">
-                            <input type="text" class="form-control form-control-sm pocb-search-${idx}"
-                                   placeholder="🔍 Search product…"
-                                   oninput="searchPOCombo(${idx})"
-                                   onclick="event.stopPropagation()">
-                        </div>
-                        <div class="pocb-list-${idx}" style="max-height:220px;overflow-y:auto;">${cbOpts}</div>
+                    <i class="bi bi-chevron-down flex-shrink-0" style="font-size:0.7rem;color:#888;"></i>
+                </div>
+                <div class="pocb-panel-${idx} position-absolute bg-white border rounded shadow-sm"
+                     style="display:none;z-index:9999;top:100%;left:0;min-width:280px;">
+                    <div class="p-2 border-bottom">
+                        <input type="text" class="form-control form-control-sm pocb-search-${idx}"
+                               placeholder="🔍 Search product…"
+                               oninput="searchPOCombo(${idx})"
+                               onclick="event.stopPropagation()">
+                    </div>
+                    <div class="pocb-list-${idx}" style="max-height:220px;overflow-y:auto;">
+                        ${cbOpts}
                     </div>
                 </div>
             </div>
+        </td>
 
-            <div class="row g-2 align-items-end">
-                <div class="col-md-2">
-                    <label class="form-label small fw-semibold mb-1">Qty <span class="text-danger">*</span></label>
-                    <input type="number" class="form-control form-control-sm qty-input" name="items[${idx}][quantity]"
-                           value="1" min="1" required onchange="onQtyChange(${idx})">
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label small fw-semibold mb-1">Unit Cost</label>
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text">₱</span>
-                        <input type="number" step="0.01" class="form-control cost-input" name="items[${idx}][unit_cost]"
-                               value="" min="0" required onchange="calcRow(${idx})">
-                    </div>
-                </div>
-               <div class="col-md-2">
-    <label class="form-label small fw-semibold mb-1">Disc %</label>
-    <input type="number" step="0.01"
-           class="form-control form-control-sm disc-percent-input"
-           name="items[${idx}][discount_percent]"
-           value="0" min="0" max="100"
-           onchange="calcRow(${idx})">
-</div>
+        <td>
+            <input type="number" class="form-control form-control-sm qty-input text-center" name="items[${idx}][quantity]"
+                   value="1" min="1" required onchange="onQtyChange(${idx})">
+        </td>
 
-            <div class="col-md-2">
-                <label class="form-label small fw-semibold mb-1">Disc ₱</label>
-                <div class="input-group input-group-sm">
-                    <span class="input-group-text">₱</span>
-                    <input type="number" step="0.01"
-                        class="form-control disc-amount-input"
-                        name="items[${idx}][discount_amount]"
-                        value="0" min="0"
-                        onchange="calcRow(${idx})">
-                </div>
+        <td>
+            <div class="input-group input-group-sm">
+                <span class="input-group-text">₱</span>
+                <input type="number" step="0.01" class="form-control cost-input" name="items[${idx}][unit_cost]"
+                       value="" min="0" placeholder="0.00" onchange="calcRow(${idx})">
             </div>
-                <div class="col-md-2">
-                    <label class="form-label small fw-semibold mb-1">Net Cost</label>
-                    <input type="text" class="form-control form-control-sm" id="net-${idx}" readonly value="0.00" style="background:#f8f9fa;">
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label small fw-semibold mb-1">Row Total</label>
-                    <div class="bg-primary bg-opacity-10 rounded text-center fw-bold text-primary px-2 py-1" style="font-size:0.85rem;height:31px;line-height:1.8;">
-                        ₱<span id="total-${idx}" class="total-display">0.00</span>
-                    </div>
-                </div>
-            </div>
-        </div>
+        </td>
 
-        {{-- Serial Numbers --}}
-        <div class="border-top bg-light px-3 py-2" id="serials-section-${idx}">
+        <td>
+            <input type="number" step="0.01" class="form-control form-control-sm disc-input text-center"
+                   name="items[${idx}][discount_percent]" value="0" min="0" max="100" onchange="calcRow(${idx})">
+        </td>
+
+        <td>
+            <div class="input-group input-group-sm">
+                <span class="input-group-text">₱</span>
+                <input type="number" step="0.01" class="form-control discount-amount-input"
+                       name="items[${idx}][discount_amount]" value="0" min="0" onchange="calcRow(${idx})">
+            </div>
+        </td>
+
+        <td class="text-end">
+            <input type="text" class="form-control form-control-sm text-end" id="net-${idx}" readonly value="0.00"
+                   style="background:#f8f9fa;">
+        </td>
+
+        <td class="text-end fw-bold text-primary">₱<span id="total-${idx}" class="total-display">0.00</span></td>
+
+        <td class="text-center">
+            <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeRow(${idx})" style="padding:1px 7px;">
+                <i class="bi bi-trash"></i>
+            </button>
+        </td>
+    </tr>
+
+    <tr class="serial-subrow" data-item="${idx}">
+        <td></td>
+        <td colspan="8" class="bg-light">
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <div>
                     <i class="bi bi-upc-scan text-primary"></i>
                     <span class="small fw-semibold text-primary ms-1">Serial Numbers</span>
-                    <span class="text-muted small ms-1">(optional — required when receiving)</span>
+                    <span class="text-danger small ms-1">* (one per unit)</span>
                 </div>
                 <span class="badge bg-secondary" id="serial-count-${idx}">0 / 0</span>
             </div>
             <div id="serials-inputs-${idx}" class="row g-1"></div>
-        </div>
-    </div>`;
+        </td>
+    </tr>`;
 
-    document.getElementById('itemsContainer').insertAdjacentHTML('beforeend', html);
+    document.getElementById('itemsTableBody').insertAdjacentHTML('beforeend', html);
+
     rebuildSerialInputs(idx, 1, []);
     refreshDropdowns();
 
@@ -327,20 +339,20 @@ function addItem(prefill) {
         sel.value = prefill.product_id;
 
         const disp = document.querySelector(`.pocb-display-${idx}`);
-        if (disp) { disp.textContent = prefill.label; disp.style.color = '#212529'; }
+        if (disp && prefill.label) { disp.textContent = prefill.label; disp.style.color = '#212529'; }
 
         const badge = document.querySelector(`.pocb-badge-${idx}`);
         if (badge && prefill.unit_type) badge.innerHTML = unitTypeBadge(prefill.unit_type);
 
         const row = document.getElementById(`row-${idx}`);
-        row.querySelector('.qty-input').value  = prefill.quantity;
-        row.querySelector('.cost-input').value = parseFloat(prefill.unit_cost).toFixed(2);
-        row.querySelector('.disc-percent-input').value = prefill.discount_percent ?? 0;
-        row.querySelector('.disc-amount-input').value  = prefill.discount_amount ?? 0;
+        row.querySelector('.qty-input').value = prefill.quantity;
+        if (prefill.unit_cost !== '' && prefill.unit_cost != null) {
+            row.querySelector('.cost-input').value = parseFloat(prefill.unit_cost).toFixed(2);
+        }
+        row.querySelector('.disc-input').value = prefill.discount_percent ?? 0;
+        row.querySelector('.discount-amount-input').value = prefill.discount_amount ?? 0;
 
-        // Load existing serials for this product from the controller-provided map
-        const productSerials = existingSerials[prefill.product_id] || [];
-        rebuildSerialInputs(idx, prefill.quantity, productSerials);
+        rebuildSerialInputs(idx, prefill.quantity, prefill.serials || []);
         calcRow(idx);
         refreshDropdowns();
     }
@@ -348,31 +360,37 @@ function addItem(prefill) {
 
 function rebuildSerialInputs(idx, qty, existingValues) {
     const container = document.getElementById(`serials-inputs-${idx}`);
+    const counter   = document.getElementById(`serial-count-${idx}`);
     container.innerHTML = '';
+
     for (let i = 0; i < qty; i++) {
         const val = existingValues[i] || '';
         container.insertAdjacentHTML('beforeend', `
-            <div class="col-md-4 col-sm-6">
-                <div class="input-group input-group-sm mb-1">
-                    <span class="input-group-text text-muted" style="font-size:0.72rem;min-width:36px;">#${i+1}</span>
-                    <input type="text"
-                           class="form-control form-control-sm serial-input"
-                           name="items[${idx}][serials][]"
-                           value="${val}"
-                           placeholder="Serial #${i+1}"
-                           style="font-family:monospace;font-size:0.82rem;"
-                           oninput="updateSerialCount(${idx})">
+    <div class="col-md-4 col-sm-6">
+        <div class="input-group input-group-sm mb-1">
+            <span class="input-group-text text-muted" style="font-size:0.72rem;min-width:36px;">#${i+1}</span>
+            <input type="text"
+                   class="form-control form-control-sm serial-input"
+                   name="items[${idx}][serials][]"
+                   value="${val}"
+                   placeholder="Serial #${i+1}"
+                   style="font-family:monospace;font-size:0.82rem;"
+                   oninput="updateSerialCount(${idx})">
                 </div>
-            </div>`);
+            </div>
+        `);
     }
+
     updateSerialCount(idx);
+    counter.textContent = `0 / ${qty}`;
 }
 
 function updateSerialCount(idx) {
-    const inputs  = document.querySelectorAll(`#serials-inputs-${idx} .serial-input`);
-    const filled  = [...inputs].filter(i => i.value.trim() !== '').length;
-    const total   = inputs.length;
-    const counter = document.getElementById(`serial-count-${idx}`);
+    const container = document.getElementById(`serials-inputs-${idx}`);
+    const inputs    = container.querySelectorAll('.serial-input');
+    const filled    = [...inputs].filter(i => i.value.trim() !== '').length;
+    const total     = inputs.length;
+    const counter   = document.getElementById(`serial-count-${idx}`);
     counter.textContent = `${filled} / ${total}`;
     counter.className   = filled === total && total > 0
         ? 'badge bg-success'
@@ -380,10 +398,11 @@ function updateSerialCount(idx) {
 }
 
 function onQtyChange(idx) {
-    const row    = document.getElementById(`row-${idx}`);
-    const qty    = parseInt(row.querySelector('.qty-input').value) || 0;
-    const existing = [...document.querySelectorAll(`#serials-inputs-${idx} .serial-input`)].map(i => i.value);
-    rebuildSerialInputs(idx, qty, existing);
+    const row = document.getElementById(`row-${idx}`);
+    const qty = parseInt(row.querySelector('.qty-input').value) || 0;
+    const existingInputs = document.querySelectorAll(`#serials-inputs-${idx} .serial-input`);
+    const existingValues = [...existingInputs].map(i => i.value);
+    rebuildSerialInputs(idx, qty, existingValues);
     calcRow(idx);
 }
 
@@ -391,7 +410,10 @@ function togglePOCombo(idx) {
     const panel  = document.querySelector(`.pocb-panel-${idx}`);
     const isOpen = panel.style.display !== 'none';
     closeAllPOCombos();
-    if (!isOpen) { panel.style.display = ''; document.querySelector(`.pocb-search-${idx}`)?.focus(); }
+    if (!isOpen) {
+        panel.style.display = '';
+        document.querySelector(`.pocb-search-${idx}`)?.focus();
+    }
 }
 
 function searchPOCombo(idx) {
@@ -428,40 +450,49 @@ function calcRow(idx) {
 
     const qty      = parseFloat(row.querySelector('.qty-input').value) || 0;
     const cost     = parseFloat(row.querySelector('.cost-input').value) || 0;
-    const discPct  = parseFloat(row.querySelector('.disc-percent-input')?.value) || 0;
-    const discAmt  = parseFloat(row.querySelector('.disc-amount-input')?.value) || 0;
+    const discInput    = row.querySelector('.disc-input');
+    const discAmtInput = row.querySelector('.discount-amount-input');
 
-    // Apply percentage first
-    let netCost = cost * (1 - discPct / 100);
+    let discPct = parseFloat(discInput.value) || 0;
+    let discAmt = parseFloat(discAmtInput.value) || 0;
 
-    // Apply peso discount distributed per quantity
-    if (qty > 0 && discAmt > 0) {
-        netCost -= (discAmt / qty);
+    if (discPct > 0 && discAmt > 0) {
+        if (document.activeElement === discInput) { discAmtInput.value = 0; discAmt = 0; }
+        else if (document.activeElement === discAmtInput) { discInput.value = 0; discPct = 0; }
     }
 
-    netCost = Math.max(0, netCost);
+    let netCost = cost * (1 - discPct / 100);
+    if (qty > 0 && discAmt > 0) netCost -= (discAmt / qty);
+    if (netCost < 0) netCost = 0;
 
-    document.getElementById(`net-${idx}`).value =
-        netCost.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-    document.getElementById(`total-${idx}`).textContent =
-        (qty * netCost).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
+    const total = qty * netCost;
+    document.getElementById(`net-${idx}`).value = netCost.toFixed(2);
+    document.getElementById(`total-${idx}`).textContent = formatMoney(total);
     calcGrandTotal();
+}
+
+function formatMoney(value) {
+    return parseFloat(value || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function calcGrandTotal() {
     let grand = 0;
-    document.querySelectorAll('.total-display').forEach(el => grand += parseFloat(el.textContent) || 0);
-    document.getElementById('grandTotal').textContent =
-    grand.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    updateBalancePreview();
+    document.querySelectorAll('.total-display').forEach(el => {
+        grand += parseFloat(el.textContent.replace(/,/g, '')) || 0;
+    });
+    document.getElementById('grandTotal').textContent = formatMoney(grand);
 }
 
 function removeRow(idx) {
-    document.getElementById(`row-${idx}`)?.remove();
+    document.querySelectorAll(`[data-item="${idx}"]`).forEach(el => el.remove());
     if (!document.querySelector('.item-row')) {
-        document.getElementById('emptyState').style.display = '';
+        document.getElementById('itemsTableBody').innerHTML = `
+            <tr id="emptyState">
+                <td colspan="9" class="text-center text-muted py-4">
+                    <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                    No products added yet. Click "Add Product" above.
+                </td>
+            </tr>`;
     }
     refreshDropdowns();
     calcGrandTotal();
@@ -487,44 +518,18 @@ function refreshDropdowns() {
     });
 }
 
-document.addEventListener('click', e => { if (!e.target.closest('.combobox')) closeAllPOCombos(); });
-
-document.getElementById('paymentType').addEventListener('change', function () {
-    const is45 = this.value === '45days';
-    document.getElementById('downpaymentSection').style.display = is45 ? '' : 'none';
-    document.getElementById('deadlinePreview').style.display    = is45 ? '' : 'none';
-    updateDeadline(); updateBalancePreview();
+document.addEventListener('click', e => {
+    if (!e.target.closest('.combobox')) closeAllPOCombos();
 });
 
-document.getElementById('orderDate').addEventListener('change', updateDeadline);
-
-function updateDeadline() {
-    const orderDate   = document.getElementById('orderDate').value;
-    const paymentType = document.getElementById('paymentType').value;
-    const dueDateInput = document.getElementById('paymentDueDate');
-    if (!orderDate || paymentType !== '45days' || !dueDateInput) return;
-    if (!dueDateInput.value) {
-        const due = new Date(orderDate);
-        due.setDate(due.getDate() + 45);
-        dueDateInput.value = due.toISOString().split('T')[0];
-    }
+/* ── Payment type note ── */
+function togglePaymentNote() {
+    const is45 = document.getElementById('paymentType').value === '45days';
+    document.getElementById('paymentNote45').style.display = is45 ? '' : 'none';
 }
+document.getElementById('paymentType').addEventListener('change', togglePaymentNote);
 
-function updateBalancePreview() {
-    const is45      = document.getElementById('paymentType').value === '45days';
-    const previewEl = document.getElementById('balancePreview');
-    if (!is45) { previewEl.style.display = 'none'; return; }
-    const total = parseFloat(document.getElementById('grandTotal').textContent) || 0;
-    const down  = parseFloat(document.getElementById('downpaymentAmount').value) || 0;
-    const bal   = Math.max(0, total - down);
-    document.getElementById('previewTotal').textContent   = total.toFixed(2);
-    document.getElementById('previewDown').textContent    = down.toFixed(2);
-    document.getElementById('previewBalance').textContent = bal.toFixed(2);
-    previewEl.style.display = '';
-}
-
-document.getElementById('downpaymentAmount').addEventListener('input', updateBalancePreview);
-
+/* ── Submit guard: every unit needs a serial ── */
 document.getElementById('poForm').addEventListener('submit', function (e) {
     if (!document.querySelector('.item-row')) {
         e.preventDefault(); alert('Please add at least one product.'); return;
@@ -532,38 +537,68 @@ document.getElementById('poForm').addEventListener('submit', function (e) {
     let valid = true;
     document.querySelectorAll('.item-row').forEach(row => {
         const idx    = row.id.replace('row-', '');
-        const inputs = row.querySelectorAll('.serial-input');
+        const inputs = document.querySelectorAll(`#serials-inputs-${idx} .serial-input`);
         const filled = [...inputs].filter(i => i.value.trim() !== '').length;
-        if (filled > 0 && filled !== inputs.length) {
+        const total  = inputs.length;
+        if (total === 0 || filled !== total) {
             valid = false;
-            document.getElementById(`serial-count-${idx}`).className = 'badge bg-danger';
+            document.getElementById(`serial-count-${idx}`).classList.add('bg-danger');
+            document.getElementById(`serial-count-${idx}`).classList.remove('bg-warning', 'bg-secondary', 'bg-success');
         }
     });
     if (!valid) {
         e.preventDefault();
-        alert('Serial number count must match quantity for all items, or leave all blank.');
+        alert('Each unit needs a serial number. Fill in a serial for every quantity on every item.');
     }
 });
 
-// ── Pre-fill existing items ──
-const existingItems = {!! json_encode($purchaseOrder->items->map(fn($i) => [
-    'product_id' => $i->product_id,
-    'quantity'   => $i->quantity_ordered,
-    'unit_cost'  => $i->unit_cost,
-    'discount_percent' => $i->discount_percent ?? 0,
-    'discount_amount'  => $i->discount_amount ?? 0,
-    'label'      => trim((optional(optional($i->product)->brand)->name ?? '') . ' · ' . (optional($i->product)->model ?? '')),
-    'unit_type'  => optional($i->product)->unit_type,
-])) !!};
+/* ── Prefill existing items (or repopulate after a validation error) ── */
+@php
+    $prefillItems = [];
+    if (old('items')) {
+        foreach (array_values(old('items')) as $oi) {
+            if (empty($oi['product_id'])) continue;
+            $prefillItems[] = [
+                'product_id'       => $oi['product_id'],
+                'quantity'         => (int) ($oi['quantity'] ?? 1),
+                'unit_cost'        => $oi['unit_cost'] ?? '',
+                'discount_percent' => $oi['discount_percent'] ?? 0,
+                'discount_amount'  => $oi['discount_amount'] ?? 0,
+                'serials'          => array_values(array_filter($oi['serials'] ?? [], fn($s) => $s !== null && $s !== '')),
+            ];
+        }
+    } else {
+        foreach ($purchaseOrder->items as $it) {
+            $prefillItems[] = [
+                'product_id'       => $it->product_id,
+                'quantity'         => $it->quantity_ordered,
+                'unit_cost'        => $it->unit_cost,
+                'discount_percent' => $it->discount_percent ?? 0,
+                'discount_amount'  => $it->discount_amount ?? 0,
+                'serials'          => $existingSerials[$it->product_id] ?? [],
+            ];
+        }
+    }
+@endphp
+const prefillItems = @json($prefillItems);
+const productMap = {};
+products.forEach(p => productMap[p.id] = p);
 
-existingItems.forEach(item => addItem(item));
+prefillItems.forEach(it => {
+    const p = productMap[it.product_id] || {};
+    addItem({
+        product_id:       it.product_id,
+        label:            p.label || '',
+        unit_type:        p.unit_type || '',
+        quantity:         parseInt(it.quantity) || 1,
+        unit_cost:        it.unit_cost ?? '',
+        discount_percent: it.discount_percent ?? 0,
+        discount_amount:  it.discount_amount ?? 0,
+        serials:          Array.isArray(it.serials) ? it.serials : [],
+    });
+});
 
-if (document.getElementById('paymentType').value === '45days') {
-    document.getElementById('downpaymentSection').style.display = '';
-    document.getElementById('deadlinePreview').style.display    = '';
-    updateDeadline();
-}
-updateBalancePreview();
+togglePaymentNote();
 </script>
 @endpush
 @endsection

@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 
 class ReportController extends Controller
 {
-    public const REPORT_KEYS = ['overview', 'installments', 'purchases', 'customers', 'inventory', 'expenses'];
+    public const REPORT_KEYS = ['overview', 'sales', 'installments', 'purchases', 'customers', 'inventory', 'expenses'];
 
     public function index(Request $request)
     {
@@ -155,6 +155,13 @@ class ReportController extends Controller
         $totalStockValue = $inventorySnapshot->sum(fn($p) => $p->in_stock_count * (float) $p->cost);
         $totalStockUnits = $inventorySnapshot->sum('in_stock_count');
 
+        // ── Sales Detail List ───────────────────────────────────────
+        $salesDetailList = Sale::whereBetween('sale_date', [$startDate, $endDate])
+            ->withCount('items')
+            ->orderBy('sale_date', 'desc')
+            ->orderBy('id', 'desc')
+            ->get();
+
         // ── Top Customers ───────────────────────────────────────────
         $topCustomers = Sale::whereBetween('sale_date', [$startDate, $endDate])
             ->select('customer_name', DB::raw('COUNT(*) as purchase_count'), DB::raw('SUM(total) as total_spent'))
@@ -177,6 +184,7 @@ class ReportController extends Controller
             'profitMargin', 'profitPercentage',
             'totalOperatingExpenses',
             'expensesByCategory', 'operationExpensesList',
+            'salesDetailList',
             'topCustomers',
             'inventorySnapshot', 'totalStockValue', 'totalStockUnits'
         ));

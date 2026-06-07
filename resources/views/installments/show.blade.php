@@ -5,36 +5,18 @@
 @section('content')
 <div class="container-fluid">
 
-    {{-- Header --}}
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb mb-1">
-                    <li class="breadcrumb-item"><a href="{{ route('installments.index') }}">Installment Customers</a></li>
-                    <li class="breadcrumb-item active">{{ $customer['name'] }}</li>
-                </ol>
-            </nav>
-            <h2 class="mb-1"><i class="bi bi-person-fill text-primary"></i> {{ $customer['name'] }}</h2>
-            <p class="text-muted mb-0">
-                @if($customer['contact'])
-                    <i class="bi bi-telephone"></i> {{ $customer['contact'] }}
-                @endif
-                @if($customer['address'])
-                    &nbsp;·&nbsp;<i class="bi bi-geo-alt"></i> {{ $customer['address'] }}
-                @endif
-            </p>
-        </div>
-        <a href="{{ route('installments.index') }}" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-arrow-left"></i> Back
-        </a>
-    </div>
+    @php
+        $headerSub = trim(($customer['contact'] ?? '') . ($customer['contact'] && $customer['address'] ? ' · ' : '') . ($customer['address'] ?? ''));
+    @endphp
+    <x-page-header title="{{ $customer['name'] }}" subtitle="{{ $headerSub ?: 'Installment customer' }}" icon="bi-person-fill">
+        <x-slot name="actions">
+            <a href="{{ route('installments.index') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </x-slot>
+    </x-page-header>
 
-    @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-3">
-            {{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    @endif
+    <x-flash />
 
     {{-- Summary Cards --}}
     <div class="row g-3 mb-4">

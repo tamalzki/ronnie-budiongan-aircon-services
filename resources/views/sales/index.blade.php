@@ -59,23 +59,23 @@
     <div class="card app-card-panel">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover table-sm mb-0 app-table-compact" id="salesTable">
-                    <thead class="bg-light">
+                <table class="table table-hover table-sm align-middle mb-0 app-table" id="salesTable">
+                    <thead>
                         <tr>
-                            <th class="px-2 py-2 text-center" style="width:40px;">#</th>
-                            <th class="px-2 py-2">Customer</th>
-                            <th class="px-2 py-2" style="white-space:nowrap">Date</th>
-                            <th class="px-2 py-2 text-end" style="white-space:nowrap">Total</th>
-                            <th class="px-2 py-2 text-center">Items</th>
-                            <th class="px-2 py-2">Payment</th>
-                            <th class="px-2 py-2 text-end">Balance</th>
-                            <th class="px-2 py-2">Status</th>
-                            <th class="px-2 py-2">Actions</th>
+                            <th>Customer</th>
+                            <th>Date</th>
+                            <th class="text-end">Total</th>
+                            <th>Payment & Balance</th>
+                            <th>Status</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="salesTableBody">
                         @forelse($sales as $sale)
-                        @php $rowNum = $sales->firstItem() + $loop->index; @endphp
+                        @php
+                            $rowNum  = $sales->firstItem() + $loop->index;
+                            $itemCnt = $sale->items_count ?? $sale->items->count();
+                        @endphp
                         <tr class="sale-row"
                             data-invoice="{{ strtolower($sale->invoice_number) }}"
                             data-customer="{{ strtolower($sale->customer_name) }}"
@@ -83,85 +83,73 @@
                             data-payment="{{ $sale->payment_type }}"
                             data-status="{{ $sale->status }}">
 
-                            {{-- # (sequential, invoice on hover) --}}
-                            <td class="px-2 py-1 text-center">
-                                <a href="{{ route('sales.show', $sale) }}"
-                                   class="fw-bold text-primary text-decoration-none"
-                                   title="{{ $sale->invoice_number }}">
-                                    #{{ $rowNum }}
-                                </a>
-                            </td>
-
-                            {{-- Customer + contact --}}
-                            <td class="px-2 py-1" style="white-space:nowrap">
-                                <div class="fw-semibold" style="font-size:0.83rem;">{{ $sale->customer_name }}</div>
-                                @if($sale->customer_contact)
-                                    <div class="text-muted" style="font-size:0.72rem;">{{ $sale->customer_contact }}</div>
-                                @endif
+                            {{-- Customer --}}
+                            <td style="white-space:nowrap">
+                                <div class="fw-semibold">{{ $sale->customer_name }}</div>
+                                <div style="font-size:0.7rem;color:#9ca3af;">
+                                    <a href="{{ route('sales.show', $sale) }}"
+                                       class="text-muted text-decoration-none me-2"
+                                       title="View invoice">{{ $sale->invoice_number }}</a>
+                                    @if($sale->customer_contact)
+                                        · {{ $sale->customer_contact }}
+                                    @endif
+                                </div>
                             </td>
 
                             {{-- Date --}}
-                            <td class="px-2 py-1" style="white-space:nowrap">
-                                {{ \Carbon\Carbon::parse($sale->sale_date)->format('M d, Y') }}
+                            <td style="white-space:nowrap">
+                                <div>{{ \Carbon\Carbon::parse($sale->sale_date)->format('M d, Y') }}</div>
+                                <div class="text-muted" style="font-size:0.7rem;">{{ $itemCnt }} item{{ $itemCnt != 1 ? 's' : '' }}</div>
                             </td>
 
                             {{-- Total --}}
-                            <td class="px-2 py-1 text-end" style="white-space:nowrap">
+                            <td class="text-end" style="white-space:nowrap">
                                 <div class="fw-bold">₱{{ number_format($sale->total, 2) }}</div>
                                 @if(($sale->discount ?? 0) > 0)
-                                    <div class="text-danger" style="font-size:0.72rem;">-₱{{ number_format($sale->discount, 2) }}</div>
+                                    <div class="text-danger" style="font-size:0.7rem;">-₱{{ number_format($sale->discount, 2) }}</div>
                                 @endif
                             </td>
 
-                            {{-- Items --}}
-                            <td class="px-2 py-1 text-center">
-                                {{ $sale->items_count ?? $sale->items->count() }}
-                            </td>
-
-                            {{-- Payment type + method --}}
-                            <td class="px-2 py-1" style="white-space:nowrap">
-                                <span class="badge {{ $sale->payment_type == 'cash' ? 'bg-success' : 'bg-warning text-dark' }}" style="font-size:0.7rem;">
-                                    {{ ucfirst($sale->payment_type) }}
-                                </span>
-                                <div class="text-muted" style="font-size:0.72rem;">{{ ucfirst(str_replace('_',' ',$sale->payment_method)) }}</div>
-                            </td>
-
-                            {{-- Balance --}}
-                            <td class="px-2 py-1 text-end" style="white-space:nowrap">
+                            {{-- Payment & Balance (merged) --}}
+                            <td style="white-space:nowrap">
+                                <div class="d-flex align-items-center gap-1 flex-wrap">
+                                    <span class="badge {{ $sale->payment_type == 'cash' ? 'bg-success' : 'bg-warning text-dark' }}" style="font-size:0.65rem;">
+                                        {{ ucfirst($sale->payment_type) }}
+                                    </span>
+                                    <span class="text-muted" style="font-size:0.7rem;">{{ ucfirst(str_replace('_',' ',$sale->payment_method)) }}</span>
+                                </div>
                                 @if($sale->balance > 0)
-                                    <div class="text-danger fw-semibold">₱{{ number_format($sale->balance, 2) }}</div>
-                                    <div class="text-muted" style="font-size:0.72rem;">paid ₱{{ number_format($sale->paid_amount, 2) }}</div>
+                                    <div class="text-danger fw-semibold" style="font-size:0.78rem;">₱{{ number_format($sale->balance, 2) }} due</div>
                                 @else
-                                    <span class="text-success fw-semibold">Paid</span>
+                                    <div class="text-success" style="font-size:0.72rem;"><i class="bi bi-check-circle-fill"></i> Fully paid</div>
                                 @endif
                             </td>
 
                             {{-- Status --}}
-                            <td class="px-2 py-1" style="white-space:nowrap">
-                                <span class="badge bg-{{ $sale->status == 'completed' ? 'success' : ($sale->status == 'pending' ? 'warning text-dark' : 'danger') }}" style="font-size:0.7rem;">
+                            <td style="white-space:nowrap">
+                                <span class="badge bg-{{ $sale->status == 'completed' ? 'success' : ($sale->status == 'pending' ? 'warning text-dark' : 'danger') }}" style="font-size:0.65rem;">
                                     {{ ucfirst($sale->status) }}
                                 </span>
                             </td>
 
                             {{-- Actions --}}
-                            <td class="px-2 py-1" style="white-space:nowrap">
-                                <div class="d-flex gap-1">
+                            <td style="white-space:nowrap">
+                                <div class="app-act-wrap">
                                     <a href="{{ route('sales.show', $sale) }}"
-                                       class="btn btn-outline-primary btn-sm py-0 px-2" style="font-size:0.75rem;">
+                                       class="btn btn-light border app-act">
                                         <i class="bi bi-eye"></i> View
                                     </a>
                                     @if($sale->payment_type === 'installment')
                                     <a href="{{ route('installments.show', $sale->id) }}"
-                                       class="btn btn-sm py-0 px-2 {{ $sale->balance > 0 ? 'btn-warning' : 'btn-success' }}" style="font-size:0.75rem;">
+                                       class="btn app-act {{ $sale->balance > 0 ? 'btn-warning text-dark' : 'btn-success text-white' }}">
                                         <i class="bi bi-calendar-check"></i> Installments
                                     </a>
                                     @endif
-                                    <form action="{{ route('sales.destroy', $sale) }}" method="POST" class="d-inline"
+                                    <form action="{{ route('sales.destroy', $sale) }}" method="POST" class="app-act-form"
                                           onsubmit="return confirm('Delete this sale? Stock will be restored.')">
                                         @csrf @method('DELETE')
-                                        <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2"
-                                                title="Delete" style="font-size:0.75rem;">
-                                            <i class="bi bi-trash"></i>
+                                        <button type="submit" class="btn btn-light border app-act text-danger" title="Delete">
+                                            <i class="bi bi-trash"></i> Delete
                                         </button>
                                     </form>
                                 </div>
@@ -170,7 +158,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="9" class="text-center py-4 text-muted">
+                            <td colspan="6" class="text-center py-4 text-muted">
                                 <i class="bi bi-inbox fs-2 d-block mb-2"></i>
                                 No sales yet — create your first sale!
                             </td>
@@ -223,7 +211,7 @@ function filterTable() {
         if (!noResults) {
             noResults = document.createElement('tr');
             noResults.id = 'noResultsRow';
-            noResults.innerHTML = '<td colspan="9" class="text-center py-5 text-muted"><i class="bi bi-search fs-1 d-block mb-2"></i>No results found</td>';
+            noResults.innerHTML = '<td colspan="6" class="text-center py-5 text-muted"><i class="bi bi-search fs-1 d-block mb-2"></i>No results found</td>';
             document.getElementById('salesTableBody').appendChild(noResults);
         }
         noResults.style.display = '';
