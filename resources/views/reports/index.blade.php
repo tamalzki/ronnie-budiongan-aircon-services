@@ -73,7 +73,8 @@
 
         @include('reports._date-toolbar', ['preserveReport' => $currentReport])
 
-        {{-- KPI Summary Strip (period scoped by filters above) --}}
+        {{-- KPI Summary Strip — hidden on Sales report (it has its own strip) --}}
+        @if($currentReport !== 'sales')
         <div class="row g-3 mb-4">
             <div class="col-6 col-md-3">
                 <div class="card app-card-panel">
@@ -126,6 +127,7 @@
                 </div>
             </div>
         </div>
+        @endif
 
         <div class="app-tab-panel">
             @if($currentReport === 'overview')

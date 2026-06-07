@@ -81,6 +81,66 @@
         <span><span class="d-inline-block rounded" style="width:12px;height:12px;background:#d1e7dd;border:1px solid #a3cfbb"></span> Paid</span>
     </div>
 
+    {{-- Units Purchased Info --}}
+    @php $totalUnits = $sales->sum(fn($s) => $s->items->sum('quantity')); @endphp
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white border-bottom py-2 px-3 d-flex align-items-center justify-content-between"
+             style="cursor:pointer;" data-bs-toggle="collapse" data-bs-target="#unitsInfo">
+            <span class="fw-semibold" style="font-size:0.88rem;">
+                <i class="bi bi-box-seam text-primary me-1"></i>
+                Units Purchased
+                <span class="badge bg-primary ms-1">{{ $totalUnits }} unit{{ $totalUnits != 1 ? 's' : '' }}</span>
+                <span class="badge bg-secondary bg-opacity-10 text-secondary border ms-1">{{ $sales->count() }} invoice{{ $sales->count() != 1 ? 's' : '' }}</span>
+            </span>
+            <i class="bi bi-chevron-down text-muted" style="font-size:0.75rem;"></i>
+        </div>
+        <div class="collapse show" id="unitsInfo">
+            <div class="card-body p-0">
+                @foreach($sales as $s)
+                <div class="px-3 py-2 {{ !$loop->last ? 'border-bottom' : '' }}">
+                    {{-- Invoice header --}}
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <a href="{{ route('sales.show', $s) }}"
+                           class="fw-semibold text-primary text-decoration-none"
+                           style="font-family:monospace;font-size:0.78rem;">
+                            {{ $s->invoice_number }}
+                        </a>
+                        <span class="text-muted" style="font-size:0.72rem;">
+                            {{ \Carbon\Carbon::parse($s->sale_date)->format('M d, Y') }}
+                        </span>
+                        <span class="text-muted" style="font-size:0.72rem;">·</span>
+                        <span class="text-muted" style="font-size:0.72rem;">₱{{ number_format($s->total, 2) }}</span>
+                    </div>
+                    {{-- Line items --}}
+                    @foreach($s->items as $item)
+                    <div class="d-flex align-items-start gap-2 ps-2 mb-1">
+                        <span class="badge bg-secondary bg-opacity-10 text-secondary border"
+                              style="font-size:0.65rem;white-space:nowrap;margin-top:1px;">
+                            {{ $item->quantity }}×
+                        </span>
+                        <div style="min-width:0;">
+                            <span class="fw-semibold" style="font-size:0.8rem;">{{ $item->item_name }}</span>
+                            {{-- Serials --}}
+                            @if($item->serials->count())
+                            <div class="d-flex flex-wrap gap-1 mt-1">
+                                @foreach($item->serials as $serial)
+                                <span class="badge bg-light text-dark border"
+                                      style="font-size:0.65rem;font-family:monospace;letter-spacing:0.02em;">
+                                    <i class="bi bi-upc text-muted" style="font-size:0.55rem;"></i>
+                                    {{ $serial->serial_number }}
+                                </span>
+                                @endforeach
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
+                @endforeach
+            </div>
+        </div>
+    </div>
+
     {{-- Installment Schedule --}}
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-header bg-white border-bottom py-3">

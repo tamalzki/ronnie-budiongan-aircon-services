@@ -37,49 +37,6 @@
         </div>
     </div>
 
-    {{-- Payment method breakdown --}}
-    <div class="card border-0 shadow-sm mb-4">
-        <div class="card-header bg-light border-0 py-2 px-3">
-            <span class="fw-semibold small"><i class="bi bi-pie-chart text-primary me-1"></i>Payment Breakdown</span>
-        </div>
-        <div class="card-body py-2 px-3">
-            <div class="row g-2">
-                <div class="col-md-6">
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                        <small class="text-muted">Cash</small>
-                        <span class="fw-semibold text-success small">₱{{ number_format($totalCashSales, 2) }}</span>
-                    </div>
-                    <div class="progress mb-2" style="height:5px;">
-                        <div class="progress-bar bg-success" style="width:{{ $totalSales > 0 ? ($totalCashSales/$totalSales)*100 : 0 }}%"></div>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                        <small class="text-muted">Installment</small>
-                        <span class="fw-semibold text-warning small">₱{{ number_format($totalInstallmentSales, 2) }}</span>
-                    </div>
-                    <div class="progress" style="height:5px;">
-                        <div class="progress-bar bg-warning" style="width:{{ $totalSales > 0 ? ($totalInstallmentSales/$totalSales)*100 : 0 }}%"></div>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                        <small class="text-muted">Collected</small>
-                        <span class="fw-semibold text-success small">₱{{ number_format($totalCollected, 2) }}</span>
-                    </div>
-                    <div class="progress mb-2" style="height:5px;">
-                        <div class="progress-bar bg-success" style="width:{{ $totalSales > 0 ? ($totalCollected/$totalSales)*100 : 0 }}%"></div>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                        <small class="text-muted">Receivables</small>
-                        <span class="fw-semibold text-danger small">₱{{ number_format($totalPending, 2) }}</span>
-                    </div>
-                    <div class="progress" style="height:5px;">
-                        <div class="progress-bar bg-danger" style="width:{{ $totalSales > 0 ? ($totalPending/$totalSales)*100 : 0 }}%"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     {{-- Sales transaction list --}}
     <div class="d-flex align-items-center justify-content-between mb-2">
         <h6 class="fw-semibold mb-0"><i class="bi bi-receipt text-primary me-1"></i>Sales Transactions</h6>

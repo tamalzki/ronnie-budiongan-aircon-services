@@ -30,7 +30,27 @@ class InstallmentPaymentController extends Controller
             ->orderBy('customer_name')
             ->get();
 
-        return view('installments.index', compact('customersData'));
+        // Payments due this calendar month (unpaid / partial)
+        $dueThisMonth = InstallmentPayment::whereYear('due_date', now()->year)
+            ->whereMonth('due_date', now()->month)
+            ->whereIn('status', ['unpaid', 'partial'])
+            ->with('sale')
+            ->orderBy('due_date')
+            ->get();
+
+        // Overdue (past due date, not yet fully paid)
+        $overdueCount = InstallmentPayment::where('due_date', '<', now()->startOfMonth())
+            ->whereIn('status', ['unpaid', 'partial'])
+            ->count();
+
+        $dueThisMonthTotal = $dueThisMonth->sum(fn ($p) => $p->amount - $p->amount_paid);
+
+        return view('installments.index', compact(
+            'customersData',
+            'dueThisMonth',
+            'overdueCount',
+            'dueThisMonthTotal'
+        ));
     }
 
     public function update(Request $request, InstallmentPayment $installment)
@@ -108,7 +128,7 @@ class InstallmentPaymentController extends Controller
                 }),
                 fn($q) => $q->where('customer_address', $sale->customer_address)
             )
-            ->with(['installmentPayments'])
+            ->with(['installmentPayments', 'items.product', 'items.serials'])
             ->orderBy('sale_date', 'desc')
             ->get();
 
