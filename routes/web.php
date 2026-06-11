@@ -42,6 +42,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('suppliers', SupplierController::class);
     Route::resource('services', ServiceController::class);
     Route::resource('products', ProductController::class);
+    Route::get('sales/serial-lookup', [SaleController::class, 'lookupSerial'])->name('sales.serial-lookup');
     Route::resource('sales', SaleController::class)->except(['edit', 'update']);
 
     // Installments
@@ -49,6 +50,7 @@ Route::middleware('auth')->group(function () {
     Route::get('installments/sale/{sale}', [InstallmentPaymentController::class, 'show'])->name('installments.show');
     Route::post('installments/{installment}/pay', [InstallmentPaymentController::class, 'recordPayment'])->name('installments.pay');
     Route::put('installments/{installment}/update', [InstallmentPaymentController::class, 'update'])->name('installments.update');
+    Route::put('installments/sale/{sale}/schedule', [InstallmentPaymentController::class, 'updateSchedule'])->name('installments.schedule.update');
 
     // Reports
     Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
@@ -58,6 +60,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('operation-expenses', OperationExpenseController::class)->except(['show']);
 
     // Purchase Orders
+    Route::get('purchase-orders/{purchaseOrder}/pdf', [PurchaseOrderController::class, 'downloadPdf'])->name('purchase-orders.pdf');
     Route::resource('purchase-orders', PurchaseOrderController::class);
     Route::post('purchase-orders/{purchaseOrder}/receive', [PurchaseOrderController::class, 'receive'])->name('purchase-orders.receive');
     Route::post('purchase-orders/{purchaseOrder}/payment', [PurchaseOrderController::class, 'recordPayment'])->name('purchase-orders.payment');

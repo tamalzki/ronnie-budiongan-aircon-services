@@ -106,6 +106,122 @@ class InstallmentPaymentController extends Controller
     }
 
     /**
+     * Edit a sale's installment plan: change total months and/or the monthly amount.
+     * Paid / partially-paid installments are kept; the unpaid tail is regenerated.
+     */
+    public function updateSchedule(Request $request, Sale $sale)
+    {
+        $this->authorize('update', $sale);
+
+        if ($sale->payment_type !== 'installment') {
+            return back()->with('error', 'This sale is not an installment sale.');
+        }
+
+        $request->validate([
+            'installment_months' => ['required', 'integer', 'min:1', 'max:60'],
+            'monthly_amount'     => ['nullable', 'numeric', 'min:0.01'],
+        ]);
+
+        try {
+            DB::transaction(function () use ($request, $sale) {
+                $sale = Sale::query()->whereKey($sale->id)->lockForUpdate()->firstOrFail();
+
+                $months = (int) $request->installment_months;
+
+                // Keep anything with money already applied; regenerate the rest
+                $kept = InstallmentPayment::where('sale_id', $sale->id)
+                    ->where('amount_paid', '>', 0)
+                    ->orderBy('due_date')
+                    ->get();
+
+                // Partial lines keep their own unpaid remainder, so schedule only what
+                // isn't already covered by the kept installments' amounts.
+                $remainingBalance = max(0, round((float) $sale->total - (float) $kept->sum('amount'), 2));
+
+                if ($months < $kept->count()) {
+                    throw new \InvalidArgumentException(
+                        $kept->count() . ' installment(s) already have payments, so the plan cannot be shorter than ' . $kept->count() . ' month(s).'
+                    );
+                }
+
+                $slots = $months - $kept->count();
+                if ($slots < 1 && $remainingBalance > 0.009) {
+                    throw new \InvalidArgumentException(
+                        'There is still a balance of ₱' . number_format($remainingBalance, 2) . ' but no months left to schedule it. Increase the number of months.'
+                    );
+                }
+
+                InstallmentPayment::where('sale_id', $sale->id)
+                    ->where('amount_paid', '<=', 0)
+                    ->delete();
+
+                // Re-number the kept installments sequentially
+                $num = 1;
+                foreach ($kept as $ip) {
+                    if ((int) $ip->installment_number !== $num) {
+                        $ip->update(['installment_number' => $num]);
+                    }
+                    $num++;
+                }
+
+                $monthly = 0;
+                if ($slots > 0 && $remainingBalance > 0.009) {
+                    $monthly = $request->filled('monthly_amount')
+                        ? round((float) $request->monthly_amount, 2)
+                        : round($remainingBalance / $slots, 2);
+
+                    if ($monthly * $slots < $remainingBalance - 0.009) {
+                        throw new \InvalidArgumentException(
+                            '₱' . number_format($monthly, 2) . ' × ' . $slots . ' month(s) = ₱' . number_format($monthly * $slots, 2)
+                            . ' which does not cover the remaining balance of ₱' . number_format($remainingBalance, 2) . '.'
+                        );
+                    }
+
+                    // Due dates continue monthly after the last kept installment (or the sale date)
+                    $baseDue = $kept->isNotEmpty()
+                        ? \Carbon\Carbon::parse($kept->last()->due_date)
+                        : \Carbon\Carbon::parse($sale->sale_date);
+
+                    $scheduled = 0;
+                    for ($i = 0; $i < $slots; $i++) {
+                        $isLast = $i === $slots - 1;
+                        $amount = $isLast ? round($remainingBalance - $scheduled, 2) : min($monthly, round($remainingBalance - $scheduled, 2));
+                        if ($amount <= 0) {
+                            break;
+                        }
+                        $scheduled = round($scheduled + $amount, 2);
+
+                        InstallmentPayment::create([
+                            'sale_id'            => $sale->id,
+                            'installment_number' => $num++,
+                            'amount'             => $amount,
+                            'amount_paid'        => 0,
+                            'due_date'           => $baseDue->copy()->addMonths($i + 1),
+                            'status'             => 'unpaid',
+                        ]);
+                    }
+                }
+
+                $sale->update([
+                    'installment_months' => $months,
+                    'installment_amount' => $monthly,
+                ]);
+            });
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        } catch (\Throwable $e) {
+            Log::error('Installment schedule update failed', [
+                'exception' => get_class($e),
+                'message'   => $e->getMessage(),
+            ]);
+
+            return back()->with('error', 'Error updating schedule: ' . $e->getMessage());
+        }
+
+        return back()->with('success', 'Installment plan updated.');
+    }
+
+    /**
      * Show customer's installment details (using first sale ID)
      */
     public function show(Sale $sale)

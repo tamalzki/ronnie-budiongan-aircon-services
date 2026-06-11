@@ -12,6 +12,7 @@ class PurchaseOrderItem extends Model
     protected $fillable = [
         'purchase_order_id',
         'product_id',
+        'is_set',
         'quantity_ordered',
         'quantity_received',
         'unit_cost',
@@ -22,6 +23,7 @@ class PurchaseOrderItem extends Model
     ];
 
     protected $casts = [
+        'is_set'            => 'boolean',
         'quantity_ordered'  => 'integer',
         'quantity_received' => 'integer',
         'unit_cost'         => 'decimal:2',

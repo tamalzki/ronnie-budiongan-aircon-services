@@ -75,6 +75,9 @@
                         @php
                             $rowNum  = $sales->firstItem() + $loop->index;
                             $itemCnt = $sale->items_count ?? $sale->items->count();
+                            $matchedSerials = ($search ?? '') !== ''
+                                ? $sale->items->flatMap->serials->unique('serial_number')
+                                : collect();
                         @endphp
                         <tr class="sale-row"
                             data-invoice="{{ strtolower($sale->invoice_number) }}"
@@ -94,6 +97,14 @@
                                         · {{ $sale->customer_contact }}
                                     @endif
                                 </div>
+                                @if($matchedSerials->isNotEmpty())
+                                    <div class="text-primary" style="font-size:0.68rem;margin-top:2px;">
+                                        <i class="bi bi-upc-scan"></i>
+                                        @foreach($matchedSerials as $serial)
+                                            <code class="text-primary" style="font-size:0.68rem;">{{ $serial->serial_number }}</code>@if(!$loop->last), @endif
+                                        @endforeach
+                                    </div>
+                                @endif
                             </td>
 
                             {{-- Date --}}

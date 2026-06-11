@@ -11,6 +11,7 @@ class PurchaseOrder extends Model
 
     protected $fillable = [
         'po_number',
+        'supplier_po_number',
         'supplier_id',
         'order_date',
         'expected_delivery_date',
@@ -93,6 +94,15 @@ class PurchaseOrder extends Model
     */
 
     // Total serials entered across all items in this PO
+    /**
+     * PO number for display — the supplier-document PO No (e.g. "698") when
+     * available, otherwise the internal auto-generated number.
+     */
+    public function getDisplayPoNumberAttribute(): string
+    {
+        return $this->supplier_po_number ?: $this->po_number;
+    }
+
     public function getTotalSerialsEnteredAttribute(): int
     {
         return $this->serials()->count();

@@ -14,6 +14,7 @@ class Product extends Model
         'brand_id',
         'model',
         'unit_type',
+        'paired_product_id',
         'hp',
         'supplier_id',
         'description',
@@ -57,6 +58,33 @@ class Product extends Model
     public function inventoryMovements()
     {
         return $this->hasMany(InventoryMovement::class);
+    }
+
+    // ── Set pairing (indoor row points to its outdoor counterpart) ────────
+
+    public function pairedProduct()
+    {
+        return $this->belongsTo(Product::class, 'paired_product_id');
+    }
+
+    public function pairedIndoorUnits()
+    {
+        return $this->hasMany(Product::class, 'paired_product_id');
+    }
+
+    // True when this product is the indoor unit of a set (sold as one price)
+    public function getIsSetPrimaryAttribute(): bool
+    {
+        return $this->unit_type === 'indoor' && $this->paired_product_id !== null;
+    }
+
+    // "FTKZ25WVM + RKZ25WVM" — both models of the set
+    public function getSetModelLabelAttribute(): string
+    {
+        if ($this->is_set_primary && $this->pairedProduct) {
+            return $this->model . ' + ' . $this->pairedProduct->model;
+        }
+        return $this->model;
     }
 
     // ── Serial relationships ──────────────────────────────────────────────

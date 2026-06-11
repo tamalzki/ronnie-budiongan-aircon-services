@@ -27,51 +27,147 @@ class SaleController extends Controller
 
     public function index(Request $request)
     {
-        $search = $request->search;
+        $search = trim((string) $request->search);
 
         $sales = Sale::with('user')
             ->withCount('items')
-            ->when($search, function ($query) use ($search) {
-                $query->where(function ($q) use ($search) {
+            ->when($search !== '', function ($query) use ($search) {
+                $serialSaleIds = ProductSerial::query()
+                    ->where('serial_number', 'like', "%{$search}%")
+                    ->whereNotNull('sale_id')
+                    ->pluck('sale_id');
+
+                $query->with(['items.serials' => function ($sq) use ($search) {
+                    $sq->where('serial_number', 'like', "%{$search}%")
+                        ->select('id', 'sale_item_id', 'serial_number');
+                }]);
+
+                $query->where(function ($q) use ($search, $serialSaleIds) {
                     $q->where('invoice_number', 'like', "%{$search}%")
                         ->orWhere('customer_name', 'like', "%{$search}%")
                         ->orWhere('customer_contact', 'like', "%{$search}%")
                         ->orWhereHas('items.serials', function ($sq) use ($search) {
                             $sq->where('serial_number', 'like', "%{$search}%");
-                        });
+                        })
+                        ->when($serialSaleIds->isNotEmpty(), fn($qq) => $qq->orWhereIn('id', $serialSaleIds));
                 });
             })
             ->orderBy('sale_date', 'desc')
             ->paginate(15)
             ->withQueryString();
 
-        return view('sales.index', compact('sales'));
+        return view('sales.index', compact('sales', 'search'));
+    }
+
+    public function lookupSerial(Request $request)
+    {
+        $this->authorize('viewAny', Sale::class);
+
+        $request->validate([
+            'q'          => 'required|string|min:2|max:100',
+            'product_id' => 'nullable|exists:products,id',
+        ]);
+
+        $term = trim($request->q);
+
+        $query = ProductSerial::query()
+            ->with([
+                'sale:id,customer_name,invoice_number,sale_date',
+                'product:id,model',
+            ])
+            ->where('status', 'sold')
+            ->where('serial_number', 'like', "%{$term}%");
+
+        if ($request->filled('product_id')) {
+            $product = Product::find($request->product_id);
+            $productIds = Product::query()
+                ->where('id', $product->id)
+                ->orWhere('paired_product_id', $product->id)
+                ->when($product->paired_product_id, fn($q) => $q->orWhere('id', $product->paired_product_id))
+                ->pluck('id');
+
+            $query->whereIn('product_id', $productIds);
+        }
+
+        $results = $query
+            ->orderBy('serial_number')
+            ->limit(20)
+            ->get()
+            ->map(fn(ProductSerial $serial) => [
+                'serial_number'  => $serial->serial_number,
+                'customer_name'  => $serial->sale?->customer_name,
+                'invoice_number' => $serial->sale?->invoice_number,
+                'sale_date'      => $serial->sale?->sale_date
+                    ? Carbon::parse($serial->sale->sale_date)->format('M d, Y')
+                    : null,
+                'sale_url'       => $serial->sale ? route('sales.show', $serial->sale) : null,
+                'model'          => $serial->product?->model,
+            ])
+            ->values();
+
+        return response()->json($results);
     }
 
     public function create()
     {
-        $lockedCount = Product::where('is_active', true)->where('price', 0)->count();
+        $lockedCount = Product::where('is_active', true)->where('price', 0)
+            ->where(function ($q) {
+                // Don't double-count outdoor halves of a set
+                $q->whereNotIn('id', Product::whereNotNull('paired_product_id')->pluck('paired_product_id'));
+            })
+            ->count();
 
-        $products = Product::with([
+        $all = Product::with([
                 'brand',
                 'serials' => fn($q) => $q->where('status', 'in_stock')->orderBy('serial_number'),
+                'pairedProduct.serials' => fn($q) => $q->where('status', 'in_stock')->orderBy('serial_number'),
             ])
             ->where('is_active', true)
-            ->where('price', '>', 0)
             ->orderBy('brand_id')
             ->orderBy('model')
-            ->get()
-            ->map(function ($p) {
+            ->get();
+
+        $pairedOutdoorIds = $all->pluck('paired_product_id')->filter()->unique();
+
+        $mapSerials = fn($serials) => $serials->map(fn($s) => [
+            'id'            => $s->id,
+            'serial_number' => $s->serial_number,
+        ])->values()->toArray();
+
+        // One option per SET (indoor + outdoor, one price) + unpaired single units
+        $products = $all
+            ->filter(fn($p) => $p->price > 0 && !$pairedOutdoorIds->contains($p->id))
+            ->map(function ($p) use ($mapSerials) {
+                if ($p->is_set_primary && $p->pairedProduct) {
+                    return [
+                        'id'              => $p->id,
+                        'is_set'          => true,
+                        'label'           => trim(($p->brand->name ?? '') . ' · ' . $p->set_model_label),
+                        'indoor_model'    => $p->model,
+                        'outdoor_model'   => $p->pairedProduct->model,
+                        'unit_type'       => 'set',
+                        'price'           => (float) $p->price,
+                        'stock'           => min($p->serials->count(), $p->pairedProduct->serials->count()),
+                        'indoor_stock'    => $p->serials->count(),
+                        'outdoor_stock'   => $p->pairedProduct->serials->count(),
+                        'serials'         => $mapSerials($p->serials),
+                        'outdoor_serials' => $mapSerials($p->pairedProduct->serials),
+                    ];
+                }
+
                 return [
-                    'id'        => $p->id,
-                    'label'     => trim(($p->brand->name ?? '') . ' · ' . $p->model) ?: 'Unknown',
-                    'unit_type' => $p->unit_type,
-                    'price'     => (float) $p->price,
-                    'stock'     => $p->serials->count(),
-                    'serials'   => $p->serials->map(fn($s) => [
-                        'id'            => $s->id,
-                        'serial_number' => $s->serial_number,
-                    ])->values()->toArray(),
+                    'id'              => $p->id,
+                    'is_set'          => false,
+                    'label'           => trim(($p->brand->name ?? '') . ' · ' . $p->model) ?: 'Unknown',
+                    'indoor_model'    => $p->model,
+                    'outdoor_model'   => '',
+                    'unit_type'       => $p->unit_type,
+                    'price'           => (float) $p->price,
+                    'stock'           => $p->serials->count(),
+                    'indoor_stock'    => $p->serials->count(),
+                    'outdoor_stock'   => 0,
+                    'serials'         => $mapSerials($p->serials),
+                    'outdoor_serials' => [],
                 ];
             })
             ->values()
@@ -107,6 +203,9 @@ class SaleController extends Controller
             'items.*.serial_ids'      => 'nullable|array',
             'items.*.serial_ids.*'    => 'nullable|integer|exists:product_serials,id',
             'items.*.new_serials_raw' => 'nullable|string',
+            'items.*.outdoor_serial_ids'      => 'nullable|array',
+            'items.*.outdoor_serial_ids.*'    => 'nullable|integer|exists:product_serials,id',
+            'items.*.outdoor_new_serials_raw' => 'nullable|string',
             'notes'                   => 'nullable|string',
             'discount'             => 'nullable|numeric|min:0',
             'down_payment'         => 'nullable|numeric|min:0',
@@ -118,7 +217,7 @@ class SaleController extends Controller
                 }),
                 Rule::in(PaymentMethod::values()),
             ],
-            'installment_months'   => 'nullable|integer|min:1|max:24',
+            'installment_months'   => 'nullable|integer|min:1|max:60',
         ]);
 
         $subtotalPreview   = collect($request->items)->sum(fn($i) => $i['quantity'] * $i['price']);
@@ -142,59 +241,41 @@ class SaleController extends Controller
             }
         }
 
-        // Guard: product lines — either no serials encoded, or existing + new serials exactly match quantity
+        // Guard: product lines — either no serials encoded, or existing + new serials exactly match quantity.
+        // Set lines (indoor + outdoor, one price) validate each side against the quantity.
         foreach ($request->items as $idx => $item) {
             if ($item['type'] !== 'product') {
                 continue;
             }
-            $qty        = (int) $item['quantity'];
-            $serialIdsRaw = array_values(array_filter($item['serial_ids'] ?? [], fn($v) => $v !== null && $v !== ''));
-            $serialIdsInt = array_map(fn ($v) => (int) $v, $serialIdsRaw);
-            if (count($serialIdsInt) !== count(array_unique($serialIdsInt))) {
-                return back()->withInput()->withErrors([
-                    'items' => 'Item #' . ($idx + 1) . ': duplicate serial selection.',
-                ]);
-            }
-            $serialIds  = array_values(array_unique($serialIdsInt));
-            $newSerials = $this->parseNewSerialLines($item['new_serials_raw'] ?? null);
-            $attached   = count($serialIds) + $newSerials->count();
 
-            // When a product has no in-stock serials on file, encoding a serial per unit is required.
-            $inStockCount = ProductSerial::where('product_id', $item['id'])
-                ->where('status', 'in_stock')
-                ->count();
-            if ($inStockCount === 0 && $attached !== $qty) {
-                return back()->withInput()->withErrors([
-                    'items' => 'Item #' . ($idx + 1) . ': this product has no recorded serial numbers, so a serial number is required for each of the ' . $qty . ' unit(s).',
-                ]);
+            $product = Product::with('pairedProduct')->find($item['id']);
+            if (!$product) {
+                return back()->withInput()->withErrors(['items' => 'Item #' . ($idx + 1) . ': product not found.']);
             }
 
-            if ($attached !== $qty && $attached !== 0) {
-                return back()->withInput()->withErrors([
-                    'items' => 'Item #' . ($idx + 1) . ': quantity is ' . $qty . ' but you selected ' . count($serialIds)
-                        . ' in-stock serial(s) and entered ' . $newSerials->count() . ' new serial(s). Either leave serials empty to sell without serials, or match the quantity exactly.',
-                ]);
+            $qty   = (int) $item['quantity'];
+            $isSet = $product->is_set_primary && $product->pairedProduct;
+
+            $sides = [
+                ['product' => $product, 'ids' => $item['serial_ids'] ?? [], 'raw' => $item['new_serials_raw'] ?? null, 'label' => $isSet ? 'indoor unit' : 'unit'],
+            ];
+            if ($isSet) {
+                $sides[] = ['product' => $product->pairedProduct, 'ids' => $item['outdoor_serial_ids'] ?? [], 'raw' => $item['outdoor_new_serials_raw'] ?? null, 'label' => 'outdoor unit'];
             }
 
-            if ($newSerials->isNotEmpty()) {
-                $dupes = $newSerials->duplicates();
-                if ($dupes->isNotEmpty()) {
-                    return back()->withInput()->withErrors([
-                        'items' => 'Item #' . ($idx + 1) . ': duplicate new serial(s): ' . $dupes->unique()->implode(', '),
-                    ]);
+            $attachedCounts = [];
+            foreach ($sides as $side) {
+                $error = $this->validateSaleSerialSide($side['product'], $side['ids'], $side['raw'], $qty, $idx, $side['label'], $attachedCounts);
+                if ($error !== null) {
+                    return back()->withInput()->withErrors(['items' => $error]);
                 }
-                $product = Product::find($item['id']);
-                if ($product) {
-                    $blocked = ProductSerial::query()
-                        ->where('product_id', $product->id)
-                        ->whereIn('serial_number', $newSerials)
-                        ->pluck('serial_number');
-                    if ($blocked->isNotEmpty()) {
-                        return back()->withInput()->withErrors([
-                            'items' => 'Item #' . ($idx + 1) . ': serial number(s) already exist for this product: ' . $blocked->implode(', '),
-                        ]);
-                    }
-                }
+            }
+
+            // Sets: the indoor AND outdoor units must both be encoded, one of each per set
+            if ($isSet && array_filter($attachedCounts, fn ($c) => $c !== $qty)) {
+                return back()->withInput()->withErrors([
+                    'items' => 'Item #' . ($idx + 1) . ': this is an indoor + outdoor set — enter the serials of BOTH units (' . $qty . ' each).',
+                ]);
             }
         }
 
@@ -226,110 +307,40 @@ class SaleController extends Controller
 
             foreach ($request->items as $item) {
                 if ($item['type'] === 'product') {
-                    $product  = Product::with('brand')->findOrFail($item['id']);
+                    $product = Product::with(['brand', 'pairedProduct'])->findOrFail($item['id']);
+                    $isSet   = $product->is_set_primary && $product->pairedProduct;
+
+                    $itemName = $isSet
+                        ? trim(($product->brand->name ?? '') . ' ' . $product->set_model_label)
+                        : trim(($product->brand->name ?? '') . ' ' . $product->model);
+
                     $saleItem = SaleItem::create([
                         'sale_id'     => $sale->id,
                         'item_type'   => 'product',
                         'product_id'  => $product->id,
-                        'item_name'   => trim(($product->brand->name ?? '') . ' ' . $product->model),
+                        'is_set'      => $isSet,
+                        'item_name'   => $itemName,
                         'quantity'    => $item['quantity'],
                         'unit_price'  => $item['price'],
                         'total_price' => $item['quantity'] * $item['price'],
                     ]);
 
-                    $serialIdsRaw = array_values(array_filter($item['serial_ids'] ?? [], fn($v) => $v !== null && $v !== ''));
-                    $serialIds     = array_values(array_unique(array_map(fn ($v) => (int) $v, $serialIdsRaw)));
-                    $newSerials    = $this->parseNewSerialLines($item['new_serials_raw'] ?? null);
+                    // Indoor / main unit serials
+                    $this->sellSerialsForProduct(
+                        $sale, $saleItem, $product,
+                        $item['serial_ids'] ?? [],
+                        $this->parseNewSerialLines($item['new_serials_raw'] ?? null),
+                        $request->sale_date
+                    );
 
-                    if (count($serialIds) + $newSerials->count() === 0) {
-                        continue;
-                    }
-
-                    foreach ($serialIds as $serialId) {
-                        $serialId = (int) $serialId;
-                        $sn       = ProductSerial::whereKey($serialId)->where('product_id', $product->id)->value('serial_number');
-                        if (!$sn) {
-                            throw new \Exception('Invalid serial selection for this product.');
-                        }
-
-                        $stockBefore = $product->fresh()->inStockSerials()->count();
-                        $updated     = ProductSerial::whereKey($serialId)
-                            ->where('product_id', $product->id)
-                            ->where('status', 'in_stock')
-                            ->update([
-                                'status'       => 'sold',
-                                'sale_id'      => $sale->id,
-                                'sale_item_id' => $saleItem->id,
-                                'sold_date'    => $request->sale_date,
-                            ]);
-
-                        if ($updated !== 1) {
-                            throw new \Exception('One or more selected serial numbers are no longer available.');
-                        }
-
-                        $stockAfter = $product->fresh()->inStockSerials()->count();
-
-                        InventoryMovement::create([
-                            'product_id'     => $product->id,
-                            'type'           => 'stock_out',
-                            'quantity'       => 1,
-                            'stock_before'   => $stockBefore,
-                            'stock_after'    => $stockAfter,
-                            'reference_type' => 'Sale',
-                            'reference_id'   => $sale->id,
-                            'notes'          => 'Sold — ' . $sale->invoice_number . ' | SN: ' . $sn,
-                            'user_id'        => auth()->id(),
-                        ]);
-                    }
-
-                    foreach ($newSerials as $serialNumber) {
-                        $serialNumber = trim($serialNumber);
-
-                        $stockBeforeIn = $product->fresh()->inStockSerials()->count();
-
-                        $created = ProductSerial::create([
-                            'product_id'         => $product->id,
-                            'purchase_order_id'  => null,
-                            'serial_number'      => $serialNumber,
-                            'status'             => 'in_stock',
-                            'received_date'      => $request->sale_date,
-                            'notes'              => 'Registered at sale',
-                        ]);
-
-                        $stockAfterIn = $product->fresh()->inStockSerials()->count();
-
-                        InventoryMovement::create([
-                            'product_id'     => $product->id,
-                            'type'           => 'stock_in',
-                            'quantity'       => 1,
-                            'stock_before'   => $stockBeforeIn,
-                            'stock_after'    => $stockAfterIn,
-                            'reference_type' => 'Sale',
-                            'reference_id'   => $sale->id,
-                            'notes'          => 'Serial registered at sale — ' . $sale->invoice_number . ' | SN: ' . $serialNumber,
-                            'user_id'        => auth()->id(),
-                        ]);
-
-                        ProductSerial::whereKey($created->id)->update([
-                            'status'       => 'sold',
-                            'sale_id'      => $sale->id,
-                            'sale_item_id' => $saleItem->id,
-                            'sold_date'    => $request->sale_date,
-                        ]);
-
-                        $stockAfterOut = $product->fresh()->inStockSerials()->count();
-
-                        InventoryMovement::create([
-                            'product_id'     => $product->id,
-                            'type'           => 'stock_out',
-                            'quantity'       => 1,
-                            'stock_before'   => $stockAfterIn,
-                            'stock_after'    => $stockAfterOut,
-                            'reference_type' => 'Sale',
-                            'reference_id'   => $sale->id,
-                            'notes'          => 'Sold — ' . $sale->invoice_number . ' | SN: ' . $serialNumber,
-                            'user_id'        => auth()->id(),
-                        ]);
+                    // Outdoor unit serials (sets only)
+                    if ($isSet) {
+                        $this->sellSerialsForProduct(
+                            $sale, $saleItem, $product->pairedProduct,
+                            $item['outdoor_serial_ids'] ?? [],
+                            $this->parseNewSerialLines($item['outdoor_new_serials_raw'] ?? null),
+                            $request->sale_date
+                        );
                     }
 
                 } else {
@@ -347,9 +358,9 @@ class SaleController extends Controller
                 }
             }
 
-            // Installment schedule
+            // Installment schedule — downpayment counts as month #1
             if ($request->payment_type === 'installment') {
-                $months   = (int) ($request->installment_months ?? 12);
+                $months   = max(1, (int) ($request->installment_months ?? 12));
                 $down     = (float) ($request->down_payment ?? 0);
                 $saleDate = Carbon::parse($request->sale_date);
                 $num      = 1;
@@ -368,17 +379,32 @@ class SaleController extends Controller
                     ]);
                 }
 
-                $monthly = $months > 0 ? round($balance / $months, 2) : $balance;
-                for ($i = 0; $i < $months; $i++) {
-                    InstallmentPayment::create([
-                        'sale_id'            => $sale->id,
-                        'installment_number' => $num++,
-                        'amount'             => $monthly,
-                        'amount_paid'        => 0,
-                        'due_date'           => $saleDate->copy()->addMonths($i + 1),
-                        'status'             => 'unpaid',
-                    ]);
+                // Downpayment is month #1, so the balance spreads over the remaining months
+                $remainingMonths = $down > 0 ? max(1, $months - 1) : $months;
+                $monthly         = $balance > 0 ? round($balance / $remainingMonths, 2) : 0;
+
+                if ($balance > 0) {
+                    for ($i = 0; $i < $remainingMonths; $i++) {
+                        // Last month absorbs the rounding difference
+                        $amount = $i === $remainingMonths - 1
+                            ? round($balance - $monthly * ($remainingMonths - 1), 2)
+                            : $monthly;
+
+                        InstallmentPayment::create([
+                            'sale_id'            => $sale->id,
+                            'installment_number' => $num++,
+                            'amount'             => $amount,
+                            'amount_paid'        => 0,
+                            'due_date'           => $saleDate->copy()->addMonths($i + 1),
+                            'status'             => 'unpaid',
+                        ]);
+                    }
                 }
+
+                $sale->update([
+                    'installment_months' => $months,
+                    'installment_amount' => $monthly,
+                ]);
             }
 
             DB::commit();
@@ -435,5 +461,158 @@ class SaleController extends Controller
             ->map(fn ($line) => trim((string) $line))
             ->filter()
             ->values();
+    }
+
+    /**
+     * Validate one product side (indoor / outdoor / single unit) of a sale line.
+     * Returns an error message, or null when valid. Appends the attached count
+     * to $attachedCounts so set sides can be cross-checked.
+     */
+    private function validateSaleSerialSide(Product $product, array $serialIdsRaw, ?string $newRaw, int $qty, int $idx, string $sideLabel, array &$attachedCounts): ?string
+    {
+        $itemNo = 'Item #' . ($idx + 1);
+
+        $serialIdsInt = array_map(fn ($v) => (int) $v, array_values(array_filter($serialIdsRaw, fn($v) => $v !== null && $v !== '')));
+        if (count($serialIdsInt) !== count(array_unique($serialIdsInt))) {
+            return "{$itemNo}: duplicate serial selection ({$sideLabel}).";
+        }
+        $serialIds  = array_values(array_unique($serialIdsInt));
+        $newSerials = $this->parseNewSerialLines($newRaw);
+        $attached   = count($serialIds) + $newSerials->count();
+
+        $attachedCounts[] = $attached;
+
+        // When the product has no in-stock serials on file, encoding a serial per unit is required.
+        $inStockCount = ProductSerial::where('product_id', $product->id)
+            ->where('status', 'in_stock')
+            ->count();
+        if ($inStockCount === 0 && $attached !== $qty) {
+            return "{$itemNo}: {$product->model} ({$sideLabel}) has no recorded serial numbers, so a serial is required for each of the {$qty} unit(s).";
+        }
+
+        if ($attached !== $qty && $attached !== 0) {
+            return "{$itemNo}: quantity is {$qty} but {$sideLabel} has " . count($serialIds)
+                . ' in-stock serial(s) and ' . $newSerials->count()
+                . ' new serial(s). Either leave serials empty or match the quantity exactly.';
+        }
+
+        if ($newSerials->isNotEmpty()) {
+            $dupes = $newSerials->duplicates();
+            if ($dupes->isNotEmpty()) {
+                return "{$itemNo}: duplicate new serial(s) ({$sideLabel}): " . $dupes->unique()->implode(', ');
+            }
+
+            $blocked = ProductSerial::query()
+                ->where('product_id', $product->id)
+                ->whereIn('serial_number', $newSerials)
+                ->pluck('serial_number');
+            if ($blocked->isNotEmpty()) {
+                return "{$itemNo}: serial number(s) already exist for {$product->model}: " . $blocked->implode(', ');
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Mark selected in-stock serials as sold (and register+sell new serials)
+     * for one product under a sale line, logging inventory movements.
+     */
+    private function sellSerialsForProduct(Sale $sale, SaleItem $saleItem, Product $product, array $serialIdsRaw, Collection $newSerials, $saleDate): void
+    {
+        $serialIds = array_values(array_unique(array_map(
+            fn ($v) => (int) $v,
+            array_values(array_filter($serialIdsRaw, fn($v) => $v !== null && $v !== ''))
+        )));
+
+        if (count($serialIds) + $newSerials->count() === 0) {
+            return;
+        }
+
+        foreach ($serialIds as $serialId) {
+            $sn = ProductSerial::whereKey($serialId)->where('product_id', $product->id)->value('serial_number');
+            if (!$sn) {
+                throw new \Exception('Invalid serial selection for ' . $product->model . '.');
+            }
+
+            $stockBefore = $product->fresh()->inStockSerials()->count();
+            $updated     = ProductSerial::whereKey($serialId)
+                ->where('product_id', $product->id)
+                ->where('status', 'in_stock')
+                ->update([
+                    'status'       => 'sold',
+                    'sale_id'      => $sale->id,
+                    'sale_item_id' => $saleItem->id,
+                    'sold_date'    => $saleDate,
+                ]);
+
+            if ($updated !== 1) {
+                throw new \Exception('One or more selected serial numbers are no longer available.');
+            }
+
+            $stockAfter = $product->fresh()->inStockSerials()->count();
+
+            InventoryMovement::create([
+                'product_id'     => $product->id,
+                'type'           => 'stock_out',
+                'quantity'       => 1,
+                'stock_before'   => $stockBefore,
+                'stock_after'    => $stockAfter,
+                'reference_type' => 'Sale',
+                'reference_id'   => $sale->id,
+                'notes'          => 'Sold — ' . $sale->invoice_number . ' | SN: ' . $sn,
+                'user_id'        => auth()->id(),
+            ]);
+        }
+
+        foreach ($newSerials as $serialNumber) {
+            $serialNumber = trim($serialNumber);
+
+            $stockBeforeIn = $product->fresh()->inStockSerials()->count();
+
+            $created = ProductSerial::create([
+                'product_id'         => $product->id,
+                'purchase_order_id'  => null,
+                'serial_number'      => $serialNumber,
+                'status'             => 'in_stock',
+                'received_date'      => $saleDate,
+                'notes'              => 'Registered at sale',
+            ]);
+
+            $stockAfterIn = $product->fresh()->inStockSerials()->count();
+
+            InventoryMovement::create([
+                'product_id'     => $product->id,
+                'type'           => 'stock_in',
+                'quantity'       => 1,
+                'stock_before'   => $stockBeforeIn,
+                'stock_after'    => $stockAfterIn,
+                'reference_type' => 'Sale',
+                'reference_id'   => $sale->id,
+                'notes'          => 'Serial registered at sale — ' . $sale->invoice_number . ' | SN: ' . $serialNumber,
+                'user_id'        => auth()->id(),
+            ]);
+
+            ProductSerial::whereKey($created->id)->update([
+                'status'       => 'sold',
+                'sale_id'      => $sale->id,
+                'sale_item_id' => $saleItem->id,
+                'sold_date'    => $saleDate,
+            ]);
+
+            $stockAfterOut = $product->fresh()->inStockSerials()->count();
+
+            InventoryMovement::create([
+                'product_id'     => $product->id,
+                'type'           => 'stock_out',
+                'quantity'       => 1,
+                'stock_before'   => $stockAfterIn,
+                'stock_after'    => $stockAfterOut,
+                'reference_type' => 'Sale',
+                'reference_id'   => $sale->id,
+                'notes'          => 'Sold — ' . $sale->invoice_number . ' | SN: ' . $serialNumber,
+                'user_id'        => auth()->id(),
+            ]);
+        }
     }
 }

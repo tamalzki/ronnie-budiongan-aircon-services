@@ -143,8 +143,17 @@
 
     {{-- Installment Schedule --}}
     <div class="card border-0 shadow-sm mb-4">
-        <div class="card-header bg-white border-bottom py-3">
+        <div class="card-header bg-white border-bottom py-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
             <h5 class="mb-0"><i class="bi bi-calendar-check text-primary"></i> Installment Schedule</h5>
+            <div class="d-flex flex-wrap gap-1">
+                @foreach($sales as $s)
+                <button class="btn btn-outline-primary btn-sm"
+                        data-bs-toggle="modal" data-bs-target="#editPlanModal{{ $s->id }}"
+                        title="Change months / monthly amount">
+                    <i class="bi bi-sliders"></i> Edit Months{{ $sales->count() > 1 ? ' — ' . $s->invoice_number : '' }}
+                </button>
+                @endforeach
+            </div>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -299,6 +308,81 @@
     @endif
 
 </div>
+
+{{-- ═══════════════════════════════════
+     EDIT PLAN MODALS (months + amount)
+════════════════════════════════════ --}}
+@foreach($sales as $s)
+@php
+    $sKept         = $s->installmentPayments->where('amount_paid', '>', 0);
+    $sPaidLines    = $sKept->count();
+    $sRemaining    = max(0, round($s->total - $sKept->sum('amount'), 2));
+    $sCurMonths    = $s->installment_months ?? $s->installmentPayments->count();
+@endphp
+<div class="modal fade" id="editPlanModal{{ $s->id }}" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <form action="{{ route('installments.schedule.update', $s) }}" method="POST">
+                @csrf @method('PUT')
+                <div class="modal-header bg-primary text-white border-0">
+                    <h5 class="modal-title"><i class="bi bi-sliders"></i> Edit Installment Plan — {{ $s->invoice_number }}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row g-2 mb-3 text-center">
+                        <div class="col-4">
+                            <div class="card border-0 bg-primary bg-opacity-10 p-2">
+                                <small class="text-muted">Sale Total</small>
+                                <strong class="small">₱{{ number_format($s->total, 2) }}</strong>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="card border-0 bg-success bg-opacity-10 p-2">
+                                <small class="text-muted">Already Paid</small>
+                                <strong class="small text-success">₱{{ number_format($s->installmentPayments->sum('amount_paid'), 2) }}</strong>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="card border-0 bg-danger bg-opacity-10 p-2">
+                                <small class="text-muted">Remaining</small>
+                                <strong class="small text-danger">₱{{ number_format($sRemaining, 2) }}</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info border-0 mb-3" style="font-size:0.85rem;">
+                        <i class="bi bi-info-circle"></i>
+                        Installments with payments ({{ $sPaidLines }}) are kept as-is. The remaining months are
+                        re-scheduled to cover the balance of <strong>₱{{ number_format($sRemaining, 2) }}</strong>.
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Total Months <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" name="installment_months"
+                               value="{{ $sCurMonths }}" min="{{ max(1, $sPaidLines) }}" max="60" required>
+                        <small class="text-muted">Includes the {{ $sPaidLines }} installment(s) already paid/partial. Min {{ max(1, $sPaidLines) }}, max 60.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Monthly Amount</label>
+                        <div class="input-group">
+                            <span class="input-group-text">₱</span>
+                            <input type="number" step="0.01" min="0.01" class="form-control" name="monthly_amount"
+                                   placeholder="Leave blank to split the balance evenly">
+                        </div>
+                        <small class="text-muted">Optional — when set, each remaining month uses this amount and the last month absorbs the difference.</small>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 bg-light">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary px-4">
+                        <i class="bi bi-save"></i> Update Plan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@endforeach
 
 {{-- ═══════════════════════════════════
      PAY NOW MODALS (unpaid/partial)

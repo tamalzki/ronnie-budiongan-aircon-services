@@ -106,9 +106,13 @@
                 <tbody id="productsTableBody">
                     @forelse($products as $product)
                     @php
+                        $outdoor = $product->pairedProduct;
+                        $isSet   = (bool) $outdoor;
                         $canSell = $product->price > 0;
-                        $inStock = (int) ($product->in_stock_count ?? 0);
-                        $pending = (int) ($product->pending_count ?? 0);
+                        $ownStock     = (int) ($product->in_stock_count ?? 0);
+                        $outdoorStock = $isSet ? (int) ($outdoor->in_stock_count ?? 0) : null;
+                        $inStock = $isSet ? min($ownStock, $outdoorStock) : $ownStock;
+                        $pending = (int) ($product->pending_count ?? 0) + ($isSet ? (int) ($outdoor->pending_count ?? 0) : 0);
                         if ($inStock === 0) {
                             $qtyTier = 'out';
                         } elseif ($inStock <= 5) {
@@ -124,7 +128,7 @@
                             || ($product->linked_serials_count ?? 0) > 0;
                     @endphp
                     <tr class="{{ !$canSell ? 'products-row--noprice' : '' }} product-row"
-                        data-search="{{ strtolower(($product->brand->name ?? '') . ' ' . ($product->model ?? '') . ' ' . ($product->unit_type ?? '')) }}"
+                        data-search="{{ strtolower(($product->brand->name ?? '') . ' ' . ($product->model ?? '') . ' ' . ($isSet ? ($outdoor->model . ' set') : ($product->unit_type ?? ''))) }}"
                         data-qty-tier="{{ $qtyTier }}"
                         data-price="{{ $canSell ? 'priced' : 'noprice' }}"
                         data-brand="{{ $product->brand_id ?? '' }}">
@@ -134,9 +138,15 @@
                         </td>
                         <td>
                             <a href="{{ route('inventory.show', $product) }}" class="products-model">{{ $product->model ?? '—' }}</a>
+                            @if($isSet)
+                                <span class="text-muted">+</span>
+                                <a href="{{ route('inventory.show', $outdoor) }}" class="products-model">{{ $outdoor->model }}</a>
+                            @endif
                         </td>
                         <td>
-                            @if($product->unit_type === 'indoor')
+                            @if($isSet)
+                                <span class="products-type products-type--set">Set (IDU + ODU)</span>
+                            @elseif($product->unit_type === 'indoor')
                                 <span class="products-type products-type--in">Indoor</span>
                             @elseif($product->unit_type === 'outdoor')
                                 <span class="products-type products-type--out">Outdoor</span>
@@ -166,8 +176,12 @@
                             @endif
                         </td>
                         <td class="text-center">
-                            <a href="{{ route('inventory.show', $product) }}" class="products-qty-wrap" title="Open inventory">
+                            <a href="{{ route('inventory.show', $product) }}" class="products-qty-wrap"
+                               title="{{ $isSet ? "Complete sets — indoor: {$ownStock}, outdoor: {$outdoorStock}" : 'Open inventory' }}">
                                 <span class="products-qty products-qty--{{ $qtyTier }}">{{ $inStock }}</span>
+                                @if($isSet)
+                                    <span class="products-pending" title="Indoor in stock / Outdoor in stock">{{ $ownStock }} IDU · {{ $outdoorStock }} ODU</span>
+                                @endif
                                 @if($pending > 0)
                                     <span class="products-pending" title="{{ $pending }} pending (not received)">+{{ $pending }}</span>
                                 @endif
@@ -409,6 +423,11 @@ document.addEventListener('DOMContentLoaded', function () {
     color: #166534;
     background: #dcfce7;
     border: 1px solid #86efac;
+}
+.products-type--set {
+    color: #5b21b6;
+    background: #ede9fe;
+    border: 1px solid #c4b5fd;
 }
 .products-num {
     font-variant-numeric: tabular-nums;

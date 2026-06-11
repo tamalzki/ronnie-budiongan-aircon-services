@@ -87,6 +87,23 @@
                             </div>
                         </div>
 
+                        {{-- Paired outdoor unit (sets) --}}
+                        <div class="mb-3" id="pairedWrap" style="{{ old('unit_type', $product->unit_type) === 'indoor' ? '' : 'display:none;' }}">
+                            <label class="form-label small fw-semibold mb-1">Paired Outdoor Unit <span class="text-muted fw-normal">(sold as one set, one price)</span></label>
+                            <select class="form-select form-select-sm @error('paired_product_id') is-invalid @enderror" name="paired_product_id">
+                                <option value="">-- Not paired (sold individually) --</option>
+                                @foreach($outdoorUnits ?? [] as $o)
+                                    <option value="{{ $o->id }}" {{ old('paired_product_id', $product->paired_product_id) == $o->id ? 'selected' : '' }}>
+                                        {{ $o->brand->name ?? '' }} {{ $o->model }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('paired_product_id')
+                                <div class="invalid-feedback d-block">{{ $message }}</div>
+                            @enderror
+                            <small class="text-muted">When paired, this indoor unit and the outdoor unit appear as a single line in inventory, purchase orders, and sales.</small>
+                        </div>
+
                         {{-- Supplier --}}
                         <div class="mb-3">
                             <label class="form-label small fw-semibold mb-1">Supplier</label>
@@ -203,6 +220,11 @@ if (priceInput && costInput) {
     priceInput.addEventListener('input', updateProfit);
     costInput.addEventListener('input', updateProfit);
 }
+
+document.querySelector('select[name="unit_type"]')?.addEventListener('change', function () {
+    const wrap = document.getElementById('pairedWrap');
+    if (wrap) wrap.style.display = this.value === 'indoor' ? '' : 'none';
+});
 </script>
 @endpush
 @endsection

@@ -1,14 +1,17 @@
 @extends('layouts.app')
-@section('title', 'PO — ' . $purchaseOrder->po_number)
+@section('title', 'PO — ' . $purchaseOrder->display_po_number)
 
 @section('content')
 <div class="container-fluid">
 
     {{-- Page header --}}
-    <x-page-header title="{{ $purchaseOrder->po_number }}" subtitle="Purchase Order / Delivery Receipt" icon="bi-cart-plus">
+    <x-page-header title="PO No: {{ $purchaseOrder->display_po_number }}" subtitle="Purchase Order / Delivery Receipt" icon="bi-cart-plus">
         <x-slot name="actions">
             <a href="{{ route('purchase-orders.index') }}" class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-arrow-left"></i> Back
+            </a>
+            <a href="{{ route('purchase-orders.pdf', $purchaseOrder) }}" class="btn btn-danger btn-sm">
+                <i class="bi bi-file-earmark-pdf"></i> Download PDF
             </a>
             @if($purchaseOrder->payment_type === '45days' && $purchaseOrder->balance > 0)
             <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#paymentModal">
@@ -86,7 +89,13 @@
                     </div>
                     @endif
                     <div>
-                        <span class="badge bg-success">✓ Received</span>
+                        @if($purchaseOrder->status === 'received')
+                            <span class="badge bg-success">✓ Received</span>
+                        @elseif($purchaseOrder->status === 'cancelled')
+                            <span class="badge bg-secondary">Cancelled</span>
+                        @else
+                            <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split"></i> Awaiting Receiving</span>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -97,7 +106,7 @@
                     <div class="fw-bold text-uppercase mb-1" style="font-size:0.7rem;letter-spacing:.07em;color:#64748b;">
                         <i class="bi bi-person-badge me-1"></i>Issued To
                     </div>
-                    <div class="fw-bold">RONNIE BUDIONGAN AIRCON SUPPLY AND SERVICES</div>
+                    <div class="fw-bold">RONNIE BUDIONGAN AIRCON SUPPLY AND SERVICES, INC</div>
                     <div class="text-muted" style="line-height:1.6;">
                         DOOR 7 SORONGON BUILDING QUEZON AVE. TRES DE MAYO<br>
                         DIGOS DAVAO DEL SUR 8002 PH 11<br>
@@ -108,7 +117,7 @@
                     <div class="fw-bold text-uppercase mb-1" style="font-size:0.7rem;letter-spacing:.07em;color:#64748b;">
                         <i class="bi bi-truck me-1"></i>Delivered To
                     </div>
-                    <div class="fw-bold">RONNIE BUDIONGAN AIRCON SUPPLY AND SERVICES</div>
+                    <div class="fw-bold">RONNIE BUDIONGAN AIRCON SUPPLY AND SERVICES, INC</div>
                     <div class="text-muted">
                         DIGOS DAVAO DEL SUR
                     </div>
@@ -136,22 +145,33 @@
                     <tbody>
                         @foreach($purchaseOrder->items as $item)
                         @php
-                            $itemSerials   = $purchaseOrder->serials->where('product_id', $item->product_id)->sortBy('serial_number');
-                            $inStockCount  = $itemSerials->where('status','in_stock')->count();
-                            $soldCount     = $itemSerials->where('status','sold')->count();
+                            $isSetItem      = $item->is_set && $item->product->pairedProduct;
+                            $itemSerials    = $purchaseOrder->serials->where('product_id', $item->product_id)->sortBy('serial_number');
+                            $outdoorSerials = $isSetItem
+                                ? $purchaseOrder->serials->where('product_id', $item->product->paired_product_id)->sortBy('serial_number')
+                                : collect();
+                            $allItemSerials = $itemSerials->concat($outdoorSerials);
+                            $inStockCount   = $allItemSerials->where('status','in_stock')->count();
+                            $soldCount      = $allItemSerials->where('status','sold')->count();
+                            $remaining      = max(0, $item->quantity_ordered - $item->quantity_received);
                         @endphp
                         <tr>
                             <td class="px-3 py-2 text-center text-muted fw-semibold">{{ $loop->iteration }}</td>
                             <td class="px-3 py-2">
-                                <span class="fw-bold" style="font-family:monospace;font-size:0.8rem;">{{ $item->product->model }}</span>
+                                <span class="fw-bold" style="font-family:monospace;font-size:0.8rem;">{{ $isSetItem ? $item->product->set_model_label : $item->product->model }}</span>
                             </td>
                             <td class="px-3 py-2">
-                                <div class="fw-semibold">{{ trim(($item->product->brand->name ?? '') . ' ' . $item->product->model) }}</div>
-                                <div class="d-flex gap-1 mt-1">
-                                    @if($item->product->unit_type === 'indoor')
+                                <div class="fw-semibold">{{ trim(($item->product->brand->name ?? '') . ' ' . ($isSetItem ? $item->product->set_model_label : $item->product->model)) }}</div>
+                                <div class="d-flex gap-1 mt-1 flex-wrap">
+                                    @if($isSetItem)
+                                        <span class="badge" style="background:#f3e8ff;color:#7c3aed;border:1px solid #c4b5fd;font-size:0.63rem;">❄️🌀 Indoor + Outdoor Set</span>
+                                    @elseif($item->product->unit_type === 'indoor')
                                         <span class="badge" style="background:#e8f0fe;color:#1a56db;border:1px solid #93c5fd;font-size:0.63rem;">❄️ Indoor</span>
                                     @elseif($item->product->unit_type === 'outdoor')
                                         <span class="badge" style="background:#dcfce7;color:#166534;border:1px solid #86efac;font-size:0.63rem;">🌀 Outdoor</span>
+                                    @endif
+                                    @if($remaining > 0)
+                                        <span class="badge bg-warning text-dark" style="font-size:0.63rem;">{{ $remaining }} to receive</span>
                                     @endif
                                     @if($soldCount > 0)
                                         <span class="badge bg-primary" style="font-size:0.63rem;">{{ $soldCount }} sold</span>
@@ -163,27 +183,37 @@
                             </td>
                             <td class="px-3 py-2 text-center">
                                 <span class="fw-bold">{{ $item->quantity_ordered }}</span>
-                                <div class="text-muted" style="font-size:0.68rem;">PC</div>
+                                <div class="text-muted" style="font-size:0.68rem;">{{ $isSetItem ? 'SET' : 'PC' }}</div>
                             </td>
                             <td class="px-3 py-2">
-                                @if($itemSerials->count() > 0)
-                                <div class="d-flex flex-wrap gap-1">
-                                    @foreach($itemSerials as $serial)
-                                    <span class="px-2 py-0 rounded border d-inline-flex align-items-center gap-1"
-                                          style="font-size:0.7rem;
-                                                 background:{{ $serial->status === 'sold' ? '#eff6ff' : '#f0fdf4' }};
-                                                 border-color:{{ $serial->status === 'sold' ? '#93c5fd' : '#86efac' }} !important;">
-                                        <code style="font-size:0.7rem;letter-spacing:.02em;">{{ $serial->serial_number }}</code>
-                                        @if($serial->status === 'sold')
-                                            <i class="bi bi-cart-check-fill text-primary" style="font-size:0.6rem;" title="Sold"></i>
-                                        @else
-                                            <i class="bi bi-check-circle-fill text-success" style="font-size:0.6rem;" title="In Stock"></i>
+                                @if($allItemSerials->count() > 0)
+                                    @foreach([['label' => $isSetItem ? '❄️ ' . $item->product->model : null, 'serials' => $itemSerials],
+                                              ['label' => $isSetItem ? '🌀 ' . ($item->product->pairedProduct->model ?? '') : null, 'serials' => $outdoorSerials]] as $group)
+                                        @if($group['serials']->count() > 0)
+                                        <div class="mb-1">
+                                            @if($group['label'])
+                                                <div class="text-muted" style="font-size:0.65rem;font-weight:600;">{{ $group['label'] }}</div>
+                                            @endif
+                                            <div class="d-flex flex-wrap gap-1">
+                                                @foreach($group['serials'] as $serial)
+                                                <span class="px-2 py-0 rounded border d-inline-flex align-items-center gap-1"
+                                                      style="font-size:0.7rem;
+                                                             background:{{ $serial->status === 'sold' ? '#eff6ff' : '#f0fdf4' }};
+                                                             border-color:{{ $serial->status === 'sold' ? '#93c5fd' : '#86efac' }} !important;">
+                                                    <code style="font-size:0.7rem;letter-spacing:.02em;">{{ $serial->serial_number }}</code>
+                                                    @if($serial->status === 'sold')
+                                                        <i class="bi bi-cart-check-fill text-primary" style="font-size:0.6rem;" title="Sold"></i>
+                                                    @else
+                                                        <i class="bi bi-check-circle-fill text-success" style="font-size:0.6rem;" title="In Stock"></i>
+                                                    @endif
+                                                </span>
+                                                @endforeach
+                                            </div>
+                                        </div>
                                         @endif
-                                    </span>
                                     @endforeach
-                                </div>
                                 @else
-                                <span class="text-muted fst-italic" style="font-size:0.78rem;">No serials recorded</span>
+                                <span class="text-muted fst-italic" style="font-size:0.78rem;">No serials yet — receive to encode</span>
                                 @endif
                             </td>
                             <td class="px-3 py-2 text-end">₱{{ number_format($item->unit_cost, 2) }}</td>
@@ -224,6 +254,24 @@
 
         </div>
     </div>
+
+    {{-- ── ORDER RECEIVE (encode serials when units arrive — opens as a modal) ── --}}
+    @php
+        $itemsToReceive = $purchaseOrder->items->filter(fn($i) => ($i->quantity_ordered - $i->quantity_received) > 0);
+        $unitsToReceive = $itemsToReceive->sum(fn($i) => $i->quantity_ordered - $i->quantity_received);
+    @endphp
+    @if($purchaseOrder->status !== 'cancelled' && $itemsToReceive->count() > 0)
+    <div class="alert mb-3 py-2 px-3 d-flex flex-wrap align-items-center justify-content-between gap-2 border-0 shadow-sm"
+         id="receive" style="background:#fffbeb;border-left:4px solid #f59e0b !important;font-size:0.875rem;">
+        <span class="fw-semibold text-dark">
+            <i class="bi bi-box-arrow-in-down text-warning me-1"></i>
+            {{ $unitsToReceive }} unit(s) awaiting receiving — encode serial numbers to put stock into inventory.
+        </span>
+        <button type="button" class="btn btn-warning btn-sm fw-semibold" data-bs-toggle="modal" data-bs-target="#receiveModal">
+            <i class="bi bi-upc-scan"></i> Receive Stock
+        </button>
+    </div>
+    @endif
 
     {{-- ── Payment Summary + History ── --}}
     <div class="row g-3">
@@ -369,6 +417,80 @@
 
 </div>{{-- end container --}}
 
+{{-- ORDER RECEIVE MODAL --}}
+@if($purchaseOrder->status !== 'cancelled' && $itemsToReceive->count() > 0)
+<div class="modal fade" id="receiveModal" tabindex="-1" aria-labelledby="receiveModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow">
+            <form action="{{ route('purchase-orders.receive', $purchaseOrder) }}" method="POST" id="receiveForm">
+                @csrf
+                <div class="modal-header border-0 text-dark" style="background:#fffbeb;">
+                    <h5 class="modal-title" id="receiveModalLabel" style="font-size:1rem;">
+                        <i class="bi bi-box-arrow-in-down text-warning"></i>
+                        Order Receive — PO No: {{ $purchaseOrder->display_po_number }}
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4" style="font-size:0.875rem;">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold">Received Date <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control form-control-sm" name="received_date"
+                                   value="{{ old('received_date', date('Y-m-d')) }}" required>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label small fw-semibold">Document No. (DR) <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" name="delivery_number"
+                                   value="{{ old('delivery_number', $purchaseOrder->delivery_number) }}"
+                                   placeholder="e.g. 8010361871" style="font-family:monospace;" required>
+                            <small class="text-muted">Delivery receipt number from the supplier</small>
+                        </div>
+                    </div>
+
+                    @foreach($itemsToReceive as $item)
+                    @php
+                        $isSetItem = $item->is_set && $item->product->pairedProduct;
+                        $remaining = $item->quantity_ordered - $item->quantity_received;
+                    @endphp
+                    <div class="border rounded p-3 mb-2 receive-item"
+                         data-item-id="{{ $item->id }}"
+                         data-is-set="{{ $isSetItem ? 1 : 0 }}"
+                         data-indoor-model="{{ $item->product->model }}"
+                         data-outdoor-model="{{ $isSetItem ? $item->product->pairedProduct->model : '' }}">
+                        <input type="hidden" name="items[{{ $loop->index }}][id]" value="{{ $item->id }}">
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                            <div>
+                                <span class="fw-bold" style="font-family:monospace;">{{ $isSetItem ? $item->product->set_model_label : $item->product->model }}</span>
+                                @if($isSetItem)
+                                    <span class="badge ms-1" style="background:#f3e8ff;color:#7c3aed;border:1px solid #c4b5fd;font-size:0.63rem;">❄️🌀 Set</span>
+                                @endif
+                                <span class="text-muted small ms-2">{{ $remaining }} {{ $isSetItem ? 'set(s)' : 'unit(s)' }} remaining</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <label class="small fw-semibold mb-0">Receive now:</label>
+                                <input type="number" class="form-control form-control-sm text-center receive-qty"
+                                       name="items[{{ $loop->index }}][quantity_received]"
+                                       value="{{ $remaining }}" min="0" max="{{ $remaining }}"
+                                       style="width:80px;"
+                                       data-loop-index="{{ $loop->index }}">
+                            </div>
+                        </div>
+                        <div class="receive-serials" id="receive-serials-{{ $loop->index }}"></div>
+                    </div>
+                    @endforeach
+                </div>
+                <div class="modal-footer border-0 bg-light">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning fw-semibold">
+                        <i class="bi bi-check-circle"></i> Receive Stock &amp; Save Serials
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@endif
+
 {{-- PAYMENT MODAL --}}
 @if($purchaseOrder->payment_type === '45days' && $purchaseOrder->balance > 0)
 <div class="modal fade" id="paymentModal" tabindex="-1">
@@ -444,6 +566,62 @@
         </div>
     </div>
 </div>
+@endif
+
+@if($purchaseOrder->status !== 'cancelled')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('receiveForm');
+    if (!form) return;
+
+    function serialGroup(loopIndex, qty, fieldName, heading) {
+        let inputs = '';
+        for (let i = 0; i < qty; i++) {
+            inputs += `
+            <div class="col-md-4 col-sm-6">
+                <div class="input-group input-group-sm mb-1">
+                    <span class="input-group-text text-muted" style="font-size:0.72rem;min-width:36px;">#${i+1}</span>
+                    <input type="text" class="form-control form-control-sm"
+                           name="items[${loopIndex}][${fieldName}][]"
+                           placeholder="Serial #${i+1}" required
+                           style="font-family:monospace;font-size:0.82rem;">
+                </div>
+            </div>`;
+        }
+        const head = heading ? `<div class="small fw-semibold mb-1" style="font-size:0.72rem;">${heading}</div>` : '';
+        return `<div class="mb-1">${head}<div class="row g-1">${inputs}</div></div>`;
+    }
+
+    function rebuild(qtyInput) {
+        const loopIndex = qtyInput.dataset.loopIndex;
+        const wrap      = document.getElementById('receive-serials-' + loopIndex);
+        const card      = qtyInput.closest('.receive-item');
+        const qty       = parseInt(qtyInput.value, 10) || 0;
+        const isSet     = card.dataset.isSet === '1';
+
+        wrap.innerHTML = '';
+        if (qty < 1) return;
+
+        if (isSet) {
+            wrap.insertAdjacentHTML('beforeend', serialGroup(loopIndex, qty, 'serials', '❄️ Indoor unit — ' + card.dataset.indoorModel));
+            wrap.insertAdjacentHTML('beforeend', serialGroup(loopIndex, qty, 'outdoor_serials', '🌀 Outdoor unit — ' + card.dataset.outdoorModel));
+        } else {
+            wrap.insertAdjacentHTML('beforeend', serialGroup(loopIndex, qty, 'serials', ''));
+        }
+    }
+
+    document.querySelectorAll('.receive-qty').forEach(input => {
+        rebuild(input);
+        input.addEventListener('input', () => rebuild(input));
+    });
+
+    // Open the receive modal when arriving from the Order Receiving tab
+    if (window.location.hash === '#receive') {
+        const modalEl = document.getElementById('receiveModal');
+        if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    }
+});
+</script>
 @endif
 
 <style>

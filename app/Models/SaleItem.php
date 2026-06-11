@@ -13,6 +13,7 @@ class SaleItem extends Model
         'sale_id',
         'item_type',
         'product_id',
+        'is_set',
         'service_id',
         'item_name',
         'quantity',
@@ -21,6 +22,7 @@ class SaleItem extends Model
     ];
 
     protected $casts = [
+        'is_set' => 'boolean',
         'quantity' => 'integer',
         'unit_price' => 'decimal:2',
         'total_price' => 'decimal:2',

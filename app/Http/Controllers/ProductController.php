@@ -17,7 +17,7 @@ class ProductController extends Controller
 
     public function index()
     {
-        $products = Product::with(['brand'])
+        $all = Product::with(['brand'])
             ->withCount([
                 'serials as in_stock_count'  => fn($q) => $q->where('status', 'in_stock'),
                 'serials as pending_count'   => fn($q) => $q->where('status', 'pending'),
@@ -31,22 +31,44 @@ class ProductController extends Controller
             ->orderBy('model')
             ->get();
 
+        // Indoor + paired outdoor display as ONE line (one price per set)
+        $byId             = $all->keyBy('id');
+        $pairedOutdoorIds = $all->pluck('paired_product_id')->filter()->unique();
+
+        $products = $all
+            ->reject(fn($p) => $pairedOutdoorIds->contains($p->id))
+            ->map(function ($p) use ($byId) {
+                $p->setRelation('pairedProduct', $p->paired_product_id ? ($byId[$p->paired_product_id] ?? null) : null);
+
+                return $p;
+            })
+            ->values();
+
+        $stockOf = function ($p) {
+            $own = (int) ($p->in_stock_count ?? 0);
+            if ($p->pairedProduct) {
+                return min($own, (int) ($p->pairedProduct->in_stock_count ?? 0));
+            }
+
+            return $own;
+        };
+
         $noPriceCount = $products->where('price', 0)->count();
 
         $totalProducts = $products->count();
-        $outOfStock = $products->filter(fn($p) => (int) ($p->in_stock_count ?? 0) === 0)->count();
-        $lowStock = $products->filter(function ($p) {
-            $n = (int) ($p->in_stock_count ?? 0);
+        $outOfStock = $products->filter(fn($p) => $stockOf($p) === 0)->count();
+        $lowStock = $products->filter(function ($p) use ($stockOf) {
+            $n = $stockOf($p);
 
             return $n >= 1 && $n <= 5;
         })->count();
-        $mediumStock = $products->filter(function ($p) {
-            $n = (int) ($p->in_stock_count ?? 0);
+        $mediumStock = $products->filter(function ($p) use ($stockOf) {
+            $n = $stockOf($p);
 
             return $n >= 6 && $n <= 20;
         })->count();
-        $highStock = $products->filter(fn($p) => (int) ($p->in_stock_count ?? 0) > 20)->count();
-        $totalValue = $products->sum(fn($p) => (int) ($p->in_stock_count ?? 0) * (float) $p->price);
+        $highStock = $products->filter(fn($p) => $stockOf($p) > 20)->count();
+        $totalValue = $products->sum(fn($p) => $stockOf($p) * (float) $p->price);
 
         return view('products.index', compact(
             'products',
@@ -118,20 +140,46 @@ class ProductController extends Controller
         $brands    = Brand::orderBy('name')->get();
         $suppliers = Supplier::where('is_active', true)->orderBy('name')->get();
 
-        return view('products.edit', compact('product', 'brands', 'suppliers'));
+        // Outdoor units available to pair with (free, or already paired to this product)
+        $outdoorUnits = Product::where('unit_type', 'outdoor')
+            ->whereKeyNot($product->id)
+            ->orderBy('model')
+            ->get()
+            ->filter(function ($o) use ($product) {
+                $pairedTo = Product::where('paired_product_id', $o->id)->whereKeyNot($product->id)->exists();
+
+                return !$pairedTo;
+            })
+            ->values();
+
+        return view('products.edit', compact('product', 'brands', 'suppliers', 'outdoorUnits'));
     }
 
     public function update(Request $request, Product $product)
     {
         $validated = $request->validate([
-            'brand_id'    => 'required|exists:brands,id',
-            'model'       => 'required|string|max:255',
-            'unit_type'   => 'required|in:indoor,outdoor',
-            'supplier_id' => 'nullable|exists:suppliers,id',
-            'description' => 'nullable|string',
-            'cost'        => 'nullable|numeric|min:0',
-            'price'       => 'required|numeric|min:0.01',
+            'brand_id'          => 'required|exists:brands,id',
+            'model'             => 'required|string|max:255',
+            'unit_type'         => 'required|in:indoor,outdoor',
+            'supplier_id'       => 'nullable|exists:suppliers,id',
+            'description'       => 'nullable|string',
+            'cost'              => 'nullable|numeric|min:0',
+            'price'             => 'required|numeric|min:0.01',
+            'paired_product_id' => 'nullable|exists:products,id',
         ]);
+
+        if ($validated['unit_type'] !== 'indoor') {
+            $validated['paired_product_id'] = null;
+        } elseif (!empty($validated['paired_product_id'])) {
+            $outdoor = Product::find($validated['paired_product_id']);
+            if (!$outdoor || $outdoor->unit_type !== 'outdoor' || (int) $outdoor->id === (int) $product->id) {
+                return back()->withInput()->withErrors(['paired_product_id' => 'The paired unit must be an outdoor unit.']);
+            }
+            $takenBy = Product::where('paired_product_id', $outdoor->id)->whereKeyNot($product->id)->first();
+            if ($takenBy) {
+                return back()->withInput()->withErrors(['paired_product_id' => $outdoor->model . ' is already paired with ' . $takenBy->model . '.']);
+            }
+        }
 
         $validated['is_active'] = $request->has('is_active');
         $validated['cost']      = $validated['cost'] ?? 0;
@@ -140,6 +188,14 @@ class ProductController extends Controller
         $validated['name'] = $brand->name . ' ' . $validated['model'];
 
         $product->update($validated);
+
+        // One price per set — keep the paired outdoor unit in sync
+        if ($product->paired_product_id) {
+            Product::whereKey($product->paired_product_id)->update([
+                'price' => $validated['price'],
+                'cost'  => $validated['cost'],
+            ]);
+        }
 
         return redirect()->route('products.index')->with('success', 'Product updated successfully.');
     }
@@ -151,6 +207,11 @@ class ProductController extends Controller
         $request->validate(['price' => 'required|numeric|min:0.01']);
 
         $product->update(['price' => $request->price]);
+
+        // One price per set — keep the paired outdoor unit in sync
+        if ($product->paired_product_id) {
+            Product::whereKey($product->paired_product_id)->update(['price' => $request->price]);
+        }
 
         if ($request->expectsJson()) {
             return response()->json(['success' => true, 'price' => $request->price]);

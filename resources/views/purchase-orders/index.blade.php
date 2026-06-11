@@ -129,6 +129,17 @@
                 </button>
             </li>
             <li class="nav-item" role="presentation">
+                <button class="nav-link px-4 py-2" id="tab-receiving-btn"
+                        type="button" role="tab"
+                        data-bs-toggle="tab" data-bs-target="#tab-receiving"
+                        aria-controls="tab-receiving" aria-selected="false">
+                    <i class="bi bi-box-arrow-in-down me-1"></i> Order Receiving
+                    @if($toReceive->count() > 0)
+                        <span class="badge bg-warning text-dark ms-1">{{ $toReceive->count() }}</span>
+                    @endif
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
                 <button class="nav-link px-4 py-2 position-relative" id="tab-payments-due-btn"
                         type="button" role="tab"
                         data-bs-toggle="tab" data-bs-target="#tab-payments-due"
@@ -189,6 +200,7 @@
                     <thead>
                         <tr>
                             <th>Order Date</th>
+                            <th>PO No.</th>
                             <th>Doc No. (DR)</th>
                             <th>Supplier</th>
                             <th class="text-center">Units</th>
@@ -210,31 +222,36 @@
                             $poStock   = $poUnits - $poSold;
                         @endphp
                         <tr class="{{ $rowClass }} po-row"
-                            data-po="{{ strtolower($po->po_number) }}"
+                            data-po="{{ strtolower($po->po_number . ' ' . ($po->supplier_po_number ?? '')) }}"
                             data-supplier="{{ strtolower($po->supplier->name) }}"
                             data-dr="{{ strtolower($po->delivery_number ?? '') }}"
                             data-status="{{ $po->status }}"
-                            data-payment="{{ $po->payment_status }}">
+                            data-payment="{{ $po->payment_status }}"
+                            data-href="{{ route('purchase-orders.show', $po) }}"
+                            style="cursor:pointer;">
 
                             {{-- Order Date --}}
                             <td style="white-space:nowrap">
-                                <div class="fw-semibold">{{ $po->order_date->format('M d, Y') }}</div>
-                                <div class="text-muted" style="font-size:0.68rem;">{{ $po->order_date->diffForHumans() }}</div>
+                                <span class="fw-semibold">{{ $po->order_date->format('M d, Y') }}</span>
+                            </td>
+
+                            {{-- PO No. --}}
+                            <td style="white-space:nowrap">
+                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 fw-bold"
+                                      style="font-family:monospace;font-size:0.78rem;">
+                                    {{ $po->display_po_number }}
+                                </span>
                             </td>
 
                             {{-- Doc No (DR) --}}
                             <td style="white-space:nowrap">
                                 @if($po->delivery_number)
-                                    <a href="{{ route('purchase-orders.show', $po) }}"
-                                       class="fw-semibold text-primary text-decoration-none"
-                                       style="font-family:monospace;font-size:0.8rem;">
+                                    <span class="fw-semibold text-primary"
+                                          style="font-family:monospace;font-size:0.8rem;">
                                         {{ $po->delivery_number }}
-                                    </a>
+                                    </span>
                                 @else
-                                    <a href="{{ route('purchase-orders.show', $po) }}"
-                                       class="text-muted text-decoration-none" style="font-size:0.78rem;">
-                                        {{ $po->po_number }}
-                                    </a>
+                                    <span class="text-muted" style="font-size:0.78rem;">—</span>
                                 @endif
                             </td>
 
@@ -245,22 +262,23 @@
 
                             {{-- Units --}}
                             <td class="px-2 py-1 text-center" style="white-space:nowrap">
-                                <span class="fw-bold">{{ $poUnits }}</span>
-                                @if($poSold > 0)
-                                    <div style="font-size:0.65rem;line-height:1.3;">
-                                        <span class="text-success">{{ $poStock }} stk</span>
-                                        · <span class="text-primary">{{ $poSold }} sold</span>
-                                    </div>
+                                @if($po->status === 'pending')
+                                    <span class="badge bg-warning text-dark" style="font-size:0.65rem;">
+                                        <i class="bi bi-hourglass-split"></i> Awaiting{{ $poUnits > 0 ? ' · ' . $poUnits . ' in' : '' }}
+                                    </span>
                                 @else
-                                    <div class="text-muted" style="font-size:0.65rem;">in stock</div>
+                                    <span class="fw-bold">{{ $poUnits }}</span>
+                                    @if($poSold > 0)
+                                        <small class="text-muted">({{ $poStock }} stk · {{ $poSold }} sold)</small>
+                                    @endif
                                 @endif
                             </td>
 
                             {{-- Amount --}}
                             <td class="px-2 py-1 text-end" style="white-space:nowrap">
-                                <div class="fw-semibold">₱{{ number_format($po->total, 2) }}</div>
+                                <span class="fw-semibold">₱{{ number_format($po->total, 2) }}</span>
                                 @if($po->balance > 0)
-                                    <div class="text-danger" style="font-size:0.68rem;">₱{{ number_format($po->balance, 2) }} due</div>
+                                    <small class="text-danger">· ₱{{ number_format($po->balance, 2) }} due</small>
                                 @endif
                             </td>
 
@@ -277,14 +295,14 @@
                                     @else
                                         <span class="badge bg-danger" style="font-size:0.65rem;">Unpaid</span>
                                     @endif
-                                @endif
-                                @if($po->payment_type === '45days' && $po->payment_due_date && $po->payment_status !== 'paid')
-                                    @if($daysLeft < 0)
-                                        <div class="text-danger fw-bold" style="font-size:0.65rem;"><i class="bi bi-alarm"></i> Overdue {{ abs((int)$daysLeft) }}d</div>
-                                    @elseif($daysLeft <= 10)
-                                        <div class="text-danger" style="font-size:0.65rem;"><i class="bi bi-bell-fill"></i> {{ (int)$daysLeft }}d left</div>
-                                    @else
-                                        <div class="text-muted" style="font-size:0.65rem;">Due {{ $po->payment_due_date->format('M d') }}</div>
+                                    @if($po->payment_due_date && $po->payment_status !== 'paid')
+                                        @if($daysLeft < 0)
+                                            <small class="text-danger fw-bold"><i class="bi bi-alarm"></i> {{ abs((int)$daysLeft) }}d overdue</small>
+                                        @elseif($daysLeft <= 10)
+                                            <small class="text-danger"><i class="bi bi-bell-fill"></i> {{ (int)$daysLeft }}d left</small>
+                                        @else
+                                            <small class="text-muted">due {{ $po->payment_due_date->format('M d') }}</small>
+                                        @endif
                                     @endif
                                 @endif
                             </td>
@@ -292,20 +310,21 @@
                             {{-- Actions --}}
                             <td style="white-space:nowrap">
                                 <div class="app-act-wrap">
-                                    <a href="{{ route('purchase-orders.show', $po) }}" class="btn btn-light border app-act">
-                                        <i class="bi bi-eye"></i>
+                                    <a href="{{ route('purchase-orders.pdf', $po) }}" class="btn btn-light border app-act text-danger"
+                                       title="Download PO as PDF">
+                                        <i class="bi bi-file-earmark-pdf"></i> PO DOC
                                     </a>
                                     @if($po->payment_type === '45days' && $po->balance > 0)
                                     <button type="button" class="btn btn-light border app-act text-primary"
-                                            data-bs-toggle="modal" data-bs-target="#paymentModal{{ $po->id }}"
-                                            title="Record Payment">
-                                        <i class="bi bi-cash-coin"></i>
+                                            onclick="goToPayment({{ $po->id }})"
+                                            title="Record Payment (opens Payments Due)">
+                                        <i class="bi bi-cash-coin"></i> Pay
                                     </button>
                                     @endif
                                     <a href="{{ route('purchase-orders.edit', $po) }}"
                                        class="btn btn-light border app-act"
                                        title="{{ ($po->sold_serials_count ?? 0) > 0 ? 'Some units sold — edit may be blocked' : 'Edit' }}">
-                                        <i class="bi bi-pencil"></i>
+                                        <i class="bi bi-pencil"></i> Edit
                                     </a>
                                     <form action="{{ route('purchase-orders.destroy', $po) }}" method="POST" class="app-act-form"
                                           onsubmit="return confirm('{{ ($po->sold_serials_count ?? 0) > 0 ? 'This PO has sold units and cannot be deleted.' : 'Delete this PO? Stock and serials will be removed.' }}')">
@@ -319,7 +338,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="7" class="text-center py-4 text-muted">
+                            <td colspan="8" class="text-center py-4 text-muted">
                                 <i class="bi bi-inbox fs-2 d-block mb-2"></i>
                                 No purchase orders yet
                             </td>
@@ -342,7 +361,80 @@
 
         </div>{{-- end tab-all-orders --}}
 
-        {{-- ═══ TAB 2: PAYMENTS DUE ═══ --}}
+        {{-- ═══ TAB 2: ORDER RECEIVING (POs awaiting stock / serial encoding) ═══ --}}
+        <div class="tab-pane fade p-3" id="tab-receiving" role="tabpanel" aria-labelledby="tab-receiving-btn">
+
+            <p class="text-muted mb-2" style="font-size:0.82rem;">
+                <i class="bi bi-box-arrow-in-down text-warning"></i>
+                Purchase orders waiting for delivery — open one to encode serial numbers and receive the stock into inventory.
+            </p>
+
+            <div class="table-responsive">
+                <table class="table table-hover table-sm align-middle mb-0 app-table">
+                    <thead>
+                        <tr>
+                            <th>Order Date</th>
+                            <th>PO / Doc No.</th>
+                            <th>Supplier</th>
+                            <th>Items</th>
+                            <th class="text-center">Units Remaining</th>
+                            <th>Expected</th>
+                            <th class="text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($toReceive as $po)
+                        @php
+                            $remainingUnits = $po->items->sum(fn($i) => max(0, $i->quantity_ordered - $i->quantity_received));
+                        @endphp
+                        <tr>
+                            <td class="px-2 py-1" style="white-space:nowrap">
+                                <span class="fw-semibold">{{ $po->order_date->format('M d, Y') }}</span>
+                            </td>
+                            <td class="px-2 py-1" style="white-space:nowrap">
+                                <a href="{{ route('purchase-orders.show', $po) }}"
+                                   class="fw-semibold text-primary text-decoration-none"
+                                   style="font-family:monospace;font-size:0.8rem;">
+                                    PO {{ $po->display_po_number }}{{ $po->delivery_number ? ' · ' . $po->delivery_number : '' }}
+                                </a>
+                            </td>
+                            <td class="px-2 py-1" style="white-space:nowrap">{{ $po->supplier->name }}</td>
+                            <td class="px-2 py-1" style="font-size:0.78rem;">
+                                @foreach($po->items->take(3) as $item)
+                                    <div>{{ $item->quantity_ordered }}× {{ $item->is_set ? $item->product->set_model_label : $item->product->model }}</div>
+                                @endforeach
+                                @if($po->items->count() > 3)
+                                    <div class="text-muted">+{{ $po->items->count() - 3 }} more…</div>
+                                @endif
+                            </td>
+                            <td class="px-2 py-1 text-center">
+                                <span class="badge bg-warning text-dark">{{ $remainingUnits }}</span>
+                            </td>
+                            <td class="px-2 py-1" style="white-space:nowrap">
+                                {{ $po->expected_delivery_date?->format('M d, Y') ?? '—' }}
+                            </td>
+                            <td class="px-2 py-1 text-center" style="white-space:nowrap">
+                                <a href="{{ route('purchase-orders.show', $po) }}#receive"
+                                   class="btn btn-warning btn-sm">
+                                    <i class="bi bi-upc-scan"></i> Receive
+                                </a>
+                            </td>
+                        </tr>
+                        @empty
+                        <tr>
+                            <td colspan="7" class="text-center py-4 text-muted">
+                                <i class="bi bi-check-circle text-success fs-2 d-block mb-2"></i>
+                                Nothing to receive — all purchase orders are in stock.
+                            </td>
+                        </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+        </div>{{-- end tab-receiving --}}
+
+        {{-- ═══ TAB 3: PAYMENTS DUE ═══ --}}
         <div class="tab-pane fade p-3" id="tab-payments-due" role="tabpanel" aria-labelledby="tab-payments-due-btn">
 
             <p class="text-muted mb-2" style="font-size:0.82rem;">
@@ -371,24 +463,24 @@
                             if ($daysLeft !== null && $daysLeft < 0) $rowClass = 'table-danger';
                             elseif ($daysLeft !== null && $daysLeft <= 10) $rowClass = 'table-warning';
                         @endphp
-                        <tr class="{{ $rowClass }}">
+                        <tr class="{{ $rowClass }}" id="due-row-{{ $po->id }}">
                             <td class="px-3 py-1" style="white-space:nowrap">
                                 <a href="{{ route('purchase-orders.show', $po) }}" class="text-decoration-none fw-semibold text-primary" style="font-size:0.83rem;">
-                                    {{ $po->po_number }}
+                                    PO {{ $po->display_po_number }}
                                 </a>
-                                <div class="text-muted" style="font-size:0.72rem;">{{ $po->supplier->name }}</div>
+                                <span class="text-muted" style="font-size:0.75rem;">· {{ $po->supplier->name }}</span>
                             </td>
                             <td class="px-2 py-1" style="white-space:nowrap">{{ $po->order_date->format('M d, Y') }}</td>
                             <td class="px-2 py-1" style="white-space:nowrap">
-                                <div>{{ $po->payment_due_date->format('M d, Y') }}</div>
+                                {{ $po->payment_due_date->format('M d, Y') }}
                                 @if($daysLeft < 0)
-                                    <div class="text-danger fw-bold" style="font-size:0.72rem;"><i class="bi bi-alarm"></i> Overdue {{ abs((int)$daysLeft) }}d</div>
+                                    <small class="text-danger fw-bold"><i class="bi bi-alarm"></i> {{ abs((int)$daysLeft) }}d overdue</small>
                                 @elseif($daysLeft == 0)
-                                    <div class="text-danger fw-bold" style="font-size:0.72rem;"><i class="bi bi-exclamation-circle"></i> Due Today</div>
+                                    <small class="text-danger fw-bold"><i class="bi bi-exclamation-circle"></i> due today</small>
                                 @elseif($daysLeft <= 10)
-                                    <div class="text-warning fw-bold" style="font-size:0.72rem;"><i class="bi bi-bell-fill"></i> {{ (int)$daysLeft }}d left</div>
+                                    <small class="text-warning fw-bold"><i class="bi bi-bell-fill"></i> {{ (int)$daysLeft }}d left</small>
                                 @else
-                                    <div class="text-muted" style="font-size:0.72rem;">{{ (int)$daysLeft }}d left</div>
+                                    <small class="text-muted">{{ (int)$daysLeft }}d left</small>
                                 @endif
                             </td>
                             <td class="px-2 py-1 fw-semibold" style="white-space:nowrap">₱{{ number_format($po->total, 2) }}</td>
@@ -434,18 +526,31 @@
 </div>{{-- end container-fluid --}}
 
 
-{{-- PAYMENT MODALS --}}
-@foreach($purchaseOrders->getCollection()->where('payment_type', '45days')->where('balance', '>', 0) as $po)
+{{-- PAYMENT MODALS (rendered for every payable PO on this page and in Payments Due) --}}
+@foreach($purchaseOrders->getCollection()->merge($paymentsDue)->unique('id')->where('payment_type', '45days')->where('balance', '>', 0) as $po)
 <div class="modal fade" id="paymentModal{{ $po->id }}" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content border-0 shadow">
             <form action="{{ route('purchase-orders.payment', $po) }}" method="POST">
                 @csrf
                 <div class="modal-header bg-primary text-white border-0">
-                    <h5 class="modal-title"><i class="bi bi-cash-coin"></i> Record Payment — {{ $po->po_number }}</h5>
+                    <h5 class="modal-title"><i class="bi bi-cash-coin"></i> Record Payment — PO {{ $po->display_po_number }}</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-4">
+                    {{-- Basic details --}}
+                    <div class="border rounded bg-light px-3 py-2 mb-3" style="font-size:0.82rem;">
+                        <div class="d-flex flex-wrap gap-3">
+                            <span><span class="text-muted">Supplier:</span> <strong>{{ $po->supplier->name }}</strong></span>
+                            <span><span class="text-muted">Ordered:</span> <strong>{{ $po->order_date->format('M d, Y') }}</strong></span>
+                            @if($po->delivery_number)
+                                <span><span class="text-muted">DR:</span> <strong style="font-family:monospace;">{{ $po->delivery_number }}</strong></span>
+                            @endif
+                            @if($po->payment_due_date)
+                                <span><span class="text-muted">Due:</span> <strong class="{{ $po->payment_due_date->isPast() ? 'text-danger' : '' }}">{{ $po->payment_due_date->format('M d, Y') }}</strong></span>
+                            @endif
+                        </div>
+                    </div>
                     <div class="row g-2 mb-4">
                         <div class="col-4">
                             <div class="card border-0 bg-primary bg-opacity-10 text-center p-2">
@@ -518,6 +623,14 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('poSearch').addEventListener('input', filterTable);
     document.getElementById('statusFilter').addEventListener('change', filterTable);
     document.getElementById('paymentFilter').addEventListener('change', filterTable);
+
+    // Whole row opens the purchase order (except clicks on buttons/links/forms)
+    document.querySelectorAll('.po-row[data-href]').forEach(row => {
+        row.addEventListener('click', function (e) {
+            if (e.target.closest('a, button, form, input, select, .modal')) return;
+            window.location.href = this.dataset.href;
+        });
+    });
 });
 
 /* ── Table filter ── */
@@ -545,7 +658,7 @@ function filterTable() {
         if (!noResults) {
             noResults = document.createElement('tr');
             noResults.id = 'noResultsRow';
-            noResults.innerHTML = '<td colspan="7" class="text-center py-5 text-muted"><i class="bi bi-search fs-1 d-block mb-2"></i>No results found</td>';
+            noResults.innerHTML = '<td colspan="8" class="text-center py-5 text-muted"><i class="bi bi-search fs-1 d-block mb-2"></i>No results found</td>';
             document.getElementById('poTableBody').appendChild(noResults);
         }
         noResults.style.display = '';
@@ -559,6 +672,33 @@ function clearFilters() {
     document.getElementById('statusFilter').value    = '';
     document.getElementById('paymentFilter').value   = '';
     filterTable();
+}
+
+/* ── Record payment: jump to Payments Due tab, highlight the entry, open its modal ── */
+function goToPayment(id) {
+    const tabBtn = document.getElementById('tab-payments-due-btn');
+
+    const openModal = () => {
+        const row = document.getElementById('due-row-' + id);
+        if (row) {
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            row.classList.add('table-active');
+            setTimeout(() => row.classList.remove('table-active'), 2500);
+        }
+        const modalEl = document.getElementById('paymentModal' + id);
+        if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    };
+
+    if (tabBtn.classList.contains('active')) {
+        openModal();
+        return;
+    }
+
+    tabBtn.addEventListener('shown.bs.tab', function handler() {
+        tabBtn.removeEventListener('shown.bs.tab', handler);
+        setTimeout(openModal, 150);
+    });
+    bootstrap.Tab.getOrCreateInstance(tabBtn).show();
 }
 </script>
 @endpush

@@ -88,19 +88,19 @@ class PurchaseOrderAutoReceiveTest extends TestCase
         $this->assertSame(2, (int) $movement->quantity);
     }
 
-    public function test_store_rejects_when_serials_are_missing(): void
+    public function test_store_without_serials_creates_pending_po_for_later_receiving(): void
     {
         $user = User::factory()->create();
         $this->actingAs($user);
         [$supplier, $product] = $this->seedCatalog();
 
-        $poCountBefore = PurchaseOrder::query()->count();
-
+        // 'test' may already exist as a supplier PO No on another order — duplicates are allowed.
         $response = $this->post(route('purchase-orders.store'), [
             'supplier_id'            => $supplier->id,
             'order_date'             => now()->subDays(5)->toDateString(),
             'expected_delivery_date' => now()->subDay()->toDateString(),
             'payment_type'           => 'full',
+            'supplier_po_number'     => 'test',
             'notes'                  => null,
             'items'                  => [
                 [
@@ -114,10 +114,80 @@ class PurchaseOrderAutoReceiveTest extends TestCase
             ],
         ]);
 
-        // Serials are required on save — nothing should be created.
-        $response->assertSessionHasErrors('items.0.serials');
-        $this->assertSame($poCountBefore, PurchaseOrder::query()->count());
+        // No serials yet — the PO is created as pending and awaits Order Receive.
+        $response->assertRedirect();
+        $response->assertSessionMissing('error');
+
+        $po = PurchaseOrder::query()->latest('id')->first();
+        $this->assertNotNull($po);
+        $this->assertSame('pending', $po->status);
+        $this->assertNull($po->received_date);
+
+        // Supplier PO No is stored separately; the internal number stays auto-generated.
+        $this->assertSame('test', $po->supplier_po_number);
+        $this->assertStringStartsWith('PO-', $po->po_number);
+
+        $item = $po->items()->first();
+        $this->assertSame(3, (int) $item->quantity_ordered);
+        $this->assertSame(0, (int) $item->quantity_received);
+
         $this->assertSame(0, ProductSerial::where('product_id', $product->id)->count());
+        $this->assertSame(
+            0,
+            InventoryMovement::where('reference_type', 'PurchaseOrder')->where('reference_id', $po->id)->count()
+        );
+    }
+
+    public function test_receive_pending_po_with_serials_stocks_in_units(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        [$supplier, $product] = $this->seedCatalog();
+
+        // Create a pending PO (no serials)
+        $this->post(route('purchase-orders.store'), [
+            'supplier_id'            => $supplier->id,
+            'order_date'             => now()->toDateString(),
+            'expected_delivery_date' => now()->addWeek()->toDateString(),
+            'payment_type'           => 'full',
+            'notes'                  => null,
+            'items'                  => [
+                [
+                    'product_id'        => $product->id,
+                    'quantity'          => 2,
+                    'unit_cost'         => 100,
+                    'discount_percent'  => 0,
+                    'discount_amount'   => 0,
+                ],
+            ],
+        ]);
+
+        $po   = PurchaseOrder::query()->latest('id')->first();
+        $item = $po->items()->first();
+        $this->assertSame('pending', $po->status);
+
+        // Order Receive: input serials now
+        $response = $this->post(route('purchase-orders.receive', $po), [
+            'received_date'   => now()->toDateString(),
+            'delivery_number' => 'DR-001',
+            'items'           => [
+                [
+                    'id'                => $item->id,
+                    'quantity_received' => 2,
+                    'serials'           => ['RCV-SN-01', 'RCV-SN-02'],
+                ],
+            ],
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionMissing('error');
+
+        $po->refresh();
+        $this->assertSame('received', $po->status);
+        $this->assertNotNull($po->received_date);
+        $this->assertSame(2, (int) $po->items()->first()->quantity_received);
+
+        $this->assertSame(2, ProductSerial::where('purchase_order_id', $po->id)->where('status', 'in_stock')->count());
     }
 
     public function test_store_allows_optional_unit_cost(): void

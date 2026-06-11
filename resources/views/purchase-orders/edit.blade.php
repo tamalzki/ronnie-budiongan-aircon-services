@@ -7,7 +7,7 @@
 
     <x-page-header title="Edit Purchase Order" subtitle="{{ $purchaseOrder->po_number }}" icon="bi-pencil">
         <x-slot name="actions">
-            <a href="{{ route('purchase-orders.show', $purchaseOrder) }}" class="btn btn-outline-secondary btn-sm">
+            <a href="{{ route('purchase-orders.index') }}" class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-arrow-left"></i> Back
             </a>
         </x-slot>
@@ -21,7 +21,7 @@
 
     <div class="alert alert-info border-0 shadow-sm py-2" style="font-size:0.85rem;">
         <i class="bi bi-info-circle"></i>
-        Editing re-syncs inventory: this order's serial numbers are removed and re-added in stock with your changes.
+        Document No. (DR) and serial numbers are entered in <strong>Order Receiving</strong>. Editing here updates order details and keeps received serials in stock.
     </div>
 
     {{-- ── SOLD TO / DELIVERED TO header (static, compact) ── --}}
@@ -30,7 +30,7 @@
             <div class="border rounded bg-white px-2 py-1 h-100" style="font-size:0.72rem;line-height:1.35;">
                 <span class="fw-bold text-uppercase text-primary" style="font-size:0.66rem;letter-spacing:.5px;"><i class="bi bi-person-badge"></i> Sold To</span>
                 <div class="text-muted">Customer No. : 1378</div>
-                <div class="fw-semibold">RONNIE BUDIONGAN AIRCON SUPPLY AND SERVICES</div>
+                <div class="fw-semibold">RONNIE BUDIONGAN AIRCON SUPPLY AND SERVICES, INC</div>
                 <div>DOOR 7 SORONGON BUILDING QUEZON AVE. TRES DE MAYO DIGOS DAVAO DEL SUR 8002 PH 11</div>
                 <div>TIN: 123-962-440-00000</div>
             </div>
@@ -39,7 +39,7 @@
             <div class="border rounded bg-white px-2 py-1 h-100" style="font-size:0.72rem;line-height:1.35;">
                 <span class="fw-bold text-uppercase text-primary" style="font-size:0.66rem;letter-spacing:.5px;"><i class="bi bi-truck"></i> Delivered To</span>
                 <div class="text-muted">Customer No. : 1378</div>
-                <div class="fw-semibold">RONNIE BUDIONGAN AIRCON SUPPLY AND SERVICES</div>
+                <div class="fw-semibold">RONNIE BUDIONGAN AIRCON SUPPLY AND SERVICES, INC</div>
             </div>
         </div>
     </div>
@@ -83,27 +83,22 @@
                                        value="{{ old('expected_delivery_date', optional($purchaseOrder->expected_delivery_date)->format('Y-m-d')) }}">
                             </div>
 
-                            {{-- Row 2: Document Reference Numbers --}}
-                            <div class="col-md-4">
-                                <label class="form-label small fw-semibold">Document No. <small class="text-muted">(DR from supplier)</small></label>
-                                <input type="text" class="form-control form-control-sm" name="delivery_number"
-                                       value="{{ old('delivery_number', $purchaseOrder->delivery_number) }}"
-                                       placeholder="e.g. 8010361871"
-                                       style="font-family:monospace;">
-                            </div>
+                            {{-- Row 2: PO reference (DR + serials via Order Receiving) --}}
                             <div class="col-md-4">
                                 <label class="form-label small fw-semibold">PO No. <small class="text-muted">(supplier's PO)</small></label>
-                                <input type="text" class="form-control form-control-sm" name="po_number"
-                                       value="{{ old('po_number', $purchaseOrder->po_number) }}"
-                                       placeholder="e.g. 653"
+                                <input type="text" class="form-control form-control-sm" name="supplier_po_number"
+                                       value="{{ old('supplier_po_number', $purchaseOrder->supplier_po_number) }}"
+                                       placeholder="e.g. 698"
                                        style="font-family:monospace;">
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label small fw-semibold">SO No. <small class="text-muted">(supplier's SO)</small></label>
-                                <input type="text" class="form-control form-control-sm" name="so_number"
-                                       value="{{ old('so_number', $purchaseOrder->so_number) }}"
-                                       placeholder="e.g. 1010260605"
-                                       style="font-family:monospace;">
+                            <div class="col-md-8 d-flex align-items-end">
+                                <div class="alert alert-info py-2 px-3 mb-0 w-100" style="font-size:0.78rem;">
+                                    <i class="bi bi-info-circle"></i>
+                                    Document No. (DR) and serial numbers are managed in <strong>Order Receiving</strong> when stock arrives.
+                                    @if($purchaseOrder->delivery_number)
+                                        <span class="ms-1">Current DR: <strong style="font-family:monospace;">{{ $purchaseOrder->delivery_number }}</strong></span>
+                                    @endif
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -214,10 +209,17 @@ let rowIndex = 0;
 
 function unitTypeBadge(unitType) {
     if (!unitType) return '';
+    if (unitType === 'set') {
+        return `<span style="font-size:0.7rem;padding:1px 6px;border-radius:20px;background:#7c3aed15;color:#7c3aed;border:1px solid #7c3aed40;font-weight:600;white-space:nowrap;">❄️🌀 Set</span>`;
+    }
     const isIndoor = unitType === 'indoor';
     const color    = isIndoor ? '#0d6efd' : '#198754';
     const icon     = isIndoor ? '❄️' : '🌀';
     return `<span style="font-size:0.7rem;padding:1px 6px;border-radius:20px;background:${color}15;color:${color};border:1px solid ${color}40;font-weight:600;white-space:nowrap;">${icon} ${isIndoor ? 'Indoor' : 'Outdoor'}</span>`;
+}
+
+function productById(id) {
+    return products.find(p => String(p.id) === String(id)) || null;
 }
 
 function addItem(prefill) {
@@ -312,26 +314,9 @@ function addItem(prefill) {
                 <i class="bi bi-trash"></i>
             </button>
         </td>
-    </tr>
-
-    <tr class="serial-subrow" data-item="${idx}">
-        <td></td>
-        <td colspan="8" class="bg-light">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <div>
-                    <i class="bi bi-upc-scan text-primary"></i>
-                    <span class="small fw-semibold text-primary ms-1">Serial Numbers</span>
-                    <span class="text-danger small ms-1">* (one per unit)</span>
-                </div>
-                <span class="badge bg-secondary" id="serial-count-${idx}">0 / 0</span>
-            </div>
-            <div id="serials-inputs-${idx}" class="row g-1"></div>
-        </td>
     </tr>`;
 
     document.getElementById('itemsTableBody').insertAdjacentHTML('beforeend', html);
-
-    rebuildSerialInputs(idx, 1, []);
     refreshDropdowns();
 
     if (prefill) {
@@ -352,57 +337,12 @@ function addItem(prefill) {
         row.querySelector('.disc-input').value = prefill.discount_percent ?? 0;
         row.querySelector('.discount-amount-input').value = prefill.discount_amount ?? 0;
 
-        rebuildSerialInputs(idx, prefill.quantity, prefill.serials || []);
         calcRow(idx);
         refreshDropdowns();
     }
 }
 
-function rebuildSerialInputs(idx, qty, existingValues) {
-    const container = document.getElementById(`serials-inputs-${idx}`);
-    const counter   = document.getElementById(`serial-count-${idx}`);
-    container.innerHTML = '';
-
-    for (let i = 0; i < qty; i++) {
-        const val = existingValues[i] || '';
-        container.insertAdjacentHTML('beforeend', `
-    <div class="col-md-4 col-sm-6">
-        <div class="input-group input-group-sm mb-1">
-            <span class="input-group-text text-muted" style="font-size:0.72rem;min-width:36px;">#${i+1}</span>
-            <input type="text"
-                   class="form-control form-control-sm serial-input"
-                   name="items[${idx}][serials][]"
-                   value="${val}"
-                   placeholder="Serial #${i+1}"
-                   style="font-family:monospace;font-size:0.82rem;"
-                   oninput="updateSerialCount(${idx})">
-                </div>
-            </div>
-        `);
-    }
-
-    updateSerialCount(idx);
-    counter.textContent = `0 / ${qty}`;
-}
-
-function updateSerialCount(idx) {
-    const container = document.getElementById(`serials-inputs-${idx}`);
-    const inputs    = container.querySelectorAll('.serial-input');
-    const filled    = [...inputs].filter(i => i.value.trim() !== '').length;
-    const total     = inputs.length;
-    const counter   = document.getElementById(`serial-count-${idx}`);
-    counter.textContent = `${filled} / ${total}`;
-    counter.className   = filled === total && total > 0
-        ? 'badge bg-success'
-        : filled > 0 ? 'badge bg-warning text-dark' : 'badge bg-secondary';
-}
-
 function onQtyChange(idx) {
-    const row = document.getElementById(`row-${idx}`);
-    const qty = parseInt(row.querySelector('.qty-input').value) || 0;
-    const existingInputs = document.querySelectorAll(`#serials-inputs-${idx} .serial-input`);
-    const existingValues = [...existingInputs].map(i => i.value);
-    rebuildSerialInputs(idx, qty, existingValues);
     calcRow(idx);
 }
 
@@ -484,7 +424,7 @@ function calcGrandTotal() {
 }
 
 function removeRow(idx) {
-    document.querySelectorAll(`[data-item="${idx}"]`).forEach(el => el.remove());
+    document.getElementById(`row-${idx}`)?.remove();
     if (!document.querySelector('.item-row')) {
         document.getElementById('itemsTableBody').innerHTML = `
             <tr id="emptyState">
@@ -529,26 +469,9 @@ function togglePaymentNote() {
 }
 document.getElementById('paymentType').addEventListener('change', togglePaymentNote);
 
-/* ── Submit guard: every unit needs a serial ── */
 document.getElementById('poForm').addEventListener('submit', function (e) {
     if (!document.querySelector('.item-row')) {
         e.preventDefault(); alert('Please add at least one product.'); return;
-    }
-    let valid = true;
-    document.querySelectorAll('.item-row').forEach(row => {
-        const idx    = row.id.replace('row-', '');
-        const inputs = document.querySelectorAll(`#serials-inputs-${idx} .serial-input`);
-        const filled = [...inputs].filter(i => i.value.trim() !== '').length;
-        const total  = inputs.length;
-        if (total === 0 || filled !== total) {
-            valid = false;
-            document.getElementById(`serial-count-${idx}`).classList.add('bg-danger');
-            document.getElementById(`serial-count-${idx}`).classList.remove('bg-warning', 'bg-secondary', 'bg-success');
-        }
-    });
-    if (!valid) {
-        e.preventDefault();
-        alert('Each unit needs a serial number. Fill in a serial for every quantity on every item.');
     }
 });
 
@@ -564,7 +487,6 @@ document.getElementById('poForm').addEventListener('submit', function (e) {
                 'unit_cost'        => $oi['unit_cost'] ?? '',
                 'discount_percent' => $oi['discount_percent'] ?? 0,
                 'discount_amount'  => $oi['discount_amount'] ?? 0,
-                'serials'          => array_values(array_filter($oi['serials'] ?? [], fn($s) => $s !== null && $s !== '')),
             ];
         }
     } else {
@@ -575,7 +497,6 @@ document.getElementById('poForm').addEventListener('submit', function (e) {
                 'unit_cost'        => $it->unit_cost,
                 'discount_percent' => $it->discount_percent ?? 0,
                 'discount_amount'  => $it->discount_amount ?? 0,
-                'serials'          => $existingSerials[$it->product_id] ?? [],
             ];
         }
     }
@@ -594,7 +515,6 @@ prefillItems.forEach(it => {
         unit_cost:        it.unit_cost ?? '',
         discount_percent: it.discount_percent ?? 0,
         discount_amount:  it.discount_amount ?? 0,
-        serials:          Array.isArray(it.serials) ? it.serials : [],
     });
 });
 

@@ -249,6 +249,9 @@ let counter = 0;
 
 function unitTypeBadge(unitType) {
     if (!unitType) return '';
+    if (unitType === 'set') {
+        return `<span style="font-size:0.68rem;padding:1px 6px;border-radius:20px;background:#7c3aed15;color:#7c3aed;border:1px solid #7c3aed40;font-weight:600;">❄️🌀 Set</span>`;
+    }
     const isIndoor = unitType === 'indoor';
     const c = isIndoor ? '#0d6efd' : '#198754';
     const icon = isIndoor ? '❄️' : '🌀';
@@ -267,7 +270,9 @@ function addItem(type) {
 /* ─── PRODUCT ROW ─── */
 function buildProductRow(id) {
     const opts = products.map(p => {
-        const stockStr = p.stock === 0 ? ' ⚠ Out' : ` (${p.stock} in stock)`;
+        const stockStr = p.is_set
+            ? (p.stock === 0 ? ` ⚠ No complete set (${p.indoor_stock} IDU / ${p.outdoor_stock} ODU)` : ` (${p.stock} set${p.stock !== 1 ? 's' : ''}: ${p.indoor_stock} IDU / ${p.outdoor_stock} ODU)`)
+            : (p.stock === 0 ? ' ⚠ Out' : ` (${p.stock} in stock)`);
         return `<div class="cb-option px-3 py-2" style="cursor:pointer;font-size:0.82rem;"
                      data-value="${p.id}" data-price="${p.price}" data-label="${escHtml(p.label)}"
                      data-unit-type="${p.unit_type||''}"
@@ -343,6 +348,8 @@ function buildProductRow(id) {
           </div>
           <div id="serial-ids-mount-${id}" class="d-none"></div>
           <textarea name="items[${id}][new_serials_raw]" id="new-sn-${id}" class="d-none" aria-hidden="true"></textarea>
+          <div id="outdoor-serial-ids-mount-${id}" class="d-none"></div>
+          <textarea name="items[${id}][outdoor_new_serials_raw]" id="outdoor-new-sn-${id}" class="d-none" aria-hidden="true"></textarea>
         </div>
       </div>
     </div>`;
@@ -425,10 +432,14 @@ function escapeHtml(s) {
 function clearSerialRowAttachments(id) {
     const row = document.getElementById(`item-${id}`);
     if (row) delete row.dataset.serialDraftJson;
-    const m = document.getElementById(`serial-ids-mount-${id}`);
-    if (m) m.innerHTML = '';
-    const ta = document.getElementById(`new-sn-${id}`);
-    if (ta) ta.value = '';
+    for (const mid of [`serial-ids-mount-${id}`, `outdoor-serial-ids-mount-${id}`]) {
+        const m = document.getElementById(mid);
+        if (m) m.innerHTML = '';
+    }
+    for (const tid of [`new-sn-${id}`, `outdoor-new-sn-${id}`]) {
+        const ta = document.getElementById(tid);
+        if (ta) ta.value = '';
+    }
     updateSerialRowSummary(id);
 }
 
@@ -450,20 +461,32 @@ function updateSerialRowSummary(id) {
     try { draft = row?.dataset.serialDraftJson ? JSON.parse(row.dataset.serialDraftJson) : null; } catch (e) { draft = null; }
 
     // Resolve the actual serial numbers from the draft so the cashier can review them on the page.
-    const entries = [];
-    if (draft && Array.isArray(draft.slots)) {
-        for (const s of draft.slots) {
+    const isSet = !!prod?.is_set;
+    const resolveEntries = (slots, serialList, prefix) => {
+        const out = [];
+        for (const s of (slots || [])) {
             if (s.stockId) {
-                const found = (prod?.serials || []).find(x => Number(x.id) === Number(s.stockId));
-                entries.push({ label: found ? found.serial_number : ('#' + s.stockId), kind: 'stock' });
+                const found = (serialList || []).find(x => Number(x.id) === Number(s.stockId));
+                out.push({ label: (prefix ? prefix + ' ' : '') + (found ? found.serial_number : ('#' + s.stockId)), kind: 'stock' });
             } else if (s.newTxt && String(s.newTxt).trim()) {
-                entries.push({ label: String(s.newTxt).trim(), kind: 'new' });
+                out.push({ label: (prefix ? prefix + ' ' : '') + String(s.newTxt).trim(), kind: 'new' });
             }
+        }
+        return out;
+    };
+
+    let entries = [];
+    if (draft) {
+        entries = resolveEntries(draft.slots, prod?.serials, isSet ? 'IDU:' : '');
+        if (isSet) {
+            entries = entries.concat(resolveEntries(draft.outdoorSlots, prod?.outdoor_serials, 'ODU:'));
         }
     }
 
     if (entries.length === 0) {
-        if (draft && draft.attach === false) {
+        if (isSet) {
+            el.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-circle"></i> Indoor + outdoor set — enter the serials of BOTH units via “Warehouse / serials”.</span>';
+        } else if (draft && draft.attach === false) {
             el.innerHTML = '<span class="text-warning"><i class="bi bi-exclamation-triangle"></i> Selling without serial numbers.</span>';
         } else if (!hasStock) {
             el.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-circle"></i> Serial number required — click “Warehouse / serials” to encode.</span>';
@@ -483,71 +506,155 @@ function updateSerialRowSummary(id) {
         + `<div class="d-flex flex-wrap">${chips}</div>`;
 }
 
-function writeMountsAndTextarea(id, ids, news) {
+function writeMountsAndTextarea(id, ids, news, outdoorIds = [], outdoorNews = []) {
     const m = document.getElementById(`serial-ids-mount-${id}`);
     if (m) m.innerHTML = ids.map(V => `<input type="hidden" name="items[${id}][serial_ids][]" value="${V}">`).join('');
     const ta = document.getElementById(`new-sn-${id}`);
     if (ta) ta.value = news.filter(Boolean).join('\n');
+
+    const om = document.getElementById(`outdoor-serial-ids-mount-${id}`);
+    if (om) om.innerHTML = outdoorIds.map(V => `<input type="hidden" name="items[${id}][outdoor_serial_ids][]" value="${V}">`).join('');
+    const ota = document.getElementById(`outdoor-new-sn-${id}`);
+    if (ota) ota.value = outdoorNews.filter(Boolean).join('\n');
+
     updateSerialRowSummary(id);
 }
 
-function onSaleSlotStockChange(sel) {
-    const row = sel.closest('.sale-sn-slot');
-    if (!row) return;
-    const input = row.querySelector('.sale-sn-newin');
-    if (!input) return;
-    const showNew = sel.value === '__new__';
-    input.style.display = showNew ? '' : 'none';
-    if (!showNew) input.value = '';
-    else input.focus();
-}
-
-function renderSaleSerialSlots(serials, qty, slotsDraft) {
+/* Searchable serial dropdown — delegated events on the modal slot container */
+function initSaleSnSearchEvents() {
     const wrap = document.getElementById('saleSerialSlotsWrap');
-    const hint = document.getElementById('saleSerialNoStockHint');
     if (!wrap) return;
 
-    wrap.innerHTML = '';
-    const hasStock = serials.length > 0;
+    wrap.addEventListener('input', function (e) {
+        const input = e.target.closest('.sale-sn-search');
+        if (!input) return;
+        const slot = input.closest('.sale-sn-slot');
+        slot.dataset.stockId = '';
+        slot.dataset.newtxt = '';
+        setSaleSlotState(slot);
+        buildSaleSnList(slot);
+        hideSaleSnLists(slot.querySelector('.sale-sn-list'));
+    });
 
-    if (hasStock) {
-        hint.textContent = 'Pick a warehouse serial for each piece, or choose “Type a new serial” to encode one that isn’t recorded yet.';
-        hint.classList.remove('d-none');
-    } else {
-        hint.textContent = 'No serials are recorded for this model yet. Type each sticker number below — they’ll be saved to inventory when you save the sale.';
-        hint.classList.remove('d-none');
+    wrap.addEventListener('focusin', function (e) {
+        const input = e.target.closest('.sale-sn-search');
+        if (!input) return;
+        const slot = input.closest('.sale-sn-slot');
+        buildSaleSnList(slot);
+        hideSaleSnLists(slot.querySelector('.sale-sn-list'));
+    });
+
+    wrap.addEventListener('mousedown', function (e) {
+        const opt = e.target.closest('.sale-sn-opt, .sale-sn-opt-new');
+        if (!opt) return;
+        e.preventDefault();
+        const slot  = opt.closest('.sale-sn-slot');
+        const input = slot.querySelector('.sale-sn-search');
+
+        if (opt.classList.contains('sale-sn-opt')) {
+            slot.dataset.stockId = opt.dataset.id;
+            slot.dataset.newtxt = '';
+            input.value = opt.dataset.sn;
+        } else {
+            slot.dataset.stockId = '';
+            slot.dataset.newtxt = opt.dataset.sn;
+            input.value = opt.dataset.sn;
+        }
+        setSaleSlotState(slot);
+        slot.querySelector('.sale-sn-list').style.display = 'none';
+    });
+
+    wrap.addEventListener('focusout', function (e) {
+        const input = e.target.closest('.sale-sn-search');
+        if (!input) return;
+        const slot = input.closest('.sale-sn-slot');
+        // Delay so option clicks register first
+        setTimeout(() => {
+            resolveSaleSlotText(slot);
+            const list = slot.querySelector('.sale-sn-list');
+            if (list && !slot.contains(document.activeElement)) list.style.display = 'none';
+        }, 180);
+    });
+}
+
+// Serial lists for the currently open modal, keyed by side ('main' / 'outdoor')
+let saleSerialModalData = { main: [], outdoor: [] };
+const saleSerialLookupUrl = @json(route('sales.serial-lookup'));
+let saleSerialSoldCache = {};
+
+async function fetchSoldSerials(q) {
+    if (q.length < 2) return [];
+    if (saleSerialSoldCache[q]) return saleSerialSoldCache[q];
+    try {
+        const res = await fetch(`${saleSerialLookupUrl}?q=${encodeURIComponent(q)}`);
+        if (!res.ok) return [];
+        const data = await res.json();
+        saleSerialSoldCache[q] = data;
+        return data;
+    } catch (e) {
+        return [];
+    }
+}
+
+function exactSoldSerial(q, sold) {
+    const ql = q.toLowerCase();
+    return (sold || []).find(s => String(s.serial_number || '').toLowerCase() === ql) || null;
+}
+
+function soldSerialResultsHtml(sold) {
+    if (!sold.length) return '';
+    return `<div class="border-top mt-1 pt-1">
+        <div class="px-2 py-1 text-muted" style="font-size:0.72rem;">Already sold — customer lookup:</div>
+        ${sold.map(s => `
+            <div class="px-2 py-1" style="font-size:0.8rem;background:#eff6ff;cursor:default;">
+                <div style="font-family:monospace;font-weight:600;">${escapeHtml(s.serial_number)}</div>
+                <div class="text-muted" style="font-size:0.72rem;">
+                    Customer: <strong class="text-dark">${escapeHtml(s.customer_name || '—')}</strong>
+                    ${s.sale_date ? ` · ${escapeHtml(s.sale_date)}` : ''}
+                    ${s.invoice_number ? ` · ${escapeHtml(s.invoice_number)}` : ''}
+                </div>
+            </div>
+        `).join('')}
+    </div>`;
+}
+
+function renderSaleSerialSideSlots(wrap, serials, qty, slotsDraft, side, heading) {
+    const hasStock = serials.length > 0;
+    saleSerialModalData[side] = serials;
+
+    if (heading) {
+        wrap.insertAdjacentHTML('beforeend',
+            `<div class="fw-semibold small mt-2 mb-1" style="color:${side === 'outdoor' ? '#198754' : '#0d6efd'};">${heading}</div>`);
     }
 
     for (let i = 0; i < qty; i++) {
         const d = slotsDraft[i] || { stockId: null, newTxt: '' };
         if (hasStock) {
-            let opts = '<option value="">Choose serial…</option>';
-            for (const s of serials) {
-                const selAttr = Number(d.stockId) === Number(s.id) ? ' selected' : '';
-                opts += `<option value="${s.id}"${selAttr}>${escapeHtml(s.serial_number)}</option>`;
-            }
-            const useNew = !d.stockId && !!String(d.newTxt || '').trim();
-            opts += `<option value="__new__"${useNew ? ' selected' : ''}>➕ Type a new serial…</option>`;
-
-            const initialNewVal = useNew ? escapeHtml(String(d.newTxt || '').trim()) : '';
+            const matched = d.stockId ? serials.find(s => Number(s.id) === Number(d.stockId)) : null;
+            const stockId = matched ? matched.id : '';
+            const newTxt  = (!matched && d.newTxt) ? String(d.newTxt).trim() : '';
+            const initVal = matched ? matched.serial_number : newTxt;
 
             wrap.insertAdjacentHTML('beforeend',
-                `<div class="sale-sn-slot border rounded p-2 mb-2" data-index="${i}" data-hasstock="1">
+                `<div class="sale-sn-slot border rounded p-2 mb-2" data-index="${i}" data-side="${side}" data-hasstock="1"
+                      data-stock-id="${stockId}" data-newtxt="${escapeHtml(newTxt)}">
                   <label class="form-label small fw-semibold mb-1 text-muted">Piece ${i + 1} of ${qty}</label>
-                  <select class="form-select form-select-sm sale-sn-stocksel" onchange="onSaleSlotStockChange(this)">${opts}</select>
-                  <input type="text" class="form-control form-control-sm mt-2 sale-sn-newin" autocomplete="off"
-                         placeholder="Type the serial number from the unit"
-                         value="${initialNewVal}" style="display:${useNew ? '' : 'none'}">
+                  <div class="position-relative">
+                    <div class="input-group input-group-sm">
+                      <span class="input-group-text sale-sn-state" style="min-width:34px;justify-content:center;"></span>
+                      <input type="text" class="form-control form-control-sm sale-sn-search" autocomplete="off"
+                             placeholder="🔍 Search serial — warehouse, sold customer lookup, or new"
+                             value="${escapeHtml(initVal)}" style="font-family:monospace;">
+                    </div>
+                    <div class="sale-sn-list position-absolute w-100 bg-white border rounded shadow-sm"
+                         style="display:none;top:100%;left:0;max-height:170px;overflow-y:auto;z-index:2070;"></div>
+                  </div>
                 </div>`);
 
-            const rowEl = wrap.lastElementChild;
-            if (rowEl && d.stockId) {
-                const ni = rowEl.querySelector('.sale-sn-newin');
-                if (ni) { ni.style.display = 'none'; ni.value = ''; }
-            }
+            setSaleSlotState(wrap.lastElementChild);
         } else {
             wrap.insertAdjacentHTML('beforeend',
-                `<div class="sale-sn-slot border rounded p-2 mb-2" data-index="${i}" data-hasstock="0">
+                `<div class="sale-sn-slot border rounded p-2 mb-2" data-index="${i}" data-side="${side}" data-hasstock="0">
                   <label class="form-label small fw-semibold mb-1 text-muted">Piece ${i + 1} of ${qty}</label>
                   <input type="text" class="form-control form-control-sm sale-sn-newonly" autocomplete="off"
                          placeholder="Serial from sticker — saved to inventory"
@@ -557,26 +664,153 @@ function renderSaleSerialSlots(serials, qty, slotsDraft) {
     }
 }
 
-function saleSerialDraftFromRow(row, qty, defaultAttach) {
-    if (!row || !qty) return { attach: false, slots: [] };
+/* Status icon for a searchable slot: warehouse pick, new serial, or empty */
+function setSaleSlotState(slotEl) {
+    const state = slotEl.querySelector('.sale-sn-state');
+    if (!state) return;
+    if (slotEl.dataset.stockId) {
+        state.innerHTML = '<i class="bi bi-upc-scan text-success"></i>';
+        state.title = 'Warehouse serial';
+    } else if (slotEl.dataset.newtxt) {
+        state.innerHTML = '<i class="bi bi-plus-circle text-info"></i>';
+        state.title = 'New serial — will be registered';
+    } else {
+        state.innerHTML = '<i class="bi bi-search text-muted"></i>';
+        state.title = '';
+    }
+}
+
+/* Build the filtered dropdown for one searchable slot */
+function buildSaleSnList(slotEl) {
+    const side    = slotEl.dataset.side;
+    const serials = saleSerialModalData[side] || [];
+    const input   = slotEl.querySelector('.sale-sn-search');
+    const list    = slotEl.querySelector('.sale-sn-list');
+    if (!input || !list) return;
+
+    const q = (input.value || '').trim();
+    const ql = q.toLowerCase();
+    const lookupReq = String(Date.now()) + Math.random();
+    slotEl.dataset.lookupReq = lookupReq;
+
+    // Serials already picked in the other slots of the same side
+    const taken = new Set();
+    document.querySelectorAll(`#saleSerialSlotsWrap .sale-sn-slot[data-side="${side}"]`).forEach(el => {
+        if (el !== slotEl && el.dataset.stockId) taken.add(String(el.dataset.stockId));
+    });
+
+    const matches = serials.filter(s => !ql || s.serial_number.toLowerCase().includes(ql));
+    let html = matches.slice(0, 60).map(s => {
+        const dis = taken.has(String(s.id));
+        return dis
+            ? `<div class="px-2 py-1 text-muted" style="font-size:0.82rem;font-family:monospace;cursor:not-allowed;">${escapeHtml(s.serial_number)} <small>(already chosen)</small></div>`
+            : `<div class="px-2 py-1 sale-sn-opt" style="cursor:pointer;font-size:0.82rem;font-family:monospace;"
+                    data-id="${s.id}" data-sn="${escapeHtml(s.serial_number)}"
+                    onmouseenter="this.style.background='#f0f4ff'" onmouseleave="this.style.background=''">${escapeHtml(s.serial_number)}</div>`;
+    }).join('');
+
+    if (matches.length === 0 && q.length >= 2) {
+        html += `<div class="px-2 py-1 text-muted" style="font-size:0.78rem;">No matching warehouse serial</div>`;
+    }
+
+    const finishList = (sold) => {
+        if (slotEl.dataset.lookupReq !== lookupReq) return;
+        if ((input.value || '').trim() !== q) return;
+
+        const exactSold = q ? exactSoldSerial(q, sold) : null;
+        slotEl.dataset.soldTo = exactSold ? (exactSold.customer_name || 'another customer') : '';
+
+        let tail = '';
+        if (q.length >= 2) {
+            tail += soldSerialResultsHtml(sold);
+            if (exactSold) {
+                tail += `<div class="px-2 py-1 text-danger border-top" style="font-size:0.78rem;">
+                    <i class="bi bi-x-circle"></i> Sold to <strong>${escapeHtml(exactSold.customer_name || 'another customer')}</strong> — cannot sell again.
+                </div>`;
+            } else if (q) {
+                tail += `<div class="px-2 py-1 sale-sn-opt-new border-top text-primary fw-semibold" style="cursor:pointer;font-size:0.8rem;"
+                              data-sn="${escapeHtml(q)}"
+                              onmouseenter="this.style.background='#f0f9ff'" onmouseleave="this.style.background=''">➕ Use “${escapeHtml(q)}” as a NEW serial</div>`;
+            }
+        } else if (q) {
+            slotEl.dataset.soldTo = '';
+            tail += `<div class="px-2 py-1 sale-sn-opt-new border-top text-primary fw-semibold" style="cursor:pointer;font-size:0.8rem;"
+                          data-sn="${escapeHtml(q)}"
+                          onmouseenter="this.style.background='#f0f9ff'" onmouseleave="this.style.background=''">➕ Use “${escapeHtml(q)}” as a NEW serial</div>`;
+        } else {
+            slotEl.dataset.soldTo = '';
+        }
+
+        list.innerHTML = html + tail;
+        list.style.display = '';
+        setSaleSlotState(slotEl);
+    };
+
+    if (q.length >= 2) {
+        list.innerHTML = html + `<div class="px-2 py-1 text-muted sale-sn-sold-loading" style="font-size:0.78rem;">Checking sold units…</div>`;
+        list.style.display = '';
+        fetchSoldSerials(q).then(sold => finishList(sold || []));
+        return;
+    }
+
+    slotEl.dataset.soldTo = '';
+    finishList([]);
+}
+
+function hideSaleSnLists(except) {
+    document.querySelectorAll('#saleSerialSlotsWrap .sale-sn-list').forEach(l => {
+        if (l !== except) l.style.display = 'none';
+    });
+}
+
+/* If the user typed text but didn't click an option, resolve it:
+   exact warehouse match → pick it; anything else → treat as new serial. */
+function resolveSaleSlotText(slotEl) {
+    if (slotEl.dataset.hasstock !== '1') return;
+    if (slotEl.dataset.stockId || slotEl.dataset.newtxt) return;
+
+    const input = slotEl.querySelector('.sale-sn-search');
+    const txt = (input?.value || '').trim();
+    if (!txt) return;
+
+    if (slotEl.dataset.soldTo) {
+        slotEl.dataset.stockId = '';
+        slotEl.dataset.newtxt = '';
+        setSaleSlotState(slotEl);
+        return;
+    }
+
+    const serials = saleSerialModalData[slotEl.dataset.side] || [];
+    const exact = serials.find(s => s.serial_number.toLowerCase() === txt.toLowerCase());
+    if (exact) {
+        slotEl.dataset.stockId = exact.id;
+        slotEl.dataset.newtxt = '';
+        input.value = exact.serial_number;
+    } else {
+        slotEl.dataset.stockId = '';
+        slotEl.dataset.newtxt = txt;
+    }
+    setSaleSlotState(slotEl);
+}
+
+function saleSerialDraftFromRow(row, qty, defaultAttach, isSet) {
+    const blank = () => Array.from({ length: qty }, () => ({ stockId: null, newTxt: '' }));
+    if (!row || !qty) return { attach: false, slots: [], outdoorSlots: [] };
     const raw = row.dataset.serialDraftJson;
     try {
         if (raw) {
             const j = JSON.parse(raw);
             if (j && j.attach === false && (!Array.isArray(j.slots) || j.slots.length === 0)) {
-                return {
-                    attach: false,
-                    slots: Array.from({ length: qty }, () => ({ stockId: null, newTxt: '' })),
-                };
+                return { attach: false, slots: blank(), outdoorSlots: blank() };
             }
             if (j && Array.isArray(j.slots) && j.slots.length === qty) {
-                return { attach: !!j.attach, slots: j.slots };
+                const out = (isSet && Array.isArray(j.outdoorSlots) && j.outdoorSlots.length === qty) ? j.outdoorSlots : blank();
+                return { attach: !!j.attach, slots: j.slots, outdoorSlots: out };
             }
         }
     } catch (e) { /* fallback */ }
 
-    const slots = Array.from({ length: qty }, () => ({ stockId: null, newTxt: '' }));
-    return { attach: defaultAttach, slots };
+    return { attach: defaultAttach, slots: blank(), outdoorSlots: blank() };
 }
 
 function openSalePickSerialModal(id) {
@@ -593,30 +827,48 @@ function openSalePickSerialModal(id) {
 
     saleSerialDraftItemKey = id;
     const prod = products.find(p => p.id === parseInt(prodId, 10));
+    const isSet = !!prod?.is_set;
     const serials = prod?.serials || [];
+    const outdoorSerials = prod?.outdoor_serials || [];
     const label = prod ? prod.label : 'Product';
 
-    document.getElementById('saleSerialModalLead').textContent = `${label} · Quantity ${qty}`;
+    document.getElementById('saleSerialModalLead').textContent =
+        `${label} · Quantity ${qty}` + (isSet ? ' (indoor + outdoor per set)' : '');
 
     const row = document.getElementById(`item-${id}`);
-    const hasStock = serials.length > 0;
+    const hasStock = serials.length > 0 || (isSet && outdoorSerials.length > 0);
     // Default to attaching serials; required (no skip) when the product has no recorded serials.
-    let draft = saleSerialDraftFromRow(row, qty, true);
+    let draft = saleSerialDraftFromRow(row, qty, true, isSet);
 
     const skipWrap = document.getElementById('saleSerialSkipWrap');
     const skipBox  = document.getElementById('saleSerialSkip');
-    if (hasStock) {
+    if (hasStock && !isSet) {
         skipWrap.classList.remove('d-none');
         skipBox.disabled = false;
         skipBox.checked = !draft.attach;
     } else {
-        // No serials on file → encoding is mandatory.
+        // No serials on file, or an indoor+outdoor set → encoding both units is mandatory.
         skipWrap.classList.add('d-none');
         skipBox.disabled = true;
         skipBox.checked = false;
     }
 
-    renderSaleSerialSlots(serials, qty, draft.slots || []);
+    const wrap = document.getElementById('saleSerialSlotsWrap');
+    const hint = document.getElementById('saleSerialNoStockHint');
+    if (wrap) wrap.innerHTML = '';
+    if (hint) {
+        hint.textContent = hasStock
+            ? 'Search warehouse serials to sell, or type a sold serial to see which customer bought it. New sticker numbers can be registered on save.'
+            : 'No serials are recorded for this model yet. Type each sticker number below — they’ll be saved to inventory when you save the sale.';
+        hint.classList.remove('d-none');
+    }
+
+    if (isSet) {
+        renderSaleSerialSideSlots(wrap, serials, qty, draft.slots || [], 'main', `❄️ Indoor unit — ${escapeHtml(prod.indoor_model || '')}`);
+        renderSaleSerialSideSlots(wrap, outdoorSerials, qty, draft.outdoorSlots || [], 'outdoor', `🌀 Outdoor unit — ${escapeHtml(prod.outdoor_model || '')}`);
+    } else {
+        renderSaleSerialSideSlots(wrap, serials, qty, draft.slots || [], 'main', '');
+    }
     saleSerialToggleSlotsVisibility();
 
     getSalePickSerialBsModal().show();
@@ -650,83 +902,74 @@ function applySalePickSerialModal() {
     const skip = document.getElementById('saleSerialSkip').checked;
     if (skip) {
         clearSerialRowAttachments(id);
-        if (row) row.dataset.serialDraftJson = JSON.stringify({ attach: false, slots: [] });
+        if (row) row.dataset.serialDraftJson = JSON.stringify({ attach: false, slots: [], outdoorSlots: [] });
         updateSerialRowSummary(id);
         getSalePickSerialBsModal().hide();
         calculateTotals();
         return;
     }
 
-    const ids = [];
-    const news = [];
-    const slots = [];
-    let applyError = null;
+    const prod = products.find(p => p.id === parseInt(prodId, 10));
+    const isSet = !!prod?.is_set;
 
-    for (const slotEl of document.querySelectorAll('#saleSerialSlotsWrap .sale-sn-slot')) {
-        const hs = slotEl.dataset.hasstock === '1';
-        if (hs) {
-            const sel = slotEl.querySelector('.sale-sn-stocksel');
-            const ni = slotEl.querySelector('.sale-sn-newin');
-            const v = sel ? sel.value : '';
-            if (v === '') {
-                applyError = 'Pick a warehouse serial or choose “New serial” for each piece.';
-                break;
-            }
-            if (v === '__new__') {
-                const txt = (ni && ni.value) ? ni.value.trim() : '';
+    // Collect each side (main/indoor, and outdoor for sets) independently
+    const collectSide = (side, sideLabel) => {
+        const ids = [];
+        const news = [];
+        const slots = [];
+
+        for (const slotEl of document.querySelectorAll(`#saleSerialSlotsWrap .sale-sn-slot[data-side="${side}"]`)) {
+            const hs = slotEl.dataset.hasstock === '1';
+            if (hs) {
+                resolveSaleSlotText(slotEl);
+                if (slotEl.dataset.soldTo) {
+                    const inp = slotEl.querySelector('.sale-sn-search');
+                    return { error: `Serial “${inp?.value || ''}” is already sold to ${slotEl.dataset.soldTo}.` };
+                }
+                if (slotEl.dataset.stockId) {
+                    ids.push(parseInt(slotEl.dataset.stockId, 10));
+                    slots.push({ stockId: parseInt(slotEl.dataset.stockId, 10), newTxt: '' });
+                } else if (slotEl.dataset.newtxt) {
+                    news.push(slotEl.dataset.newtxt);
+                    slots.push({ stockId: null, newTxt: slotEl.dataset.newtxt });
+                } else {
+                    return { error: `Search and pick a warehouse serial — or type a new one — for each ${sideLabel} piece.` };
+                }
+            } else {
+                const inp = slotEl.querySelector('.sale-sn-newonly');
+                const txt = inp ? inp.value.trim() : '';
                 if (!txt) {
-                    applyError = 'Type the new serial number for each piece you marked as new.';
-                    break;
+                    return { error: `Enter a serial number for each ${sideLabel} piece.` };
                 }
                 news.push(txt);
                 slots.push({ stockId: null, newTxt: txt });
-            } else {
-                const nid = parseInt(v, 10);
-                if (!nid) {
-                    applyError = 'Pick a warehouse serial or choose “New serial” for each piece.';
-                    break;
-                }
-                ids.push(nid);
-                slots.push({ stockId: nid, newTxt: '' });
             }
-        } else {
-            const inp = slotEl.querySelector('.sale-sn-newonly');
-            const txt = inp ? inp.value.trim() : '';
-            if (!txt) {
-                applyError = 'Enter a serial number for each piece.';
-                break;
-            }
-            news.push(txt);
-            slots.push({ stockId: null, newTxt: txt });
         }
+
+        if (new Set(ids).size !== ids.length) {
+            return { error: `You chose the same warehouse serial twice (${sideLabel}). Each piece needs a different one.` };
+        }
+        if (new Set(news).size !== news.length) {
+            return { error: `Duplicate new serial entries (${sideLabel}) — use a unique number per piece.` };
+        }
+        if (ids.length + news.length !== qty) {
+            return { error: `This line is quantity ${qty}. You must assign exactly that many ${sideLabel} serials.` };
+        }
+
+        return { ids, news, slots };
+    };
+
+    const main = collectSide('main', isSet ? 'indoor' : 'unit');
+    if (main.error) { alert(main.error); return; }
+
+    let outdoor = { ids: [], news: [], slots: [] };
+    if (isSet) {
+        outdoor = collectSide('outdoor', 'outdoor');
+        if (outdoor.error) { alert(outdoor.error); return; }
     }
 
-    if (applyError) {
-        alert(applyError);
-        return;
-    }
-
-    if (slots.length !== qty) return;
-
-    const idSet = new Set(ids);
-    if (idSet.size !== ids.length) {
-        alert('You chose the same warehouse serial twice. Each piece needs a different one.');
-        return;
-    }
-
-    const nSet = new Set(news);
-    if (nSet.size !== news.length) {
-        alert('Duplicate new serial entries — use a unique number per piece.');
-        return;
-    }
-
-    if (ids.length + news.length !== qty) {
-        alert(`This line is quantity ${qty}. You must assign exactly that many serials.`);
-        return;
-    }
-
-    if (row) row.dataset.serialDraftJson = JSON.stringify({ attach: true, slots });
-    writeMountsAndTextarea(id, ids, news);
+    if (row) row.dataset.serialDraftJson = JSON.stringify({ attach: true, slots: main.slots, outdoorSlots: outdoor.slots });
+    writeMountsAndTextarea(id, main.ids, main.news, outdoor.ids, outdoor.news);
 
     getSalePickSerialBsModal().hide();
     calculateTotals();
@@ -872,12 +1115,14 @@ function updateInstallmentSummary(total) {
     const months  = parseInt(document.getElementById('installment_months')?.value) || 12;
     const down    = parseFloat(document.getElementById('down_payment')?.value) || 0;
     const balance = Math.max(0, total - down);
-    const monthly = months > 0 ? balance / months : 0;
+    // Downpayment counts as month #1, so the balance spreads over the remaining months
+    const remaining = down > 0 ? Math.max(1, months - 1) : months;
+    const monthly = remaining > 0 ? balance / remaining : 0;
     document.getElementById('summaryDown').textContent    = '₱' + down.toFixed(2);
     document.getElementById('summaryBalance').textContent = '₱' + balance.toFixed(2);
     document.getElementById('summaryMonthly').textContent = '₱' + monthly.toFixed(2);
     document.getElementById('summaryNote').textContent    = down > 0
-        ? `Down = Month #1. Then ${months} × ₱${monthly.toFixed(2)}/mo.`
+        ? `Down = Month #1. Then ${remaining} × ₱${monthly.toFixed(2)}/mo (months 2–${months}).`
         : `${months} equal payments of ₱${monthly.toFixed(2)}/mo.`;
 }
 
@@ -906,6 +1151,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.getElementById('saleSerialApplyBtn')?.addEventListener('click', applySalePickSerialModal);
     document.getElementById('saleSerialSkip')?.addEventListener('change', saleSerialToggleSlotsVisibility);
+    initSaleSnSearchEvents();
 
     document.getElementById('saleForm').addEventListener('submit', function (e) {
         if (!document.querySelector('.item-row')) {
@@ -919,13 +1165,29 @@ document.addEventListener('DOMContentLoaded', function () {
             if (!prodId) { valid = false; alert('Please select a product for all product rows.'); return; }
             const qty = parseInt(document.getElementById(`qty-${id}`)?.value) || 0;
             if (qty < 1) { valid = false; alert('Product Qty must be at least 1 for each product row.'); return; }
-            const mount = document.getElementById(`serial-ids-mount-${id}`);
-            const sel = mount ? mount.querySelectorAll('input[type="hidden"]').length : 0;
-            const newLines = parseNewSerialLinesFromTextarea(document.getElementById(`new-sn-${id}`)?.value);
-            const attached = sel + newLines.length;
-
             const prod = products.find(p => p.id === parseInt(prodId, 10));
-            const noStock = prod && ((prod.stock || 0) === 0 || (prod.serials || []).length === 0);
+            const isSet = !!prod?.is_set;
+
+            const countSide = (mountId, taId) => {
+                const mount = document.getElementById(mountId);
+                const sel = mount ? mount.querySelectorAll('input[type="hidden"]').length : 0;
+                const newLines = parseNewSerialLinesFromTextarea(document.getElementById(taId)?.value);
+                return sel + newLines.length;
+            };
+
+            const attached        = countSide(`serial-ids-mount-${id}`, `new-sn-${id}`);
+            const outdoorAttached = isSet ? countSide(`outdoor-serial-ids-mount-${id}`, `outdoor-new-sn-${id}`) : null;
+
+            if (isSet) {
+                // Sets always require both units encoded — one indoor + one outdoor per set
+                if (attached !== qty || outdoorAttached !== qty) {
+                    valid = false;
+                    alert('This is an indoor + outdoor set: enter the serials of BOTH units (' + qty + ' each). Open “Warehouse / serials”.');
+                }
+                return;
+            }
+
+            const noStock = prod && (prod.serials || []).length === 0;
             if (noStock && attached !== qty) {
                 valid = false;
                 alert('This product has no recorded serials, so a serial number is required for each unit. Open “Warehouse / serials” and encode ' + qty + ' serial(s).');
