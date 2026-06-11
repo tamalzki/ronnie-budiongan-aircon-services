@@ -9,10 +9,23 @@ use Illuminate\Support\Facades\DB;
  * model code (e.g. "FTKQ35CVAF — 1.5 HP"), so those rows were skipped
  * and are still missing paired_product_id.
  *
- * This migration re-applies the same known indoor/outdoor pairs, but
- * matches by prefix (the model code followed by end-of-string or a
- * non-alphanumeric character), and only touches indoor rows that still
- * have paired_product_id NULL.
+ * This migration runs two passes over indoor rows that still have
+ * paired_product_id NULL:
+ *
+ *  1. Suffix-uniqueness pass — some catalog rows are formatted as
+ *     "MODEL – CAPACITY – CATEGORY" (e.g. "FBFC71BXVA – 3.0 HP – Ceiling
+ *     Concealed Ducted" / "RZFC71BXVM – 3.0 HP – Ceiling Concealed
+ *     Ducted"). When the text after the model code is shared by exactly
+ *     one indoor and one outdoor row, that's a reliable pairing signal —
+ *     even for model codes this migration doesn't otherwise recognize.
+ *     This also avoids the known-pairs pass below mis-pairing rows where
+ *     the same outdoor model code is reused across multiple categories
+ *     (e.g. "RZFC71BXVM" appears under Ceiling Concealed Ducted, Ceiling
+ *     Cassette, AND Floor Mounted).
+ *
+ *  2. Known-pairs pass — matches by model-code prefix (the model code
+ *     followed by end-of-string or a non-alphanumeric character) using
+ *     the PAIRS list below.
  */
 class FixUnpairedProductsWithModelSuffixes extends Migration
 {
@@ -67,6 +80,38 @@ class FixUnpairedProductsWithModelSuffixes extends Migration
 
     public function up()
     {
+        $this->pairBySuffixUniqueness();
+        $this->pairByKnownModelCodes();
+    }
+
+    private function pairBySuffixUniqueness(): void
+    {
+        $products = DB::table('products')->get(['id', 'model', 'unit_type', 'paired_product_id', 'price']);
+
+        $claimedOutdoorIds = $products->pluck('paired_product_id')->filter()->unique();
+
+        $indoors  = $products->where('unit_type', 'indoor')->whereNull('paired_product_id');
+        $outdoors = $products->where('unit_type', 'outdoor')->whereNotIn('id', $claimedOutdoorIds);
+
+        $indoorBySuffix  = $indoors->groupBy(fn ($p) => $this->modelSuffix($p->model));
+        $outdoorBySuffix = $outdoors->groupBy(fn ($p) => $this->modelSuffix($p->model));
+
+        foreach ($indoorBySuffix as $suffix => $group) {
+            if ($suffix === null || $group->count() !== 1) {
+                continue;
+            }
+
+            $outdoorGroup = $outdoorBySuffix->get($suffix);
+            if (!$outdoorGroup || $outdoorGroup->count() !== 1) {
+                continue;
+            }
+
+            $this->applyPairing($group->first(), $outdoorGroup->first());
+        }
+    }
+
+    private function pairByKnownModelCodes(): void
+    {
         $products = DB::table('products')->get(['id', 'model', 'unit_type', 'paired_product_id', 'price']);
 
         $indoors  = $products->where('unit_type', 'indoor')->whereNull('paired_product_id');
@@ -80,16 +125,37 @@ class FixUnpairedProductsWithModelSuffixes extends Migration
                 continue;
             }
 
-            DB::table('products')->where('id', $indoor->id)
-                ->update(['paired_product_id' => $outdoor->id]);
-
-            // One set = one price. If one side is missing a price, copy from the other.
-            if ((float) $indoor->price <= 0 && (float) $outdoor->price > 0) {
-                DB::table('products')->where('id', $indoor->id)->update(['price' => $outdoor->price]);
-            } elseif ((float) $outdoor->price <= 0 && (float) $indoor->price > 0) {
-                DB::table('products')->where('id', $outdoor->id)->update(['price' => $indoor->price]);
-            }
+            $this->applyPairing($indoor, $outdoor);
         }
+    }
+
+    private function applyPairing(object $indoor, object $outdoor): void
+    {
+        DB::table('products')->where('id', $indoor->id)
+            ->update(['paired_product_id' => $outdoor->id]);
+
+        // One set = one price. If one side is missing a price, copy from the other.
+        if ((float) $indoor->price <= 0 && (float) $outdoor->price > 0) {
+            DB::table('products')->where('id', $indoor->id)->update(['price' => $outdoor->price]);
+        } elseif ((float) $outdoor->price <= 0 && (float) $indoor->price > 0) {
+            DB::table('products')->where('id', $outdoor->id)->update(['price' => $indoor->price]);
+        }
+    }
+
+    /**
+     * The portion of the model string after the model code, e.g.
+     * "FBFC71BXVA – 3.0 HP – Ceiling Concealed Ducted" -> "3.0 HP – CEILING CONCEALED DUCTED".
+     * Returns null when there's no " – " / " - " separator.
+     */
+    private function modelSuffix(?string $model): ?string
+    {
+        $model = trim((string) $model);
+
+        if (!preg_match('/^\S+\s*[–-]\s*(.+)$/u', $model, $m)) {
+            return null;
+        }
+
+        return strtoupper(trim($m[1]));
     }
 
     /**
