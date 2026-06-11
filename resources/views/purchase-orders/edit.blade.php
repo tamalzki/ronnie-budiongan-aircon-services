@@ -307,14 +307,14 @@ function addItem(prefill) {
 
         <td>
             <input type="number" step="0.01" class="form-control form-control-sm disc-input text-center"
-                   name="items[${idx}][discount_percent]" value="0" min="0" max="100" onchange="calcRow(${idx})">
+                   name="items[${idx}][discount_percent]" value="" min="0" max="100" placeholder="0" onchange="calcRow(${idx})">
         </td>
 
         <td>
             <div class="input-group input-group-sm">
                 <span class="input-group-text">₱</span>
                 <input type="number" step="0.01" class="form-control discount-amount-input"
-                       name="items[${idx}][discount_amount]" value="0" min="0" onchange="calcRow(${idx})">
+                       name="items[${idx}][discount_amount]" value="" min="0" placeholder="0.00" onchange="calcRow(${idx})">
             </div>
         </td>
 
@@ -350,8 +350,8 @@ function addItem(prefill) {
         if (prefill.unit_cost !== '' && prefill.unit_cost != null) {
             row.querySelector('.cost-input').value = parseFloat(prefill.unit_cost).toFixed(2);
         }
-        row.querySelector('.disc-input').value = prefill.discount_percent ?? 0;
-        row.querySelector('.discount-amount-input').value = prefill.discount_amount ?? 0;
+        row.querySelector('.disc-input').value = prefill.discount_percent || '';
+        row.querySelector('.discount-amount-input').value = prefill.discount_amount || '';
 
         calcRow(idx);
         refreshDropdowns();
@@ -413,8 +413,8 @@ function calcRow(idx) {
     let discAmt = parseFloat(discAmtInput.value) || 0;
 
     if (discPct > 0 && discAmt > 0) {
-        if (document.activeElement === discInput) { discAmtInput.value = 0; discAmt = 0; }
-        else if (document.activeElement === discAmtInput) { discInput.value = 0; discPct = 0; }
+        if (document.activeElement === discInput) { discAmtInput.value = ''; discAmt = 0; }
+        else if (document.activeElement === discAmtInput) { discInput.value = ''; discPct = 0; }
     }
 
     let netCost = cost * (1 - discPct / 100);

@@ -278,9 +278,9 @@ class PurchaseOrderController extends Controller
             $pair    = $isSet ? $product->pairedProduct : null;
             $qty     = (int) $item['quantity'];
 
-            $discountPercent = $item['discount_percent'] ?? 0;
-            $discountAmount  = $item['discount_amount'] ?? 0;
-            $unitCost        = $item['unit_cost'] ?? 0;
+            $discountPercent = (float) ($item['discount_percent'] ?? 0);
+            $discountAmount  = (float) ($item['discount_amount'] ?? 0);
+            $unitCost        = (float) ($item['unit_cost'] ?? 0);
 
             $netCost = $unitCost * (1 - ($discountPercent / 100));
             if ($qty > 0 && $discountAmount > 0) {
