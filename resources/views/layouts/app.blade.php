@@ -54,6 +54,7 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            transition: transform 0.25s ease;
         }
 
         /* ── Header ── */
@@ -152,6 +153,18 @@
         }
         .nav-tabs .nav-link.active::before { display: none !important; }
         .nav-tabs .nav-link .badge { vertical-align: middle; }
+
+        /* Let tab strips scroll horizontally instead of wrapping/overflowing on narrow screens */
+        @media (max-width: 575.98px) {
+            .nav-tabs {
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .nav-tabs .nav-link {
+                white-space: nowrap;
+            }
+        }
 
         .nav-link {
             display: flex;
@@ -457,19 +470,138 @@
             margin-bottom: 1rem;
         }
 
+        /* ── Mobile / Tablet Topbar ── */
+        .mobile-topbar {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 56px;
+            background: linear-gradient(135deg, #4338CA 0%, #4F46E5 100%);
+            color: #fff;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0 1rem;
+            z-index: 1040;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .mobile-topbar-btn {
+            background: rgba(255, 255, 255, 0.12);
+            border: none;
+            color: #fff;
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            font-size: 1.4rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .mobile-topbar-btn:active {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        .mobile-topbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #fff;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 0.95rem;
+            min-width: 0;
+        }
+
+        .mobile-topbar-brand img {
+            height: 32px;
+            width: auto;
+            max-width: 48px;
+            object-fit: contain;
+            flex-shrink: 0;
+        }
+
+        .mobile-topbar-brand span {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* ── Sidebar backdrop (overlay behind off-canvas sidebar) ── */
+        .sidebar-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.45);
+            z-index: 1045;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .sidebar-backdrop.show {
+            display: block;
+            opacity: 1;
+        }
+
         /* ── Responsive ── */
-        @media (max-width: 768px) {
-            .sidebar { transform: translateX(-100%); }
-            .sidebar.show { transform: translateX(0); }
-            .main-content { margin-left: 0; }
+        @media (max-width: 991.98px) {
+            .sidebar {
+                transform: translateX(-100%);
+                z-index: 1050;
+            }
+            .sidebar.show {
+                transform: translateX(0);
+                box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
+            }
+            .main-content {
+                margin-left: 0;
+                padding-top: 56px;
+            }
+            .mobile-topbar {
+                display: flex;
+            }
+            .content-wrapper {
+                padding: 1.25rem;
+            }
+            /* Keep sticky toolbars/summary panels below the fixed mobile topbar */
+            .sticky-top {
+                top: 56px !important;
+                z-index: 1020 !important;
+            }
+        }
+
+        @media (max-width: 575.98px) {
+            .content-wrapper {
+                padding: 0.85rem;
+            }
+            .app-page-title {
+                font-size: 1.1rem;
+            }
         }
     </style>
 
     @stack('styles')
 </head>
 <body>
+    <!-- Mobile / Tablet Topbar -->
+    <header class="mobile-topbar">
+        <button type="button" class="mobile-topbar-btn" id="sidebarToggle" aria-label="Toggle navigation" aria-expanded="false" aria-controls="appSidebar">
+            <i class="bi bi-list"></i>
+        </button>
+        <a href="{{ route('dashboard') }}" class="mobile-topbar-brand">
+            <img src="{{ asset('images/brand-logo.png') }}" alt="Ronnie Aircon">
+            <span>Ronnie Aircon</span>
+        </a>
+    </header>
+
+    <!-- Sidebar backdrop -->
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
     <!-- Sidebar -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="appSidebar">
         <!-- Logo -->
         <div class="sidebar-header">
             <a href="{{ route('dashboard') }}" class="logo" title="Ronnie Aircon">
@@ -649,6 +781,46 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Sidebar toggle (mobile / tablet) -->
+    <script>
+    (function () {
+        const sidebar = document.getElementById('appSidebar');
+        const backdrop = document.getElementById('sidebarBackdrop');
+        const toggleBtn = document.getElementById('sidebarToggle');
+
+        function openSidebar() {
+            sidebar.classList.add('show');
+            backdrop.classList.add('show');
+            toggleBtn.setAttribute('aria-expanded', 'true');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeSidebar() {
+            sidebar.classList.remove('show');
+            backdrop.classList.remove('show');
+            toggleBtn.setAttribute('aria-expanded', 'false');
+            document.body.style.overflow = '';
+        }
+
+        toggleBtn?.addEventListener('click', function () {
+            sidebar.classList.contains('show') ? closeSidebar() : openSidebar();
+        });
+
+        backdrop?.addEventListener('click', closeSidebar);
+
+        sidebar?.querySelectorAll('.nav-link').forEach(function (link) {
+            link.addEventListener('click', function () {
+                if (window.innerWidth < 992) closeSidebar();
+            });
+        });
+
+        window.addEventListener('resize', function () {
+            if (window.innerWidth >= 992) closeSidebar();
+        });
+    })();
+    </script>
+
     @stack('scripts')
 </body>
 </html>

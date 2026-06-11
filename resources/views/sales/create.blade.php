@@ -318,7 +318,7 @@ function buildProductRow(id) {
       <input type="hidden" name="items[${id}][price]"    id="price-${id}"   value="0">
 
       <div class="row g-2 align-items-end mb-2">
-        <div class="col-md-5">
+        <div class="col-12 col-lg-5">
           <label class="form-label small fw-semibold mb-1">Product <span class="text-danger">*</span></label>
           <div class="combobox position-relative" id="cb-${id}">
             <div class="form-control form-control-sm d-flex justify-content-between align-items-center gap-2"
@@ -339,18 +339,18 @@ function buildProductRow(id) {
             </div>
           </div>
         </div>
-        <div class="col-md-2">
+        <div class="col-4 col-lg-2">
           <label class="form-label small fw-semibold mb-1">Qty <span class="text-danger">*</span></label>
           <input type="number" min="1" value="1" name="items[${id}][quantity]" id="qty-${id}"
                  class="form-control form-control-sm" required
                  oninput="onProductQtyChange(${id}); calculateTotals();">
         </div>
-        <div class="col-md-2">
+        <div class="col-4 col-lg-2">
           <label class="form-label small fw-semibold mb-1">Unit Price</label>
           <div class="bg-light rounded text-center fw-semibold px-1 py-1 text-danger"
                id="price-display-${id}" style="font-size:0.82rem;height:31px;line-height:2;">₱—</div>
         </div>
-        <div class="col-md-3">
+        <div class="col-4 col-lg-3">
           <label class="form-label small fw-semibold mb-1">Line Total</label>
           <div class="bg-light rounded text-center fw-bold text-primary px-1 py-1"
                id="line-${id}" style="font-size:0.82rem;height:31px;line-height:2;">₱0.00</div>
@@ -397,7 +397,7 @@ function buildServiceRow(id) {
       <input type="hidden" name="items[${id}][type]"     value="service">
       <input type="hidden" name="items[${id}][id]"       id="svc-id-${id}"  value="">
       <div class="row g-2 align-items-end">
-        <div class="col-md-5">
+        <div class="col-12 col-lg-5">
           <label class="form-label small fw-semibold mb-1">Service <span class="text-danger">*</span></label>
           <div class="combobox position-relative" id="cb-${id}">
             <div class="form-control form-control-sm d-flex justify-content-between align-items-center gap-2"
@@ -415,17 +415,17 @@ function buildServiceRow(id) {
             </div>
           </div>
         </div>
-        <div class="col-md-2">
+        <div class="col-4 col-lg-2">
           <label class="form-label small fw-semibold mb-1">Qty</label>
           <input type="number" class="form-control form-control-sm qty-input" min="1" value="1"
                  name="items[${id}][quantity]" oninput="calculateTotals()">
         </div>
-        <div class="col-md-2">
+        <div class="col-4 col-lg-2">
           <label class="form-label small fw-semibold mb-1">Price (₱)</label>
           <input type="number" step="0.01" class="form-control form-control-sm price-input"
                  name="items[${id}][price]" id="price-${id}" readonly style="background:#f8f9fa;">
         </div>
-        <div class="col-md-3">
+        <div class="col-4 col-lg-3">
           <label class="form-label small fw-semibold mb-1">Line Total</label>
           <div class="bg-light rounded text-center fw-bold text-primary px-1 py-1"
                id="line-${id}" style="font-size:0.82rem;height:31px;line-height:2;">₱0.00</div>

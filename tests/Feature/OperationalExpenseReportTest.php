@@ -34,7 +34,7 @@ class OperationalExpenseReportTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Period total', false);
-        $response->assertSee('By category', false);
-        $response->assertSee('Line items', false);
+        $response->assertSee('By Category', false);
+        $response->assertSee('Line Items', false);
     }
 }

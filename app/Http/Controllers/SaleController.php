@@ -182,6 +182,7 @@ class SaleController extends Controller
 
         DB::beginTransaction();
         try {
+            $reassignSerialIds = ProductSerial::where('sale_id', $sale->id)->pluck('id')->all();
             $this->restoreSaleSerials($sale);
 
             $subtotal   = collect($request->items)->sum(fn($i) => $i['quantity'] * $i['price']);
@@ -209,7 +210,7 @@ class SaleController extends Controller
             $sale->items()->delete();
             $sale->installmentPayments()->delete();
 
-            $this->persistSaleItems($sale, $request->items, $request->sale_date);
+            $this->persistSaleItems($sale, $request->items, $request->sale_date, $reassignSerialIds);
             $this->persistInstallmentSchedule($sale, $request);
 
             DB::commit();
@@ -488,7 +489,7 @@ class SaleController extends Controller
         return [];
     }
 
-    private function persistSaleItems(Sale $sale, array $items, $saleDate): void
+    private function persistSaleItems(Sale $sale, array $items, $saleDate, array $reassignSerialIds = []): void
     {
         foreach ($items as $item) {
             if ($item['type'] === 'product') {
@@ -514,7 +515,8 @@ class SaleController extends Controller
                     $sale, $saleItem, $product,
                     $item['serial_ids'] ?? [],
                     $this->parseNewSerialLines($item['new_serials_raw'] ?? null),
-                    $saleDate
+                    $saleDate,
+                    $reassignSerialIds
                 );
 
                 if ($isSet) {
@@ -522,7 +524,8 @@ class SaleController extends Controller
                         $sale, $saleItem, $product->pairedProduct,
                         $item['outdoor_serial_ids'] ?? [],
                         $this->parseNewSerialLines($item['outdoor_new_serials_raw'] ?? null),
-                        $saleDate
+                        $saleDate,
+                        $reassignSerialIds
                     );
                 }
             } else {
@@ -660,7 +663,7 @@ class SaleController extends Controller
      * Mark selected in-stock serials as sold (and register+sell new serials)
      * for one product under a sale line, logging inventory movements.
      */
-    private function sellSerialsForProduct(Sale $sale, SaleItem $saleItem, Product $product, array $serialIdsRaw, Collection $newSerials, $saleDate): void
+    private function sellSerialsForProduct(Sale $sale, SaleItem $saleItem, Product $product, array $serialIdsRaw, Collection $newSerials, $saleDate, array $reassignSerialIds = []): void
     {
         $serialIds = array_values(array_unique(array_map(
             fn ($v) => (int) $v,
@@ -671,17 +674,28 @@ class SaleController extends Controller
             return;
         }
 
+        $reassignLookup = array_fill_keys($reassignSerialIds, true);
+
         foreach ($serialIds as $serialId) {
             $ps = ProductSerial::whereKey($serialId)->where('product_id', $product->id)->first();
             if (!$ps) {
                 throw new \Exception('Invalid serial selection for ' . $product->model . '.');
             }
 
-            if ($ps->status === 'sold' && (int) $ps->sale_id === (int) $sale->id) {
-                $ps->update([
-                    'sale_item_id' => $saleItem->id,
-                    'sold_date'    => $saleDate,
-                ]);
+            if (isset($reassignLookup[$serialId])) {
+                $updated = ProductSerial::whereKey($serialId)
+                    ->where('product_id', $product->id)
+                    ->where('status', 'in_stock')
+                    ->update([
+                        'status'       => 'sold',
+                        'sale_id'      => $sale->id,
+                        'sale_item_id' => $saleItem->id,
+                        'sold_date'    => $saleDate,
+                    ]);
+
+                if ($updated !== 1) {
+                    throw new \Exception('One or more serial numbers from this sale are no longer available.');
+                }
                 continue;
             }
 

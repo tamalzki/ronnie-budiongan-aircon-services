@@ -161,7 +161,6 @@
                     <thead class="bg-light">
                         <tr>
                             <th class="border-0 px-3 py-2">#</th>
-                            <th class="border-0 px-3 py-2">Invoice</th>
                             <th class="border-0 px-3 py-2" style="white-space:nowrap">Due Date</th>
                             <th class="border-0 px-3 py-2" style="white-space:nowrap">Amount Due</th>
                             <th class="border-0 px-3 py-2" style="white-space:nowrap">Amount Paid</th>
@@ -187,12 +186,6 @@
                         <tr class="{{ $rowClass }}">
                             <td class="px-3 py-2" style="white-space:nowrap">
                                 <span class="badge bg-primary">{{ $loop->iteration }}</span>
-                            </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
-                                <a href="{{ route('sales.show', $installment->sale) }}"
-                                   class="text-decoration-none fw-semibold text-primary">
-                                    {{ $installment->sale->invoice_number }}
-                                </a>
                             </td>
                             <td class="px-3 py-2" style="white-space:nowrap">
                                 <div>{{ $installment->due_date->format('M d, Y') }}</div>
@@ -251,7 +244,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="8" class="text-center py-5 text-muted">
+                            <td colspan="7" class="text-center py-5 text-muted">
                                 <i class="bi bi-inbox fs-1 d-block mb-2"></i>
                                 No installments found
                             </td>
@@ -276,7 +269,6 @@
                     <thead class="bg-light">
                         <tr>
                             <th class="border-0 px-3 py-2">Date Paid</th>
-                            <th class="border-0 px-3 py-2">Invoice</th>
                             <th class="border-0 px-3 py-2">Installment #</th>
                             <th class="border-0 px-3 py-2">Amount Paid</th>
                         </tr>
@@ -286,11 +278,6 @@
                         <tr>
                             <td class="px-3 py-2" style="white-space:nowrap">
                                 {{ $payment->paid_date ? $payment->paid_date->format('M d, Y h:i A') : '—' }}
-                            </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
-                                <a href="{{ route('sales.show', $payment->sale) }}" class="text-decoration-none text-primary fw-semibold">
-                                    {{ $payment->sale->invoice_number }}
-                                </a>
                             </td>
                             <td class="px-3 py-2">
                                 <span class="badge bg-primary">Installment #{{ $loop->iteration }}</span>

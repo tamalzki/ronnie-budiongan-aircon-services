@@ -2,6 +2,20 @@
 
 @section('title', 'Edit Purchase Order')
 
+@push('styles')
+<style>
+    /* Order items table: scroll horizontally only when the viewport is too
+       narrow to fit it (phones); on tablets/desktop it sits flush with no
+       scrollbar so the product combobox dropdown isn't clipped. */
+    @media (max-width: 799.98px) {
+        .po-items-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    }
+    @media (min-width: 800px) {
+        .po-items-scroll { overflow: visible; }
+    }
+</style>
+@endpush
+
 @section('content')
 <div class="container-fluid">
 
@@ -113,7 +127,8 @@
                         </button>
                     </div>
                     <div class="card-body p-0">
-                        <table class="table table-sm align-middle mb-0" id="itemsTable" style="font-size:0.82rem;table-layout:fixed;width:100%;">
+                        <div class="po-items-scroll">
+                        <table class="table table-sm align-middle mb-0" id="itemsTable" style="font-size:0.82rem;table-layout:fixed;width:100%;min-width:760px;">
                             <thead class="table-light">
                                 <tr>
                                     <th style="width:30px;" class="text-center">#</th>
@@ -136,6 +151,7 @@
                                 </tr>
                             </tbody>
                         </table>
+                        </div>
                     </div>
                 </div>
 
