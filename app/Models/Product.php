@@ -78,11 +78,11 @@ class Product extends Model
         return $this->unit_type === 'indoor' && $this->paired_product_id !== null;
     }
 
-    // "FTKZ25WVM + RKZ25WVM" — both models of the set
+    // "FTKZ25WVM / RKZ25WVM" — both models of the set
     public function getSetModelLabelAttribute(): string
     {
         if ($this->is_set_primary && $this->pairedProduct) {
-            return $this->model . ' + ' . $this->pairedProduct->model;
+            return $this->model . ' / ' . $this->pairedProduct->model;
         }
         return $this->model;
     }
