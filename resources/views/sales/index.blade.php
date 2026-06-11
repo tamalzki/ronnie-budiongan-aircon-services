@@ -20,16 +20,14 @@
         <div class="card-body py-2 px-3">
             <div class="row g-2 align-items-center">
                 <div class="col-md-4">
-                    <form method="GET" action="{{ route('sales.index') }}">
-                        <div class="input-group input-group-sm">
-                            <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
-                            <input type="text" id="saleSearchInput" name="search"
-                                   value="{{ request('search') }}"
-                                   class="form-control border-start-0"
-                                   placeholder="Search customer, serial...">
-                            <button class="btn btn-outline-secondary">Search</button>
-                        </div>
-                    </form>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+                        <input type="text" id="saleSearchInput"
+                               value="{{ request('search') }}"
+                               class="form-control border-start-0"
+                               placeholder="Search customer, serial..."
+                               autocomplete="off">
+                    </div>
                 </div>
                 <div class="col-md-2">
                     <select id="paymentFilter" class="form-select form-select-sm">
@@ -74,9 +72,15 @@
                         @forelse($sales as $sale)
                         @php
                             $itemCnt = $sale->items_count ?? $sale->items->count();
-                            $matchedSerials = ($search ?? '') !== ''
-                                ? $sale->items->flatMap->serials->unique('serial_number')
+                            $searchLower = strtolower($search ?? '');
+                            $matchedSerials = $searchLower !== ''
+                                ? $sale->items->flatMap->serials
+                                    ->filter(fn ($s) => str_contains(strtolower($s->serial_number), $searchLower))
+                                    ->unique('serial_number')
                                 : collect();
+                            $allSerials = strtolower(
+                                $sale->items->flatMap->serials->pluck('serial_number')->implode(' ')
+                            );
                             $serialHint = $matchedSerials->isNotEmpty()
                                 ? ' · ' . $matchedSerials->pluck('serial_number')->take(3)->implode(', ')
                                 : '';
@@ -85,6 +89,7 @@
                             data-invoice="{{ strtolower($sale->invoice_number) }}"
                             data-customer="{{ strtolower($sale->customer_name) }}"
                             data-contact="{{ strtolower($sale->customer_contact ?? '') }}"
+                            data-serials="{{ $allSerials }}"
                             data-payment="{{ $sale->payment_type }}"
                             data-status="{{ $sale->status }}"
                             data-href="{{ route('sales.show', $sale) }}"
@@ -178,17 +183,25 @@
 
 @push('scripts')
 <script>
+let saleSearchTimer = null;
+
 function filterTable() {
+    const search  = document.getElementById('saleSearchInput').value.toLowerCase().trim();
     const payment = document.getElementById('paymentFilter').value;
     const status  = document.getElementById('statusFilter').value;
     const rows    = document.querySelectorAll('.sale-row');
     let visible   = 0;
 
     rows.forEach(row => {
+        const matchSearch  = !search
+            || row.dataset.invoice.includes(search)
+            || row.dataset.customer.includes(search)
+            || row.dataset.contact.includes(search)
+            || (row.dataset.serials || '').includes(search);
         const matchPayment = !payment || row.dataset.payment === payment;
         const matchStatus  = !status  || row.dataset.status === status;
 
-        if (matchPayment && matchStatus) {
+        if (matchSearch && matchPayment && matchStatus) {
             row.style.display = '';
             visible++;
         } else {
@@ -213,10 +226,44 @@ function filterTable() {
 function clearFilters() {
     document.getElementById('paymentFilter').value = '';
     document.getElementById('statusFilter').value = '';
+    document.getElementById('saleSearchInput').value = '';
+
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('search')) {
+        url.searchParams.delete('search');
+        window.location.href = url.pathname + (url.searchParams.toString() ? '?' + url.searchParams : '');
+        return;
+    }
+
     filterTable();
 }
 
+function syncSaleSearchToServer() {
+    const input   = document.getElementById('saleSearchInput');
+    const trimmed = input.value.trim();
+    const current = new URLSearchParams(window.location.search).get('search') || '';
+
+    if (trimmed === current) {
+        return;
+    }
+
+    const url = new URL('{{ route('sales.index') }}', window.location.origin);
+    if (trimmed) {
+        url.searchParams.set('search', trimmed);
+    }
+
+    window.location.href = url.toString();
+}
+
 document.addEventListener('DOMContentLoaded', function () {
+    const searchInput = document.getElementById('saleSearchInput');
+
+    searchInput.addEventListener('input', function () {
+        filterTable();
+        clearTimeout(saleSearchTimer);
+        saleSearchTimer = setTimeout(syncSaleSearchToServer, 350);
+    });
+
     document.getElementById('paymentFilter').addEventListener('change', filterTable);
     document.getElementById('statusFilter').addEventListener('change', filterTable);
 

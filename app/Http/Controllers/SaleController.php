@@ -27,18 +27,16 @@ class SaleController extends Controller
     {
         $search = trim((string) $request->search);
 
-        $sales = Sale::with('user')
+        $sales = Sale::with([
+                'user',
+                'items.serials' => fn ($sq) => $sq->select('id', 'sale_item_id', 'serial_number'),
+            ])
             ->withCount('items')
             ->when($search !== '', function ($query) use ($search) {
                 $serialSaleIds = ProductSerial::query()
                     ->where('serial_number', 'like', "%{$search}%")
                     ->whereNotNull('sale_id')
                     ->pluck('sale_id');
-
-                $query->with(['items.serials' => function ($sq) use ($search) {
-                    $sq->where('serial_number', 'like', "%{$search}%")
-                        ->select('id', 'sale_item_id', 'serial_number');
-                }]);
 
                 $query->where(function ($q) use ($search, $serialSaleIds) {
                     $q->where('invoice_number', 'like', "%{$search}%")
@@ -108,17 +106,183 @@ class SaleController extends Controller
 
     public function create()
     {
+        return view('sales.create', $this->saleFormViewData());
+    }
+
+    public function store(Request $request)
+    {
+        $itemErrors = $this->validateSaleItemsRequest($request, null);
+        if ($itemErrors !== []) {
+            return back()->withInput()->withErrors($itemErrors);
+        }
+
+        DB::beginTransaction();
+        try {
+            $subtotal   = collect($request->items)->sum(fn($i) => $i['quantity'] * $i['price']);
+            $discount   = (float) ($request->discount ?? 0);
+            $total      = max(0, $subtotal - $discount);
+            $paidAmount = $request->payment_type === 'cash' ? $total : (float) ($request->down_payment ?? 0);
+            $balance    = max(0, $total - $paidAmount);
+
+            $sale = Sale::create([
+                'customer_name'    => $request->customer_name,
+                'customer_contact' => $request->customer_contact,
+                'customer_address' => $request->customer_address,
+                'sale_date'        => $request->sale_date,
+                'subtotal'         => $subtotal,
+                'discount'         => $discount,
+                'tax'              => 0,
+                'total'            => $total,
+                'payment_type'     => $request->payment_type,
+                'paid_amount'      => $paidAmount,
+                'balance'          => $balance,
+                'status'           => 'completed',
+                'payment_method'   => $request->payment_method,
+                'notes'            => $request->notes,
+                'user_id'          => auth()->id(),
+            ]);
+
+            $this->persistSaleItems($sale, $request->items, $request->sale_date);
+            $this->persistInstallmentSchedule($sale, $request);
+
+            DB::commit();
+            return redirect()->route('sales.index')
+                ->with('success', 'Sale created. Invoice: ' . $sale->invoice_number);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withInput()->with('error', 'Error: ' . $e->getMessage());
+        }
+    }
+
+    public function show(Sale $sale)
+    {
+        $sale->load([
+            'items.product.brand',
+            'items.product.pairedProduct',
+            'items.serials',
+            'user',
+            'installmentPayments',
+        ]);
+
+        return view('sales.show', compact('sale'));
+    }
+
+    public function edit(Sale $sale)
+    {
+        return view('sales.create', $this->saleFormViewData($sale));
+    }
+
+    public function update(Request $request, Sale $sale)
+    {
+        $itemErrors = $this->validateSaleItemsRequest($request, $sale->id);
+        if ($itemErrors !== []) {
+            return back()->withInput()->withErrors($itemErrors);
+        }
+
+        DB::beginTransaction();
+        try {
+            $this->restoreSaleSerials($sale);
+
+            $subtotal   = collect($request->items)->sum(fn($i) => $i['quantity'] * $i['price']);
+            $discount   = (float) ($request->discount ?? 0);
+            $total      = max(0, $subtotal - $discount);
+            $paidAmount = $request->payment_type === 'cash' ? $total : (float) ($request->down_payment ?? 0);
+            $balance    = max(0, $total - $paidAmount);
+
+            $sale->update([
+                'customer_name'    => $request->customer_name,
+                'customer_contact' => $request->customer_contact,
+                'customer_address' => $request->customer_address,
+                'sale_date'        => $request->sale_date,
+                'subtotal'         => $subtotal,
+                'discount'         => $discount,
+                'total'            => $total,
+                'payment_type'     => $request->payment_type,
+                'payment_method'   => $request->payment_method,
+                'paid_amount'      => $paidAmount,
+                'balance'          => $balance,
+                'status'           => 'completed',
+                'notes'            => $request->notes,
+            ]);
+
+            $sale->items()->delete();
+            $sale->installmentPayments()->delete();
+
+            $this->persistSaleItems($sale, $request->items, $request->sale_date);
+            $this->persistInstallmentSchedule($sale, $request);
+
+            DB::commit();
+
+            return redirect()->route('sales.show', $sale)
+                ->with('success', 'Sale updated. Invoice: ' . $sale->invoice_number);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withInput()->with('error', 'Error: ' . $e->getMessage());
+        }
+    }
+
+    public function destroy(Sale $sale)
+    {
+        DB::beginTransaction();
+        try {
+            $this->restoreSaleSerials($sale);
+
+            $sale->installmentPayments()->delete();
+            $sale->items()->delete();
+            $sale->delete();
+
+            DB::commit();
+            return redirect()->route('sales.index')
+                ->with('success', 'Sale deleted and serials restored to stock.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Error: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * @return Collection<int, string>
+     */
+    private function parseNewSerialLines(?string $raw): Collection
+    {
+        if ($raw === null || trim($raw) === '') {
+            return collect();
+        }
+
+        return collect(preg_split('/\r\n|\r|\n/', $raw))
+            ->map(fn ($line) => trim((string) $line))
+            ->filter()
+            ->values();
+    }
+
+    /**
+     * Validate one product side (indoor / outdoor / single unit) of a sale line.
+     * Returns an error message, or null when valid. Appends the attached count
+     * to $attachedCounts so set sides can be cross-checked.
+     */
+    private function saleFormViewData(?Sale $sale = null): array
+    {
         $lockedCount = Product::where('is_active', true)->where('price', 0)
             ->where(function ($q) {
-                // Don't double-count outdoor halves of a set
                 $q->whereNotIn('id', Product::whereNotNull('paired_product_id')->pluck('paired_product_id'));
             })
             ->count();
 
+        $saleId      = $sale?->id;
+        $serialScope = function ($q) use ($saleId) {
+            $q->where('status', 'in_stock');
+            if ($saleId) {
+                $q->orWhere(fn($qq) => $qq->where('sale_id', $saleId)->where('status', 'sold'));
+            }
+            $q->orderBy('serial_number');
+        };
+
         $all = Product::with([
                 'brand',
-                'serials' => fn($q) => $q->where('status', 'in_stock')->orderBy('serial_number'),
-                'pairedProduct.serials' => fn($q) => $q->where('status', 'in_stock')->orderBy('serial_number'),
+                'serials'               => $serialScope,
+                'pairedProduct.serials' => $serialScope,
             ])
             ->where('is_active', true)
             ->orderBy('brand_id')
@@ -132,7 +296,6 @@ class SaleController extends Controller
             'serial_number' => $s->serial_number,
         ])->values()->toArray();
 
-        // One option per SET (indoor + outdoor, one price) + unpaired single units
         $products = $all
             ->filter(fn($p) => $p->price > 0 && !$pairedOutdoorIds->contains($p->id))
             ->map(function ($p) use ($mapSerials) {
@@ -181,10 +344,65 @@ class SaleController extends Controller
             ->values()
             ->toArray();
 
-        return view('sales.create', compact('products', 'services', 'lockedCount'));
+        $data = compact('products', 'services', 'lockedCount');
+        $data['isEdit']              = $sale !== null;
+        $data['sale']                = $sale;
+        $data['prefillItems']        = $sale ? $this->buildPrefillItems($sale) : [];
+        $data['hasPaidInstallments'] = false;
+        $data['prefillDownPayment']  = 0;
+        $data['prefillDownMethod']   = '';
+
+        if ($sale) {
+            $sale->load('installmentPayments');
+            $downRow = $sale->installmentPayments->first(fn($p) => $p->notes === 'Downpayment')
+                ?? $sale->installmentPayments->firstWhere('installment_number', 1);
+            if ($sale->payment_type === 'installment' && $downRow && $downRow->status === 'paid') {
+                $data['prefillDownPayment'] = (float) $downRow->amount_paid;
+                $data['prefillDownMethod']  = $downRow->payment_method ?? '';
+            }
+            $hasDown = $downRow && $downRow->status === 'paid' && (float) $downRow->amount_paid > 0;
+            $data['hasPaidInstallments'] = $sale->installmentPayments
+                ->where('status', 'paid')
+                ->when($hasDown, fn($c) => $c->reject(fn($p) => $p->id === $downRow->id))
+                ->isNotEmpty();
+        }
+
+        return $data;
     }
 
-    public function store(Request $request)
+    private function buildPrefillItems(Sale $sale): array
+    {
+        $sale->load(['items.product.pairedProduct']);
+        $allSaleSerials = ProductSerial::where('sale_id', $sale->id)->get();
+
+        return $sale->items->map(function (SaleItem $item) use ($allSaleSerials) {
+            if ($item->item_type === 'service') {
+                return [
+                    'type'     => 'service',
+                    'id'       => (int) $item->service_id,
+                    'quantity' => (int) $item->quantity,
+                    'price'    => (float) $item->unit_price,
+                ];
+            }
+
+            $isSet = $item->is_set && $item->product?->pairedProduct;
+
+            return [
+                'type'                    => 'product',
+                'id'                      => (int) $item->product_id,
+                'quantity'                => (int) $item->quantity,
+                'price'                   => (float) $item->unit_price,
+                'serial_ids'              => $allSaleSerials->where('product_id', $item->product_id)->pluck('id')->values()->all(),
+                'outdoor_serial_ids'      => $isSet
+                    ? $allSaleSerials->where('product_id', $item->product->paired_product_id)->pluck('id')->values()->all()
+                    : [],
+                'new_serials_raw'         => '',
+                'outdoor_new_serials_raw' => '',
+            ];
+        })->values()->all();
+    }
+
+    private function validateSaleItemsRequest(Request $request, ?int $ignoreSaleId): array
     {
         $request->validate([
             'customer_name'        => 'required|string|max:255',
@@ -204,7 +422,7 @@ class SaleController extends Controller
             'items.*.outdoor_serial_ids'      => 'nullable|array',
             'items.*.outdoor_serial_ids.*'    => 'nullable|integer|exists:product_serials,id',
             'items.*.outdoor_new_serials_raw' => 'nullable|string',
-            'notes'                   => 'nullable|string',
+            'notes'                => 'nullable|string',
             'discount'             => 'nullable|numeric|min:0',
             'down_payment'         => 'nullable|numeric|min:0',
             'down_payment_method'  => [
@@ -218,29 +436,22 @@ class SaleController extends Controller
             'installment_months'   => 'nullable|integer|min:1|max:60',
         ]);
 
-        $subtotalPreview   = collect($request->items)->sum(fn($i) => $i['quantity'] * $i['price']);
-        $discountPreview   = (float) ($request->discount ?? 0);
-        $totalPreview      = max(0, $subtotalPreview - $discountPreview);
+        $subtotalPreview = collect($request->items)->sum(fn($i) => $i['quantity'] * $i['price']);
+        $discountPreview = (float) ($request->discount ?? 0);
+        $totalPreview    = max(0, $subtotalPreview - $discountPreview);
         if ($request->payment_type === 'installment' && (float) ($request->down_payment ?? 0) > $totalPreview + 0.001) {
-            return back()->withInput()->withErrors([
-                'down_payment' => 'Down payment cannot exceed the sale total.',
-            ]);
+            return ['down_payment' => 'Down payment cannot exceed the sale total.'];
         }
 
-        // Guard: no price
         foreach ($request->items as $item) {
             if ($item['type'] === 'product') {
                 $p = Product::with('brand')->find($item['id']);
                 if ($p && $p->price == 0) {
-                    return back()->withInput()->withErrors([
-                        'items' => 'No selling price for: ' . ($p->brand->name ?? '') . ' ' . $p->model,
-                    ]);
+                    return ['items' => 'No selling price for: ' . ($p->brand->name ?? '') . ' ' . $p->model];
                 }
             }
         }
 
-        // Guard: product lines — either no serials encoded, or existing + new serials exactly match quantity.
-        // Set lines (indoor + outdoor, one price) validate each side against the quantity.
         foreach ($request->items as $idx => $item) {
             if ($item['type'] !== 'product') {
                 continue;
@@ -248,7 +459,7 @@ class SaleController extends Controller
 
             $product = Product::with('pairedProduct')->find($item['id']);
             if (!$product) {
-                return back()->withInput()->withErrors(['items' => 'Item #' . ($idx + 1) . ': product not found.']);
+                return ['items' => 'Item #' . ($idx + 1) . ': product not found.'];
             }
 
             $qty   = (int) $item['quantity'];
@@ -263,246 +474,137 @@ class SaleController extends Controller
 
             $attachedCounts = [];
             foreach ($sides as $side) {
-                $error = $this->validateSaleSerialSide($side['product'], $side['ids'], $side['raw'], $qty, $idx, $side['label'], $attachedCounts);
+                $error = $this->validateSaleSerialSide($side['product'], $side['ids'], $side['raw'], $qty, $idx, $side['label'], $attachedCounts, $ignoreSaleId);
                 if ($error !== null) {
-                    return back()->withInput()->withErrors(['items' => $error]);
+                    return ['items' => $error];
                 }
             }
 
-            // Sets: the indoor AND outdoor units must both be encoded, one of each per set
             if ($isSet && array_filter($attachedCounts, fn ($c) => $c !== $qty)) {
-                return back()->withInput()->withErrors([
-                    'items' => 'Item #' . ($idx + 1) . ': this is an indoor + outdoor set — enter the serials of BOTH units (' . $qty . ' each).',
-                ]);
+                return ['items' => 'Item #' . ($idx + 1) . ': this is an indoor + outdoor set — enter the serials of BOTH units (' . $qty . ' each).'];
             }
         }
 
-        DB::beginTransaction();
-        try {
-            $subtotal   = collect($request->items)->sum(fn($i) => $i['quantity'] * $i['price']);
-            $discount   = (float) ($request->discount ?? 0);
-            $total      = max(0, $subtotal - $discount);
-            $paidAmount = $request->payment_type === 'cash' ? $total : (float) ($request->down_payment ?? 0);
-            $balance    = max(0, $total - $paidAmount);
+        return [];
+    }
 
-            $sale = Sale::create([
-                'customer_name'    => $request->customer_name,
-                'customer_contact' => $request->customer_contact,
-                'customer_address' => $request->customer_address,
-                'sale_date'        => $request->sale_date,
-                'subtotal'         => $subtotal,
-                'discount'         => $discount,
-                'tax'              => 0,
-                'total'            => $total,
-                'payment_type'     => $request->payment_type,
-                'paid_amount'      => $paidAmount,
-                'balance'          => $balance,
-                'status'           => 'completed',
-                'payment_method'   => $request->payment_method,
-                'notes'            => $request->notes,
-                'user_id'          => auth()->id(),
-            ]);
+    private function persistSaleItems(Sale $sale, array $items, $saleDate): void
+    {
+        foreach ($items as $item) {
+            if ($item['type'] === 'product') {
+                $product = Product::with(['brand', 'pairedProduct'])->findOrFail($item['id']);
+                $isSet   = $product->is_set_primary && $product->pairedProduct;
 
-            foreach ($request->items as $item) {
-                if ($item['type'] === 'product') {
-                    $product = Product::with(['brand', 'pairedProduct'])->findOrFail($item['id']);
-                    $isSet   = $product->is_set_primary && $product->pairedProduct;
+                $itemName = $isSet
+                    ? trim(($product->brand->name ?? '') . ' ' . $product->set_model_label)
+                    : trim(($product->brand->name ?? '') . ' ' . $product->model);
 
-                    $itemName = $isSet
-                        ? trim(($product->brand->name ?? '') . ' ' . $product->set_model_label)
-                        : trim(($product->brand->name ?? '') . ' ' . $product->model);
+                $saleItem = SaleItem::create([
+                    'sale_id'     => $sale->id,
+                    'item_type'   => 'product',
+                    'product_id'  => $product->id,
+                    'is_set'      => $isSet,
+                    'item_name'   => $itemName,
+                    'quantity'    => $item['quantity'],
+                    'unit_price'  => $item['price'],
+                    'total_price' => $item['quantity'] * $item['price'],
+                ]);
 
-                    $saleItem = SaleItem::create([
-                        'sale_id'     => $sale->id,
-                        'item_type'   => 'product',
-                        'product_id'  => $product->id,
-                        'is_set'      => $isSet,
-                        'item_name'   => $itemName,
-                        'quantity'    => $item['quantity'],
-                        'unit_price'  => $item['price'],
-                        'total_price' => $item['quantity'] * $item['price'],
-                    ]);
+                $this->sellSerialsForProduct(
+                    $sale, $saleItem, $product,
+                    $item['serial_ids'] ?? [],
+                    $this->parseNewSerialLines($item['new_serials_raw'] ?? null),
+                    $saleDate
+                );
 
-                    // Indoor / main unit serials
+                if ($isSet) {
                     $this->sellSerialsForProduct(
-                        $sale, $saleItem, $product,
-                        $item['serial_ids'] ?? [],
-                        $this->parseNewSerialLines($item['new_serials_raw'] ?? null),
-                        $request->sale_date
+                        $sale, $saleItem, $product->pairedProduct,
+                        $item['outdoor_serial_ids'] ?? [],
+                        $this->parseNewSerialLines($item['outdoor_new_serials_raw'] ?? null),
+                        $saleDate
                     );
-
-                    // Outdoor unit serials (sets only)
-                    if ($isSet) {
-                        $this->sellSerialsForProduct(
-                            $sale, $saleItem, $product->pairedProduct,
-                            $item['outdoor_serial_ids'] ?? [],
-                            $this->parseNewSerialLines($item['outdoor_new_serials_raw'] ?? null),
-                            $request->sale_date
-                        );
-                    }
-
-                } else {
-                    $service = Service::findOrFail($item['id']);
-                    SaleItem::create([
-                        'sale_id'     => $sale->id,
-                        'item_type'   => 'service',
-                        'service_id'  => $service->id,
-                        'product_id'  => null,
-                        'item_name'   => $service->name,
-                        'quantity'    => $item['quantity'],
-                        'unit_price'  => $item['price'],
-                        'total_price' => $item['quantity'] * $item['price'],
-                    ]);
                 }
-            }
-
-            // Installment schedule — downpayment counts as month #1
-            if ($request->payment_type === 'installment') {
-                $months   = max(1, (int) ($request->installment_months ?? 12));
-                $down     = (float) ($request->down_payment ?? 0);
-                $saleDate = Carbon::parse($request->sale_date);
-                $num      = 1;
-
-                if ($down > 0) {
-                    InstallmentPayment::create([
-                        'sale_id'            => $sale->id,
-                        'installment_number' => $num++,
-                        'amount'             => $down,
-                        'amount_paid'        => $down,
-                        'due_date'           => $saleDate,
-                        'paid_date'          => $saleDate,
-                        'status'             => 'paid',
-                        'payment_method'     => $request->down_payment_method ?: $request->payment_method,
-                        'notes'              => 'Downpayment',
-                    ]);
-                }
-
-                // Downpayment is month #1, so the balance spreads over the remaining months
-                $remainingMonths = $down > 0 ? max(1, $months - 1) : $months;
-                $monthly         = $balance > 0 ? round($balance / $remainingMonths, 2) : 0;
-
-                if ($balance > 0) {
-                    for ($i = 0; $i < $remainingMonths; $i++) {
-                        // Last month absorbs the rounding difference
-                        $amount = $i === $remainingMonths - 1
-                            ? round($balance - $monthly * ($remainingMonths - 1), 2)
-                            : $monthly;
-
-                        InstallmentPayment::create([
-                            'sale_id'            => $sale->id,
-                            'installment_number' => $num++,
-                            'amount'             => $amount,
-                            'amount_paid'        => 0,
-                            'due_date'           => $saleDate->copy()->addMonths($i + 1),
-                            'status'             => 'unpaid',
-                        ]);
-                    }
-                }
-
-                $sale->update([
-                    'installment_months' => $months,
-                    'installment_amount' => $monthly,
+            } else {
+                $service = Service::findOrFail($item['id']);
+                SaleItem::create([
+                    'sale_id'     => $sale->id,
+                    'item_type'   => 'service',
+                    'service_id'  => $service->id,
+                    'product_id'  => null,
+                    'item_name'   => $service->name,
+                    'quantity'    => $item['quantity'],
+                    'unit_price'  => $item['price'],
+                    'total_price' => $item['quantity'] * $item['price'],
                 ]);
             }
-
-            DB::commit();
-            return redirect()->route('sales.index')
-                ->with('success', 'Sale created. Invoice: ' . $sale->invoice_number);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->withInput()->with('error', 'Error: ' . $e->getMessage());
         }
     }
 
-    public function show(Sale $sale)
+    private function persistInstallmentSchedule(Sale $sale, Request $request): void
     {
-        $sale->load([
-            'items.product.brand',
-            'items.product.pairedProduct',
-            'items.serials',
-            'user',
-            'installmentPayments',
-        ]);
+        if ($request->payment_type !== 'installment') {
+            $sale->update(['installment_months' => null, 'installment_amount' => null]);
+            return;
+        }
 
-        return view('sales.show', compact('sale'));
-    }
+        $months   = max(1, (int) ($request->installment_months ?? 12));
+        $down     = (float) ($request->down_payment ?? 0);
+        $balance  = (float) $sale->balance;
+        $saleDate = Carbon::parse($request->sale_date);
+        $num      = 1;
 
-    public function edit(Sale $sale)
-    {
-        return view('sales.edit', compact('sale'));
-    }
-
-    public function update(Request $request, Sale $sale)
-    {
-        $request->validate([
-            'customer_name'    => 'required|string|max:255',
-            'customer_contact' => 'nullable|string|max:255',
-            'customer_address' => 'nullable|string',
-            'sale_date'        => 'required|date',
-            'notes'            => 'nullable|string',
-            'status'           => 'required|in:completed,pending,cancelled',
-        ]);
-
-        $sale->update($request->only([
-            'customer_name',
-            'customer_contact',
-            'customer_address',
-            'sale_date',
-            'notes',
-            'status',
-        ]));
-
-        return redirect()->route('sales.show', $sale)
-            ->with('success', 'Sale updated.');
-    }
-
-    public function destroy(Sale $sale)
-    {
-        DB::beginTransaction();
-        try {
-            // Restore serials sold → in_stock
-            ProductSerial::where('sale_id', $sale->id)->update([
-                'status'       => 'in_stock',
-                'sale_id'      => null,
-                'sale_item_id' => null,
-                'sold_date'    => null,
+        if ($down > 0) {
+            InstallmentPayment::create([
+                'sale_id'            => $sale->id,
+                'installment_number' => $num++,
+                'amount'             => $down,
+                'amount_paid'        => $down,
+                'due_date'           => $saleDate,
+                'paid_date'          => $saleDate,
+                'status'             => 'paid',
+                'payment_method'     => $request->down_payment_method ?: $request->payment_method,
+                'notes'              => 'Downpayment',
             ]);
-
-            $sale->installmentPayments()->delete();
-            $sale->items()->delete();
-            $sale->delete();
-
-            DB::commit();
-            return redirect()->route('sales.index')
-                ->with('success', 'Sale deleted and serials restored to stock.');
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->with('error', 'Error: ' . $e->getMessage());
         }
+
+        $remainingMonths = $down > 0 ? max(1, $months - 1) : $months;
+        $monthly         = $balance > 0 ? round($balance / $remainingMonths, 2) : 0;
+
+        if ($balance > 0) {
+            for ($i = 0; $i < $remainingMonths; $i++) {
+                $amount = $i === $remainingMonths - 1
+                    ? round($balance - $monthly * ($remainingMonths - 1), 2)
+                    : $monthly;
+
+                InstallmentPayment::create([
+                    'sale_id'            => $sale->id,
+                    'installment_number' => $num++,
+                    'amount'             => $amount,
+                    'amount_paid'        => 0,
+                    'due_date'           => $saleDate->copy()->addMonths($i + 1),
+                    'status'             => 'unpaid',
+                ]);
+            }
+        }
+
+        $sale->update([
+            'installment_months' => $months,
+            'installment_amount' => $monthly,
+        ]);
     }
 
-    /**
-     * @return Collection<int, string>
-     */
-    private function parseNewSerialLines(?string $raw): Collection
+    private function restoreSaleSerials(Sale $sale): void
     {
-        if ($raw === null || trim($raw) === '') {
-            return collect();
-        }
-
-        return collect(preg_split('/\r\n|\r|\n/', $raw))
-            ->map(fn ($line) => trim((string) $line))
-            ->filter()
-            ->values();
+        ProductSerial::where('sale_id', $sale->id)->update([
+            'status'       => 'in_stock',
+            'sale_id'      => null,
+            'sale_item_id' => null,
+            'sold_date'    => null,
+        ]);
     }
 
-    /**
-     * Validate one product side (indoor / outdoor / single unit) of a sale line.
-     * Returns an error message, or null when valid. Appends the attached count
-     * to $attachedCounts so set sides can be cross-checked.
-     */
-    private function validateSaleSerialSide(Product $product, array $serialIdsRaw, ?string $newRaw, int $qty, int $idx, string $sideLabel, array &$attachedCounts): ?string
+    private function validateSaleSerialSide(Product $product, array $serialIdsRaw, ?string $newRaw, int $qty, int $idx, string $sideLabel, array &$attachedCounts, ?int $ignoreSaleId = null): ?string
     {
         $itemNo = 'Item #' . ($idx + 1);
 
@@ -516,9 +618,13 @@ class SaleController extends Controller
 
         $attachedCounts[] = $attached;
 
-        // When the product has no in-stock serials on file, encoding a serial per unit is required.
         $inStockCount = ProductSerial::where('product_id', $product->id)
-            ->where('status', 'in_stock')
+            ->where(function ($q) use ($ignoreSaleId) {
+                $q->where('status', 'in_stock');
+                if ($ignoreSaleId) {
+                    $q->orWhere(fn($qq) => $qq->where('sale_id', $ignoreSaleId)->where('status', 'sold'));
+                }
+            })
             ->count();
         if ($inStockCount === 0 && $attached !== $qty) {
             return "{$itemNo}: {$product->model} ({$sideLabel}) has no recorded serial numbers, so a serial is required for each of the {$qty} unit(s).";
@@ -539,6 +645,8 @@ class SaleController extends Controller
             $blocked = ProductSerial::query()
                 ->where('product_id', $product->id)
                 ->whereIn('serial_number', $newSerials)
+                ->when($ignoreSaleId, fn($q) => $q->where(fn($qq) =>
+                    $qq->whereNull('sale_id')->orWhere('sale_id', '!=', $ignoreSaleId)))
                 ->pluck('serial_number');
             if ($blocked->isNotEmpty()) {
                 return "{$itemNo}: serial number(s) already exist for {$product->model}: " . $blocked->implode(', ');
@@ -564,11 +672,20 @@ class SaleController extends Controller
         }
 
         foreach ($serialIds as $serialId) {
-            $sn = ProductSerial::whereKey($serialId)->where('product_id', $product->id)->value('serial_number');
-            if (!$sn) {
+            $ps = ProductSerial::whereKey($serialId)->where('product_id', $product->id)->first();
+            if (!$ps) {
                 throw new \Exception('Invalid serial selection for ' . $product->model . '.');
             }
 
+            if ($ps->status === 'sold' && (int) $ps->sale_id === (int) $sale->id) {
+                $ps->update([
+                    'sale_item_id' => $saleItem->id,
+                    'sold_date'    => $saleDate,
+                ]);
+                continue;
+            }
+
+            $sn = $ps->serial_number;
             $stockBefore = $product->fresh()->inStockSerials()->count();
             $updated     = ProductSerial::whereKey($serialId)
                 ->where('product_id', $product->id)

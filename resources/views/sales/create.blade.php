@@ -1,12 +1,19 @@
 @extends('layouts.app')
-@section('title', 'Create Sale')
+@section('title', ($isEdit ?? false) ? 'Edit Sale' : 'Create Sale')
 @section('content')
+@php
+    $isEdit = $isEdit ?? false;
+    $sale = $sale ?? null;
+@endphp
 <div class="container-fluid">
 
-    <x-page-header title="Create New Sale" subtitle="Add products/services and generate invoice" icon="bi-cart-plus">
+    <x-page-header
+        :title="$isEdit ? 'Edit Sale' : 'Create New Sale'"
+        :subtitle="$isEdit ? ($sale->invoice_number . ' — ' . $sale->customer_name) : 'Add products/services and generate invoice'"
+        :icon="$isEdit ? 'bi-pencil' : 'bi-cart-plus'">
         <x-slot name="actions">
-            <a href="{{ route('sales.index') }}" class="btn btn-outline-secondary btn-sm">
-                <i class="bi bi-arrow-left"></i> Back to Sales
+            <a href="{{ $isEdit ? route('sales.show', $sale) : route('sales.index') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Back
             </a>
         </x-slot>
     </x-page-header>
@@ -14,6 +21,13 @@
     @if($errors->any())
     <div class="alert alert-danger border-0 shadow-sm mb-3">
         <ul class="mb-0">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>
+    </div>
+    @endif
+
+    @if($isEdit && ($hasPaidInstallments ?? false))
+    <div class="alert alert-warning border-0 shadow-sm mb-3" style="font-size:0.875rem;">
+        <i class="bi bi-exclamation-triangle me-1"></i>
+        This sale has <strong>recorded installment payments</strong>. Saving will rebuild the installment schedule from your new totals — you may need to re-record payments on the Installment Schedule page.
     </div>
     @endif
 
@@ -25,8 +39,9 @@
     </div>
     @endif
 
-    <form action="{{ route('sales.store') }}" method="POST" id="saleForm">
+    <form action="{{ $isEdit ? route('sales.update', $sale) : route('sales.store') }}" method="POST" id="saleForm">
         @csrf
+        @if($isEdit) @method('PUT') @endif
         <div class="row g-3">
 
             {{-- LEFT --}}
@@ -42,22 +57,22 @@
                             <div class="col-md-4">
                                 <label class="form-label small fw-semibold">Customer Name <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control form-control-sm @error('customer_name') is-invalid @enderror"
-                                       name="customer_name" value="{{ old('customer_name') }}" required>
+                                       name="customer_name" value="{{ old('customer_name', $sale->customer_name ?? '') }}" required>
                                 @error('customer_name')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label small fw-semibold">Contact Number</label>
                                 <input type="text" class="form-control form-control-sm"
-                                       name="customer_contact" value="{{ old('customer_contact') }}">
+                                       name="customer_contact" value="{{ old('customer_contact', $sale->customer_contact ?? '') }}">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label small fw-semibold">Sale Date <span class="text-danger">*</span></label>
                                 <input type="date" class="form-control form-control-sm"
-                                       name="sale_date" value="{{ old('sale_date', date('Y-m-d')) }}" required>
+                                       name="sale_date" value="{{ old('sale_date', isset($sale) ? $sale->sale_date->format('Y-m-d') : date('Y-m-d')) }}" required>
                             </div>
                             <div class="col-12">
                                 <label class="form-label small fw-semibold">Address</label>
-                                <textarea class="form-control form-control-sm" name="customer_address" rows="2">{{ old('customer_address') }}</textarea>
+                                <textarea class="form-control form-control-sm" name="customer_address" rows="2">{{ old('customer_address', $sale->customer_address ?? '') }}</textarea>
                             </div>
                         </div>
                     </div>
@@ -93,7 +108,7 @@
                     </div>
                     <div class="card-body">
                         <textarea class="form-control form-control-sm" name="notes" rows="2"
-                                  placeholder="Optional notes (warranty, instructions…)">{{ old('notes') }}</textarea>
+                                  placeholder="Optional notes (warranty, instructions…)">{{ old('notes', $sale->notes ?? '') }}</textarea>
                     </div>
                 </div>
             </div>
@@ -148,8 +163,8 @@
                             <select class="form-select form-select-sm @error('payment_type') is-invalid @enderror"
                                     id="payment_type" name="payment_type" required>
                                 <option value="">-- Select Type --</option>
-                                <option value="cash"        {{ old('payment_type') == 'cash'        ? 'selected' : '' }}>Cash (Full Payment)</option>
-                                <option value="installment" {{ old('payment_type') == 'installment' ? 'selected' : '' }}>Installment Plan</option>
+                                <option value="cash"        {{ old('payment_type', $sale->payment_type ?? '') == 'cash'        ? 'selected' : '' }}>Cash (Full Payment)</option>
+                                <option value="installment" {{ old('payment_type', $sale->payment_type ?? '') == 'installment' ? 'selected' : '' }}>Installment Plan</option>
                             </select>
                         </div>
                         <div class="mb-2">
@@ -157,10 +172,10 @@
                             <select class="form-select form-select-sm @error('payment_method') is-invalid @enderror"
                                     name="payment_method" required>
                                 <option value="">-- Select Method --</option>
-                                <option value="cash"          {{ old('payment_method') == 'cash'          ? 'selected' : '' }}>💵 Cash</option>
-                                <option value="gcash"         {{ old('payment_method') == 'gcash'         ? 'selected' : '' }}>📱 GCash</option>
-                                <option value="bank_transfer" {{ old('payment_method') == 'bank_transfer' ? 'selected' : '' }}>🏦 Bank Transfer</option>
-                                <option value="cheque"        {{ old('payment_method') == 'cheque'        ? 'selected' : '' }}>🧾 Cheque</option>
+                                <option value="cash"          {{ old('payment_method', $sale->payment_method ?? '') == 'cash'          ? 'selected' : '' }}>💵 Cash</option>
+                                <option value="gcash"         {{ old('payment_method', $sale->payment_method ?? '') == 'gcash'         ? 'selected' : '' }}>📱 GCash</option>
+                                <option value="bank_transfer" {{ old('payment_method', $sale->payment_method ?? '') == 'bank_transfer' ? 'selected' : '' }}>🏦 Bank Transfer</option>
+                                <option value="cheque"        {{ old('payment_method', $sale->payment_method ?? '') == 'cheque'        ? 'selected' : '' }}>🧾 Cheque</option>
                             </select>
                         </div>
                         <div class="mb-2">
@@ -169,7 +184,7 @@
                                 <span class="input-group-text">₱</span>
                                 <input type="number" step="0.01" min="0" class="form-control"
                                        id="discount" name="discount"
-                                       value="{{ old('discount', 0) }}" oninput="calculateTotals()">
+                                       value="{{ old('discount', $sale->discount ?? 0) }}" oninput="calculateTotals()">
                             </div>
                         </div>
                         <div id="installmentOptions" style="display:none;" class="border-top pt-2 mt-2">
@@ -177,9 +192,13 @@
                             <div class="mb-2">
                                 <label class="form-label small fw-semibold">Number of Months</label>
                                 <select class="form-select form-select-sm" id="installment_months" name="installment_months">
+                                    @php $prefillMonths = (int) old('installment_months', $sale->installment_months ?? 12); @endphp
                                     @foreach([3,6,9,12,18,24] as $m)
-                                    <option value="{{ $m }}" {{ old('installment_months', 12) == $m ? 'selected' : '' }}>{{ $m }} months</option>
+                                    <option value="{{ $m }}" {{ $prefillMonths == $m ? 'selected' : '' }}>{{ $m }} months</option>
                                     @endforeach
+                                    @if($isEdit && $sale->installment_months && !in_array($sale->installment_months, [3,6,9,12,18,24]))
+                                    <option value="{{ $sale->installment_months }}" selected>{{ $sale->installment_months }} months</option>
+                                    @endif
                                 </select>
                             </div>
                             <div class="mb-2">
@@ -188,7 +207,7 @@
                                     <span class="input-group-text">₱</span>
                                     <input type="number" step="0.01" min="0" class="form-control"
                                            id="down_payment" name="down_payment"
-                                           value="{{ old('down_payment', 0) }}" oninput="calculateTotals()">
+                                           value="{{ old('down_payment', $prefillDownPayment ?? 0) }}" oninput="calculateTotals()">
                                 </div>
                                 <small class="text-success"><i class="bi bi-info-circle"></i> Saved as Month #1 (paid today)</small>
                             </div>
@@ -196,10 +215,10 @@
                                 <label class="form-label small fw-semibold">Down Payment Method</label>
                                 <select class="form-select form-select-sm" name="down_payment_method">
                                     <option value="">-- Same as above --</option>
-                                    <option value="cash">💵 Cash</option>
-                                    <option value="gcash">📱 GCash</option>
-                                    <option value="bank_transfer">🏦 Bank Transfer</option>
-                                    <option value="cheque">🧾 Cheque</option>
+                                    <option value="cash"          {{ old('down_payment_method', $prefillDownMethod ?? '') == 'cash'          ? 'selected' : '' }}>💵 Cash</option>
+                                    <option value="gcash"         {{ old('down_payment_method', $prefillDownMethod ?? '') == 'gcash'         ? 'selected' : '' }}>📱 GCash</option>
+                                    <option value="bank_transfer" {{ old('down_payment_method', $prefillDownMethod ?? '') == 'bank_transfer' ? 'selected' : '' }}>🏦 Bank Transfer</option>
+                                    <option value="cheque"        {{ old('down_payment_method', $prefillDownMethod ?? '') == 'cheque'        ? 'selected' : '' }}>🧾 Cheque</option>
                                 </select>
                             </div>
                         </div>
@@ -207,7 +226,7 @@
                 </div>
 
                 <button type="submit" class="btn btn-primary w-100 shadow-sm">
-                    <i class="bi bi-check-circle"></i> Create Sale
+                    <i class="bi bi-check-circle"></i> {{ $isEdit ? 'Save Changes' : 'Create Sale' }}
                 </button>
             </div>
         </div>
@@ -245,6 +264,7 @@
 <script>
 const products = @json($products);
 const services = @json($services);
+const prefillItems = @json($prefillItems ?? []);
 let counter = 0;
 
 function unitTypeBadge(unitType) {
@@ -976,7 +996,41 @@ function applySalePickSerialModal() {
 }
 
 /* ─── PICK PRODUCT ─── */
-function pickProduct(id, productId, price, label, unitType) {
+function prefillSaleItems(items) {
+    items.forEach(it => {
+        addItem(it.type);
+        const id = counter;
+        if (it.type === 'product') {
+            const prod = products.find(p => p.id === it.id);
+            if (!prod) return;
+            pickProduct(id, it.id, it.price, prod.label, prod.unit_type || '', true);
+            const qtyEl = document.getElementById(`qty-${id}`);
+            if (qtyEl) qtyEl.value = it.quantity;
+            onProductQtyChange(id);
+
+            const mainSlots = (it.serial_ids || []).map(sid => ({ stockId: sid, newTxt: '' }));
+            const outdoorSlots = (it.outdoor_serial_ids || []).map(sid => ({ stockId: sid, newTxt: '' }));
+            while (mainSlots.length < it.quantity) mainSlots.push({ stockId: null, newTxt: '' });
+            while (outdoorSlots.length < it.quantity) outdoorSlots.push({ stockId: null, newTxt: '' });
+
+            const row = document.getElementById(`item-${id}`);
+            if (row) {
+                row.dataset.serialDraftJson = JSON.stringify({ attach: true, slots: mainSlots, outdoorSlots });
+            }
+            writeMountsAndTextarea(id, it.serial_ids || [], [], it.outdoor_serial_ids || [], []);
+            updateSerialRowSummary(id);
+        } else {
+            const svc = services.find(s => s.id === it.id);
+            if (!svc) return;
+            pickService(id, it.id, it.price, svc.label);
+            const qtyInput = document.querySelector(`#item-${id} .qty-input`);
+            if (qtyInput) qtyInput.value = it.quantity;
+        }
+        calculateTotals();
+    });
+}
+
+function pickProduct(id, productId, price, label, unitType, quiet) {
     document.getElementById(`prod-id-${id}`).value      = productId;
     document.getElementById(`price-${id}`).value        = price;
     document.getElementById(`price-display-${id}`).textContent = '₱' + price.toFixed(2);
@@ -995,7 +1049,7 @@ function pickProduct(id, productId, price, label, unitType) {
     calculateTotals();
     refreshDropdowns();
 
-    setTimeout(() => openSalePickSerialModal(id), 0);
+    if (!quiet) setTimeout(() => openSalePickSerialModal(id), 0);
 }
 
 function onProductQtyChange(id) {
@@ -1147,6 +1201,10 @@ document.addEventListener('DOMContentLoaded', function () {
         instOpt.style.display = '';
         instSum.style.display = '';
         calculateTotals();
+    }
+
+    if (prefillItems.length) {
+        prefillSaleItems(prefillItems);
     }
 
     document.getElementById('saleSerialApplyBtn')?.addEventListener('click', applySalePickSerialModal);
