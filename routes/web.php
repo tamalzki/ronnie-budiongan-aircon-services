@@ -43,7 +43,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('services', ServiceController::class);
     Route::resource('products', ProductController::class);
     Route::get('sales/serial-lookup', [SaleController::class, 'lookupSerial'])->name('sales.serial-lookup');
-    Route::resource('sales', SaleController::class)->except(['edit', 'update']);
+    Route::resource('sales', SaleController::class);
 
     // Installments
     Route::get('installments', [InstallmentPaymentController::class, 'index'])->name('installments.index');

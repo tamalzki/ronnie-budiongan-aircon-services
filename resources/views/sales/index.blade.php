@@ -62,10 +62,10 @@
                 <table class="table table-hover table-sm align-middle mb-0 app-table" id="salesTable">
                     <thead>
                         <tr>
-                            <th>Customer</th>
+                            <th>Customer / Invoice</th>
                             <th>Date</th>
                             <th class="text-end">Total</th>
-                            <th>Payment & Balance</th>
+                            <th>Payment</th>
                             <th>Status</th>
                             <th>Actions</th>
                         </tr>
@@ -73,86 +73,71 @@
                     <tbody id="salesTableBody">
                         @forelse($sales as $sale)
                         @php
-                            $rowNum  = $sales->firstItem() + $loop->index;
                             $itemCnt = $sale->items_count ?? $sale->items->count();
                             $matchedSerials = ($search ?? '') !== ''
                                 ? $sale->items->flatMap->serials->unique('serial_number')
                                 : collect();
+                            $serialHint = $matchedSerials->isNotEmpty()
+                                ? ' · ' . $matchedSerials->pluck('serial_number')->take(3)->implode(', ')
+                                : '';
                         @endphp
                         <tr class="sale-row"
                             data-invoice="{{ strtolower($sale->invoice_number) }}"
                             data-customer="{{ strtolower($sale->customer_name) }}"
                             data-contact="{{ strtolower($sale->customer_contact ?? '') }}"
                             data-payment="{{ $sale->payment_type }}"
-                            data-status="{{ $sale->status }}">
+                            data-status="{{ $sale->status }}"
+                            data-href="{{ route('sales.show', $sale) }}"
+                            style="cursor:pointer;">
 
-                            {{-- Customer --}}
-                            <td style="white-space:nowrap">
-                                <div class="fw-semibold">{{ $sale->customer_name }}</div>
-                                <div style="font-size:0.7rem;color:#9ca3af;">
-                                    <a href="{{ route('sales.show', $sale) }}"
-                                       class="text-muted text-decoration-none me-2"
-                                       title="View invoice">{{ $sale->invoice_number }}</a>
-                                    @if($sale->customer_contact)
-                                        · {{ $sale->customer_contact }}
-                                    @endif
-                                </div>
-                                @if($matchedSerials->isNotEmpty())
-                                    <div class="text-primary" style="font-size:0.68rem;margin-top:2px;">
-                                        <i class="bi bi-upc-scan"></i>
-                                        @foreach($matchedSerials as $serial)
-                                            <code class="text-primary" style="font-size:0.68rem;">{{ $serial->serial_number }}</code>@if(!$loop->last), @endif
-                                        @endforeach
-                                    </div>
-                                @endif
+                            <td class="px-2 py-1" style="white-space:nowrap;max-width:280px;overflow:hidden;text-overflow:ellipsis;">
+                                <span class="fw-semibold">{{ $sale->customer_name }}</span>
+                                <span class="text-muted" style="font-size:0.72rem;">
+                                    · <span style="font-family:monospace;">{{ $sale->invoice_number }}</span>
+                                    @if($sale->customer_contact) · {{ $sale->customer_contact }} @endif
+                                    @if($serialHint)<span class="text-primary">{{ $serialHint }}</span>@endif
+                                </span>
                             </td>
 
-                            {{-- Date --}}
-                            <td style="white-space:nowrap">
-                                <div>{{ \Carbon\Carbon::parse($sale->sale_date)->format('M d, Y') }}</div>
-                                <div class="text-muted" style="font-size:0.7rem;">{{ $itemCnt }} item{{ $itemCnt != 1 ? 's' : '' }}</div>
+                            <td class="px-2 py-1" style="white-space:nowrap;">
+                                {{ \Carbon\Carbon::parse($sale->sale_date)->format('M d, Y') }}
+                                <span class="text-muted" style="font-size:0.72rem;">· {{ $itemCnt }} item{{ $itemCnt != 1 ? 's' : '' }}</span>
                             </td>
 
-                            {{-- Total --}}
-                            <td class="text-end" style="white-space:nowrap">
-                                <div class="fw-bold">₱{{ number_format($sale->total, 2) }}</div>
+                            <td class="px-2 py-1 text-end" style="white-space:nowrap;">
+                                <span class="fw-bold">₱{{ number_format($sale->total, 2) }}</span>
                                 @if(($sale->discount ?? 0) > 0)
-                                    <div class="text-danger" style="font-size:0.7rem;">-₱{{ number_format($sale->discount, 2) }}</div>
+                                    <small class="text-danger">(-₱{{ number_format($sale->discount, 0) }})</small>
                                 @endif
                             </td>
 
-                            {{-- Payment & Balance (merged) --}}
-                            <td style="white-space:nowrap">
-                                <div class="d-flex align-items-center gap-1 flex-wrap">
-                                    <span class="badge {{ $sale->payment_type == 'cash' ? 'bg-success' : 'bg-warning text-dark' }}" style="font-size:0.65rem;">
-                                        {{ ucfirst($sale->payment_type) }}
-                                    </span>
-                                    <span class="text-muted" style="font-size:0.7rem;">{{ ucfirst(str_replace('_',' ',$sale->payment_method)) }}</span>
-                                </div>
+                            <td class="px-2 py-1" style="white-space:nowrap;">
+                                <span class="badge {{ $sale->payment_type == 'cash' ? 'bg-success' : 'bg-warning text-dark' }}" style="font-size:0.65rem;">
+                                    {{ ucfirst($sale->payment_type) }}
+                                </span>
                                 @if($sale->balance > 0)
-                                    <div class="text-danger fw-semibold" style="font-size:0.78rem;">₱{{ number_format($sale->balance, 2) }} due</div>
+                                    <small class="text-danger fw-semibold">· ₱{{ number_format($sale->balance, 2) }} due</small>
                                 @else
-                                    <div class="text-success" style="font-size:0.72rem;"><i class="bi bi-check-circle-fill"></i> Fully paid</div>
+                                    <small class="text-success">· Paid</small>
                                 @endif
                             </td>
 
-                            {{-- Status --}}
-                            <td style="white-space:nowrap">
+                            <td class="px-2 py-1" style="white-space:nowrap;">
                                 <span class="badge bg-{{ $sale->status == 'completed' ? 'success' : ($sale->status == 'pending' ? 'warning text-dark' : 'danger') }}" style="font-size:0.65rem;">
                                     {{ ucfirst($sale->status) }}
                                 </span>
                             </td>
 
-                            {{-- Actions --}}
-                            <td style="white-space:nowrap">
+                            <td class="px-2 py-1" style="white-space:nowrap;">
                                 <div class="app-act-wrap">
-                                    <a href="{{ route('sales.show', $sale) }}"
-                                       class="btn btn-light border app-act">
-                                        <i class="bi bi-eye"></i> View
+                                    <a href="{{ route('sales.edit', $sale) }}"
+                                       class="btn btn-light border app-act" title="Edit sale details">
+                                        <i class="bi bi-pencil"></i> Edit
                                     </a>
                                     @if($sale->payment_type === 'installment')
                                     <a href="{{ route('installments.show', $sale->id) }}"
-                                       class="btn app-act {{ $sale->balance > 0 ? 'btn-warning text-dark' : 'btn-success text-white' }}">
+                                       class="btn app-act {{ $sale->balance > 0 ? 'btn-warning text-dark' : 'btn-success text-white' }}"
+                                       title="Installment schedule">
                                         <i class="bi bi-calendar-check"></i> Installments
                                     </a>
                                     @endif
@@ -165,7 +150,6 @@
                                     </form>
                                 </div>
                             </td>
-
                         </tr>
                         @empty
                         <tr>
@@ -179,7 +163,6 @@
                 </table>
             </div>
 
-            {{-- Pagination --}}
             @if($sales->hasPages())
             <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top bg-light">
                 <small class="text-muted">
@@ -196,20 +179,16 @@
 @push('scripts')
 <script>
 function filterTable() {
-    const search  = ''; // server-side search handles this
     const payment = document.getElementById('paymentFilter').value;
     const status  = document.getElementById('statusFilter').value;
     const rows    = document.querySelectorAll('.sale-row');
     let visible   = 0;
 
     rows.forEach(row => {
-        const matchSearch  = !search  || row.dataset.invoice.includes(search)
-                                      || row.dataset.customer.includes(search)
-                                      || row.dataset.contact.includes(search);
         const matchPayment = !payment || row.dataset.payment === payment;
         const matchStatus  = !status  || row.dataset.status === status;
 
-        if (matchSearch && matchPayment && matchStatus) {
+        if (matchPayment && matchStatus) {
             row.style.display = '';
             visible++;
         } else {
@@ -218,7 +197,7 @@ function filterTable() {
     });
 
     let noResults = document.getElementById('noResultsRow');
-    if (visible === 0) {
+    if (visible === 0 && rows.length > 0) {
         if (!noResults) {
             noResults = document.createElement('tr');
             noResults.id = 'noResultsRow';
@@ -240,6 +219,13 @@ function clearFilters() {
 document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('paymentFilter').addEventListener('change', filterTable);
     document.getElementById('statusFilter').addEventListener('change', filterTable);
+
+    document.querySelectorAll('.sale-row[data-href]').forEach(row => {
+        row.addEventListener('click', function (e) {
+            if (e.target.closest('a, button, form, input, select, .modal')) return;
+            window.location.href = this.dataset.href;
+        });
+    });
 });
 </script>
 @endpush

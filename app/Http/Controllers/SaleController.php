@@ -20,9 +20,7 @@ class SaleController extends Controller
 {
     public function __construct()
     {
-        $this->authorizeResource(Sale::class, 'sale', [
-            'except' => ['edit', 'update'],
-        ]);
+        $this->authorizeResource(Sale::class, 'sale');
     }
 
     public function index(Request $request)
@@ -419,8 +417,44 @@ class SaleController extends Controller
 
     public function show(Sale $sale)
     {
-        $sale->load(['items.product.brand', 'items.serials', 'user', 'installmentPayments']);
+        $sale->load([
+            'items.product.brand',
+            'items.product.pairedProduct',
+            'items.serials',
+            'user',
+            'installmentPayments',
+        ]);
+
         return view('sales.show', compact('sale'));
+    }
+
+    public function edit(Sale $sale)
+    {
+        return view('sales.edit', compact('sale'));
+    }
+
+    public function update(Request $request, Sale $sale)
+    {
+        $request->validate([
+            'customer_name'    => 'required|string|max:255',
+            'customer_contact' => 'nullable|string|max:255',
+            'customer_address' => 'nullable|string',
+            'sale_date'        => 'required|date',
+            'notes'            => 'nullable|string',
+            'status'           => 'required|in:completed,pending,cancelled',
+        ]);
+
+        $sale->update($request->only([
+            'customer_name',
+            'customer_contact',
+            'customer_address',
+            'sale_date',
+            'notes',
+            'status',
+        ]));
+
+        return redirect()->route('sales.show', $sale)
+            ->with('success', 'Sale updated.');
     }
 
     public function destroy(Sale $sale)

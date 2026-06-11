@@ -11,6 +11,9 @@
             <a href="{{ route('sales.index') }}" class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-arrow-left"></i> Back to Sales
             </a>
+            <a href="{{ route('sales.edit', $sale) }}" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-pencil"></i> Edit
+            </a>
             @if($sale->payment_type === 'installment')
             <a href="{{ route('installments.show', $sale->id) }}"
                class="btn {{ $sale->balance > 0 ? 'btn-warning' : 'btn-success' }} btn-sm">
@@ -75,37 +78,62 @@
                         </thead>
                         <tbody>
                             @foreach($sale->items as $item)
+                            @php
+                                $isSetItem = $item->product?->is_set_primary && $item->product?->pairedProduct;
+                                $outdoorId = $isSetItem ? $item->product->paired_product_id : null;
+                                $itemSerials = $item->serials ?? collect();
+                                if ($isSetItem && $itemSerials->where('product_id', $outdoorId)->isEmpty()) {
+                                    $itemSerials = $itemSerials->concat(
+                                        \App\Models\ProductSerial::where('sale_id', $sale->id)
+                                            ->where('product_id', $outdoorId)
+                                            ->get()
+                                    );
+                                }
+                                $indoorSerials  = $itemSerials->where('product_id', $item->product_id)->sortBy('serial_number')->values();
+                                $outdoorSerials = $isSetItem
+                                    ? $itemSerials->where('product_id', $outdoorId)->sortBy('serial_number')->values()
+                                    : collect();
+                            @endphp
                             <tr>
                                 <td class="px-3 py-2 text-muted">{{ $loop->iteration }}</td>
                                 <td class="px-3 py-2">
-                                    <div class="fw-semibold d-flex align-items-center gap-2 flex-wrap">
-                                        {{ $item->item_name }}
+                                    <div class="fw-semibold d-flex align-items-center gap-1 flex-wrap" style="line-height:1.3;">
+                                        {{ $isSetItem ? $item->product->set_model_label : $item->item_name }}
                                         @if(!$item->product_id)
                                             <span class="badge bg-info text-dark" style="font-size:0.65rem;">Service</span>
+                                        @elseif($isSetItem)
+                                            <span class="badge" style="background:#e8f0fe;color:#1a56db;border:1px solid #93c5fd;font-size:0.68rem;">❄️ Indoor</span>
+                                            <span class="badge" style="background:#dcfce7;color:#166534;border:1px solid #86efac;font-size:0.68rem;">🌀 Outdoor</span>
+                                            <span class="badge bg-secondary" style="font-size:0.65rem;">Set</span>
+                                        @elseif($item->product->unit_type === 'indoor')
+                                            <span class="badge" style="background:#e8f0fe;color:#1a56db;border:1px solid #93c5fd;font-size:0.68rem;">❄️ Indoor</span>
+                                        @elseif($item->product->unit_type === 'outdoor')
+                                            <span class="badge" style="background:#dcfce7;color:#166534;border:1px solid #86efac;font-size:0.68rem;">🌀 Outdoor</span>
                                         @endif
-                                        @if($item->product)
-                                            @if($item->product->unit_type === 'indoor')
-                                                <span class="badge" style="background:#e8f0fe;color:#1a56db;border:1px solid #93c5fd;font-size:0.72rem;">❄️ Indoor</span>
-                                            @elseif($item->product->unit_type === 'outdoor')
-                                                <span class="badge" style="background:#dcfce7;color:#166534;border:1px solid #86efac;font-size:0.72rem;">🌀 Outdoor</span>
+                                    </div>
+                                    @if($item->product_id)
+                                        @foreach([
+                                            ['label' => $isSetItem ? '❄️ Indoor' : null, 'serials' => $indoorSerials],
+                                            ['label' => $isSetItem ? '🌀 Outdoor' : null, 'serials' => $outdoorSerials],
+                                        ] as $group)
+                                            @if($group['serials']->count() > 0)
+                                            <div class="mt-1 d-flex flex-wrap align-items-center gap-1">
+                                                @if($group['label'])
+                                                    <span class="text-muted" style="font-size:0.68rem;min-width:4.5rem;">{{ $group['label'] }}</span>
+                                                @endif
+                                                @foreach($group['serials'] as $serial)
+                                                <span class="badge d-inline-flex align-items-center gap-1"
+                                                      style="background:#eff6ff;color:#1e40af;border:1px solid #93c5fd;font-family:monospace;font-size:0.68rem;font-weight:600;">
+                                                    <i class="bi bi-upc-scan" style="font-size:0.6rem;"></i>
+                                                    {{ $serial->serial_number }}
+                                                </span>
+                                                @endforeach
+                                            </div>
                                             @endif
-                                        @endif
-                                    </div>
-                                    {{-- Serial numbers sold for this item --}}
-                                    @if($item->product_id && $item->serials && $item->serials->count() > 0)
-                                    <div class="mt-1 d-flex flex-wrap gap-1">
-                                        @foreach($item->serials as $serial)
-                                        <span class="badge d-inline-flex align-items-center gap-1"
-                                              style="background:#eff6ff;color:#1e40af;border:1px solid #93c5fd;font-family:monospace;font-size:0.72rem;font-weight:600;">
-                                            <i class="bi bi-upc-scan" style="font-size:0.65rem;"></i>
-                                            {{ $serial->serial_number }}
-                                        </span>
                                         @endforeach
-                                    </div>
-                                    @elseif($item->product_id)
-                                    <div class="mt-1">
-                                        <span class="text-muted small"><i class="bi bi-dash"></i> No serials linked</span>
-                                    </div>
+                                        @if($indoorSerials->isEmpty() && $outdoorSerials->isEmpty())
+                                            <div class="mt-1"><span class="text-muted small"><i class="bi bi-dash"></i> No serials linked</span></div>
+                                        @endif
                                     @endif
                                 </td>
                                 <td class="px-3 py-2 text-center">
