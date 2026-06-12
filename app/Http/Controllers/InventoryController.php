@@ -140,7 +140,6 @@ class InventoryController extends Controller
         $rules = [
             'serial_numbers'   => ['required', 'array', 'min:1'],
             'serial_numbers.*' => ['required', 'string', 'distinct', 'unique:product_serials,serial_number'],
-            'supplier_id'      => ['nullable', 'exists:suppliers,id'],
             'notes'            => ['nullable', 'string'],
         ];
 

@@ -53,8 +53,6 @@ class ProductController extends Controller
             return $own;
         };
 
-        $noPriceCount = $products->where('price', 0)->count();
-
         $totalProducts = $products->count();
         $outOfStock = $products->filter(fn($p) => $stockOf($p) === 0)->count();
         $lowStock = $products->filter(function ($p) use ($stockOf) {
@@ -72,7 +70,6 @@ class ProductController extends Controller
 
         return view('products.index', compact(
             'products',
-            'noPriceCount',
             'totalProducts',
             'lowStock',
             'mediumStock',

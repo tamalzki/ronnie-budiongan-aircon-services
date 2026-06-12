@@ -391,15 +391,6 @@
                     </div>
                         <div id="serialInputsContainer" class="mt-3"></div>
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">From Supplier (Optional)</label>
-                        <select class="form-select" name="supplier_id">
-                            <option value="">— Select Supplier —</option>
-                            @foreach($suppliers as $supplier)
-                                <option value="{{ $supplier->id }}">{{ $supplier->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="mb-3">
                         <label class="form-label fw-semibold">Cost Per Unit (Optional)</label>
                         <div class="input-group">
                             <span class="input-group-text">₱</span>

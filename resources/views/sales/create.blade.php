@@ -31,14 +31,6 @@
     </div>
     @endif
 
-    @if($lockedCount > 0)
-    <div class="alert alert-warning border-0 shadow-sm mb-3" style="font-size:0.875rem;">
-        <i class="bi bi-lock-fill me-1"></i>
-        <strong>{{ $lockedCount }} product(s)</strong> have no selling price and are hidden.
-        <a href="{{ route('products.index') }}" class="alert-link">Set prices in Products</a>.
-    </div>
-    @endif
-
     <form action="{{ $isEdit ? route('sales.update', $sale) : route('sales.store') }}" method="POST" id="saleForm">
         @csrf
         @if($isEdit) @method('PUT') @endif
@@ -343,7 +335,6 @@ function buildProductRow(id) {
       </div>
       <input type="hidden" name="items[${id}][type]" value="product">
       <input type="hidden" name="items[${id}][id]"       id="prod-id-${id}" value="">
-      <input type="hidden" name="items[${id}][price]"    id="price-${id}"   value="0">
 
       <div class="row g-2 align-items-end mb-2">
         <div class="col-12 col-lg-5">
@@ -374,9 +365,10 @@ function buildProductRow(id) {
                  oninput="onProductQtyChange(${id}); calculateTotals();">
         </div>
         <div class="col-4 col-lg-2">
-          <label class="form-label small fw-semibold mb-1">Unit Price</label>
-          <div class="bg-light rounded text-center fw-semibold px-1 py-1 text-danger"
-               id="price-display-${id}" style="font-size:0.82rem;height:31px;line-height:2;">₱—</div>
+          <label class="form-label small fw-semibold mb-1">Unit Price <span class="text-danger">*</span></label>
+          <input type="number" step="0.01" min="0.01" name="items[${id}][price]" id="price-${id}"
+                 class="form-control form-control-sm" value="0" required
+                 oninput="calculateTotals()">
         </div>
         <div class="col-4 col-lg-3">
           <label class="form-label small fw-semibold mb-1">Line Total</label>
@@ -1060,8 +1052,7 @@ function prefillSaleItems(items) {
 
 function pickProduct(id, productId, price, label, unitType, quiet) {
     document.getElementById(`prod-id-${id}`).value      = productId;
-    document.getElementById(`price-${id}`).value        = price;
-    document.getElementById(`price-display-${id}`).textContent = '₱' + price.toFixed(2);
+    document.getElementById(`price-${id}`).value        = price > 0 ? price : '';
 
     const disp = document.querySelector(`.cb-display-${id}`);
     disp.textContent = label; disp.style.color = '#212529';

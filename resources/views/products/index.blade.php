@@ -45,12 +45,7 @@
         </div>
     </div>
 
-    @if($noPriceCount > 0)
-    <div class="alert alert-warning border-0 shadow-sm mb-3 py-2 px-3 d-flex align-items-center gap-2 small">
-        <i class="bi bi-exclamation-circle flex-shrink-0"></i>
-        <span><strong>{{ $noPriceCount }}</strong> product(s) need a selling price before they can be sold.</span>
-    </div>
-    @endif
+    
 
     {{-- Toolbar --}}
     <div class="products-toolbar card border-0 shadow-sm mb-2 sticky-top">
@@ -165,14 +160,7 @@
                             @if($canSell)
                                 <span class="text-success fw-semibold">₱{{ number_format($product->price, 2) }}</span>
                             @else
-                                <form action="{{ route('products.set-price', $product) }}" method="POST" class="products-price-form">
-                                    @csrf
-                                    <div class="input-group input-group-sm">
-                                        <span class="input-group-text py-0">₱</span>
-                                        <input type="number" step="0.01" min="0.01" class="form-control py-0" name="price" placeholder="0" required>
-                                    </div>
-                                    <button type="submit" class="btn btn-warning btn-sm py-0">Set</button>
-                                </form>
+                                <span class="text-muted small">Set during sale</span>
                             @endif
                         </td>
                         <td class="text-center">
@@ -433,19 +421,6 @@ document.addEventListener('DOMContentLoaded', function () {
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
 }
-.products-price-form {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    justify-content: flex-end;
-    flex-wrap: nowrap;
-    width: 100%;
-}
-.products-price-form .input-group {
-    width: 6.5rem;
-    flex-shrink: 0;
-}
-
 .products-qty-wrap {
     display: inline-flex;
     align-items: center;

@@ -269,12 +269,6 @@ class SaleController extends Controller
      */
     private function saleFormViewData(?Sale $sale = null): array
     {
-        $lockedCount = Product::where('is_active', true)->where('price', 0)
-            ->where(function ($q) {
-                $q->whereNotIn('id', Product::whereNotNull('paired_product_id')->pluck('paired_product_id'));
-            })
-            ->count();
-
         $saleId      = $sale?->id;
         $serialScope = function ($q) use ($saleId) {
             $q->where('status', 'in_stock');
@@ -302,7 +296,7 @@ class SaleController extends Controller
         ])->values()->toArray();
 
         $products = $all
-            ->filter(fn($p) => $p->price > 0 && !$pairedOutdoorIds->contains($p->id))
+            ->filter(fn($p) => !$pairedOutdoorIds->contains($p->id))
             ->map(function ($p) use ($mapSerials) {
                 if ($p->is_set_primary && $p->pairedProduct) {
                     return [
@@ -349,7 +343,7 @@ class SaleController extends Controller
             ->values()
             ->toArray();
 
-        $data = compact('products', 'services', 'lockedCount');
+        $data = compact('products', 'services');
         $data['isEdit']              = $sale !== null;
         $data['sale']                = $sale;
         $data['prefillItems']        = $sale ? $this->buildPrefillItems($sale) : [];
@@ -443,7 +437,7 @@ class SaleController extends Controller
             'items.*.type'         => 'required|in:product,service',
             'items.*.id'           => 'required|integer',
             'items.*.quantity'     => 'required|integer|min:1',
-            'items.*.price'        => 'required|numeric|min:0',
+            'items.*.price'        => 'required|numeric|min:0.01',
             'items.*.serial_ids'      => 'nullable|array',
             'items.*.serial_ids.*'    => 'nullable|integer|exists:product_serials,id',
             'items.*.new_serials_raw' => 'nullable|string',
@@ -477,15 +471,6 @@ class SaleController extends Controller
         $totalPreview    = max(0, $subtotalPreview - $discountPreview);
         if ($request->payment_type === 'installment' && (float) ($request->down_payment ?? 0) > $totalPreview + 0.001) {
             return ['down_payment' => 'Down payment cannot exceed the sale total.'];
-        }
-
-        foreach ($request->items as $item) {
-            if ($item['type'] === 'product') {
-                $p = Product::with('brand')->find($item['id']);
-                if ($p && $p->price == 0) {
-                    return ['items' => 'No selling price for: ' . ($p->brand->name ?? '') . ' ' . $p->model];
-                }
-            }
         }
 
         foreach ($request->items as $idx => $item) {
@@ -545,6 +530,14 @@ class SaleController extends Controller
                     'unit_price'  => $item['price'],
                     'total_price' => $item['quantity'] * $item['price'],
                 ]);
+
+                // Selling price is set during sale creation — becomes the new catalog price
+                if ((float) $item['price'] !== (float) $product->price) {
+                    $product->update(['price' => $item['price']]);
+                    if ($isSet) {
+                        $product->pairedProduct->update(['price' => $item['price']]);
+                    }
+                }
 
                 $this->sellSerialsForProduct(
                     $sale, $saleItem, $product,
