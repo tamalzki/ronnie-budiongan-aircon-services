@@ -41,7 +41,7 @@
         <div>
             <strong>{{ $overdueOrders->count() }} Overdue Order(s):</strong>
             @foreach($overdueOrders as $o)
-                <a href="{{ route('purchase-orders.show', $o) }}" class="text-danger fw-bold">{{ $o->po_number }}</a>
+                <a href="{{ route('purchase-orders.show', $o) }}" class="text-danger fw-bold">{{ $o->display_po_number }}</a>
                 <span class="text-muted small">({{ $o->supplier->name }}, due {{ $o->payment_due_date->format('M d') }}){{ !$loop->last ? ' · ' : '' }}</span>
             @endforeach
         </div>
@@ -54,7 +54,7 @@
         <div>
             <strong>{{ $upcomingDeadlines->count() }} Due within 10 days:</strong>
             @foreach($upcomingDeadlines as $u)
-                <a href="{{ route('purchase-orders.show', $u) }}" class="text-warning fw-bold">{{ $u->po_number }}</a>
+                <a href="{{ route('purchase-orders.show', $u) }}" class="text-warning fw-bold">{{ $u->display_po_number }}</a>
                 <span class="text-muted small">({{ now()->diffInDays($u->payment_due_date) }}d left){{ !$loop->last ? ' · ' : '' }}</span>
             @endforeach
         </div>

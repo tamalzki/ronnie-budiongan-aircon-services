@@ -172,7 +172,7 @@
 @endif
 
 <div class="footer">
-    Generated {{ now()->format('M d, Y h:i A') }}{{ $po->user ? ' · Encoded by ' . $po->user->name : '' }} · {{ $po->po_number }}
+    Generated {{ now()->format('M d, Y h:i A') }}{{ $po->user ? ' · Encoded by ' . $po->user->name : '' }} · {{ $po->display_po_number }}
 </div>
 
 </body>

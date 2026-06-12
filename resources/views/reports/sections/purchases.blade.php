@@ -58,13 +58,13 @@
                         </td>
                         <td style="white-space:nowrap">{{ $po->supplier->name ?? '—' }}</td>
                         <td style="white-space:nowrap">
-                            @if($po->po_number)
-                                <div class="text-muted" style="font-size:0.72rem;">PO: {{ $po->po_number }}</div>
+                            @if($po->display_po_number)
+                                <div class="text-muted" style="font-size:0.72rem;">PO: {{ $po->display_po_number }}</div>
                             @endif
                             @if($po->so_number)
                                 <div class="text-muted" style="font-size:0.72rem;">SO: {{ $po->so_number }}</div>
                             @endif
-                            @if(!$po->po_number && !$po->so_number)
+                            @if(!$po->display_po_number && !$po->so_number)
                                 <span class="text-muted">—</span>
                             @endif
                         </td>

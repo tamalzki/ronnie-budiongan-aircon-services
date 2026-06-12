@@ -131,7 +131,7 @@
                         @forelse($payments as $payment)
                         @php $isDownpayment = str_contains(strtolower($payment->payment_number), 'downpayment'); @endphp
                         <tr class="{{ $isDownpayment ? 'table-warning' : '' }} payment-row"
-                            data-search="{{ strtolower($payment->purchaseOrder->po_number . ' ' . $payment->purchaseOrder->supplier->name) }}"
+                            data-search="{{ strtolower($payment->purchaseOrder->display_po_number . ' ' . $payment->purchaseOrder->supplier->name) }}"
                             data-method="{{ $payment->payment_method }}"
                             data-type="{{ $isDownpayment ? 'downpayment' : 'regular' }}">
                             <td class="px-3 py-2" style="white-space:nowrap">
@@ -141,7 +141,7 @@
                             <td class="px-3 py-2" style="white-space:nowrap">
                                 <a href="{{ route('purchase-orders.show', $payment->purchaseOrder) }}"
                                    class="text-decoration-none fw-semibold text-primary">
-                                    {{ $payment->purchaseOrder->po_number }}
+                                    {{ $payment->purchaseOrder->display_po_number }}
                                 </a>
                                 @if($isDownpayment)
                                     <br><span class="badge bg-warning text-dark"><i class="bi bi-cash"></i> Downpayment</span>
@@ -213,7 +213,7 @@
                             <td class="px-3 py-2" style="white-space:nowrap">
                                 <a href="{{ route('purchase-orders.show', $po) }}"
                                    class="text-decoration-none fw-semibold text-primary">
-                                    {{ $po->po_number }}
+                                    {{ $po->display_po_number }}
                                 </a>
                             </td>
                             <td class="px-3 py-2" style="white-space:nowrap">{{ $po->supplier->name }}</td>

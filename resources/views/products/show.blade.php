@@ -262,7 +262,7 @@
                                     <a href="{{ route('purchase-orders.show', $serial->purchaseOrder) }}"
                                        class="text-decoration-none text-primary fw-semibold"
                                        style="font-size:0.82rem;">
-                                        <i class="bi bi-cart-plus me-1"></i>{{ $serial->purchaseOrder->po_number }}
+                                        <i class="bi bi-cart-plus me-1"></i>{{ $serial->purchaseOrder->display_po_number }}
                                     </a>
                                 @else
                                     <span class="text-muted small">—</span>

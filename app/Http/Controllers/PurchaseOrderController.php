@@ -97,7 +97,7 @@ class PurchaseOrderController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'supplier_po_number'       => 'nullable|string|max:255',
+            'supplier_po_number'       => 'required|string|max:255',
             'so_number'                => 'nullable|string|max:255',
             'delivery_number'          => 'nullable|string|max:255',
             'supplier_id'              => 'required|exists:suppliers,id',
@@ -119,7 +119,7 @@ class PurchaseOrderController extends Controller
             'downpayment_date'         => 'nullable|date',
             'downpayment_method'       => ['nullable', Rule::in(PaymentMethod::values())],
             'downpayment_reference'    => 'nullable|string',
-        ]);
+        ], [], ['supplier_po_number' => 'PO No.']);
 
         // ── Normalize + validate line items (serials optional: empty = receive later) ──
         $errors = [];
@@ -201,10 +201,10 @@ class PurchaseOrderController extends Controller
 
                 if ($line['received']) {
                     $this->stockInSerials($po, $line['product'], $line['serials'], $receivedDate,
-                        'Received on PO creation: ' . $po->po_number, $line['net_cost']);
+                        'Received on PO creation: ' . $po->display_po_number, $line['net_cost']);
                     if ($line['is_set']) {
                         $this->stockInSerials($po, $line['pair'], $line['outdoor_serials'], $receivedDate,
-                            'Received on PO creation: ' . $po->po_number, $line['net_cost']);
+                            'Received on PO creation: ' . $po->display_po_number, $line['net_cost']);
                     }
                 }
             }
@@ -575,7 +575,7 @@ class PurchaseOrderController extends Controller
                     $product->pairedProduct->update(['cost' => $netCost]);
                 }
 
-                $note = 'Received from PO: ' . $purchaseOrder->po_number .
+                $note = 'Received from PO: ' . $purchaseOrder->display_po_number .
                     ($request->delivery_number ? ' | DR#: ' . $request->delivery_number : '');
 
                 $this->stockInSerials($purchaseOrder, $product, $line['serials'], $receivedDate, $note, $netCost);
@@ -706,7 +706,7 @@ class PurchaseOrderController extends Controller
         }
 
         $request->validate([
-            'supplier_po_number'       => 'nullable|string|max:255',
+            'supplier_po_number'       => 'required|string|max:255',
             'so_number'                => 'nullable|string|max:255',
             'delivery_number'          => 'nullable|string|max:255',
             'supplier_id'              => 'required|exists:suppliers,id',
@@ -724,7 +724,7 @@ class PurchaseOrderController extends Controller
             'items.*.serials.*'        => 'nullable|string|max:255',
             'items.*.outdoor_serials'   => 'nullable|array',
             'items.*.outdoor_serials.*' => 'nullable|string|max:255',
-        ]);
+        ], [], ['supplier_po_number' => 'PO No.']);
 
         // ── Normalize + validate (edit form omits serials — keep existing received units) ──
         $errors = [];
@@ -774,10 +774,10 @@ class PurchaseOrderController extends Controller
 
                 if ($line['received']) {
                     $this->stockInSerials($purchaseOrder, $line['product'], $line['serials'], $receivedDate,
-                        'Updated PO ' . $purchaseOrder->po_number, $line['net_cost']);
+                        'Updated PO ' . $purchaseOrder->display_po_number, $line['net_cost']);
                     if ($line['is_set']) {
                         $this->stockInSerials($purchaseOrder, $line['pair'], $line['outdoor_serials'], $receivedDate,
-                            'Updated PO ' . $purchaseOrder->po_number, $line['net_cost']);
+                            'Updated PO ' . $purchaseOrder->display_po_number, $line['net_cost']);
                     }
                 }
             }

@@ -76,7 +76,7 @@
                     </div>
                     <div>
                         <span class="text-muted">PO No.</span>
-                        <span class="fw-semibold ms-1 text-primary">{{ $purchaseOrder->po_number }}</span>
+                        <span class="fw-semibold ms-1 text-primary">{{ $purchaseOrder->display_po_number }}</span>
                     </div>
                     <div>
                         <span class="text-muted">Date</span>
@@ -499,7 +499,7 @@
             <form action="{{ route('purchase-orders.payment', $purchaseOrder) }}" method="POST">
                 @csrf
                 <div class="modal-header bg-primary text-white border-0">
-                    <h5 class="modal-title"><i class="bi bi-cash-coin"></i> Record Payment — {{ $purchaseOrder->po_number }}</h5>
+                    <h5 class="modal-title"><i class="bi bi-cash-coin"></i> Record Payment — {{ $purchaseOrder->display_po_number }}</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-4">

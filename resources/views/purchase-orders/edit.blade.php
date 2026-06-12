@@ -19,7 +19,7 @@
 @section('content')
 <div class="container-fluid">
 
-    <x-page-header title="Edit Purchase Order" subtitle="{{ $purchaseOrder->po_number }}" icon="bi-pencil">
+    <x-page-header title="Edit Purchase Order" subtitle="{{ $purchaseOrder->display_po_number }}" icon="bi-pencil">
         <x-slot name="actions">
             <a href="{{ route('purchase-orders.index') }}" class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-arrow-left"></i> Back
@@ -99,11 +99,11 @@
 
                             {{-- Row 2: PO reference (DR + serials via Order Receiving) --}}
                             <div class="col-md-4">
-                                <label class="form-label small fw-semibold">PO No. <small class="text-muted">(supplier's PO)</small></label>
+                                <label class="form-label small fw-semibold">PO No. <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control form-control-sm" name="supplier_po_number"
                                        value="{{ old('supplier_po_number', $purchaseOrder->supplier_po_number) }}"
                                        placeholder="e.g. 698"
-                                       style="font-family:monospace;">
+                                       style="font-family:monospace;" required>
                             </div>
                             <div class="col-md-8 d-flex align-items-end">
                                 <div class="alert alert-info py-2 px-3 mb-0 w-100" style="font-size:0.78rem;">
