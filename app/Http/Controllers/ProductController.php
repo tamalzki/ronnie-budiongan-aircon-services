@@ -115,46 +115,40 @@ class ProductController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'brand_id'     => 'required|exists:brands,id',
-            'model'        => 'required|string|max:255',
-            'unit_type'    => 'required|in:indoor,outdoor',
-            'supplier_id'  => 'nullable|exists:suppliers,id',
-            'description'  => 'nullable|string',
-            'cost'         => 'nullable|numeric|min:0',
-            'outdoor_model' => 'nullable|string|max:255',
+            'brand_id'      => 'required|exists:brands,id',
+            'indoor_model'  => 'required|string|max:255',
+            'outdoor_model' => 'required|string|max:255',
+            'supplier_id'   => 'nullable|exists:suppliers,id',
+            'description'   => 'nullable|string',
         ]);
 
-        $validated['is_active'] = $request->has('is_active');
-        $validated['cost']      = $validated['cost'] ?? 0;
-        $validated['price']     = 0;
+        $isActive = $request->has('is_active');
+        $brand    = Brand::find($validated['brand_id']);
 
-        $brand = Brand::find($validated['brand_id']);
-        $validated['name'] = $brand->name . ' ' . $validated['model'];
+        $shared = [
+            'brand_id'    => $validated['brand_id'],
+            'supplier_id' => $validated['supplier_id'] ?? null,
+            'description' => $validated['description'] ?? null,
+            'cost'        => 0,
+            'price'       => 0,
+            'is_active'   => $isActive,
+        ];
 
-        $outdoorModel = trim((string) ($validated['outdoor_model'] ?? ''));
-        unset($validated['outdoor_model']);
+        $indoor = Product::create($shared + [
+            'model'     => $validated['indoor_model'],
+            'name'      => $brand->name . ' ' . $validated['indoor_model'],
+            'unit_type' => 'indoor',
+        ]);
 
-        $product = Product::create($validated);
+        $outdoor = Product::create($shared + [
+            'model'     => $validated['outdoor_model'],
+            'name'      => $brand->name . ' ' . $validated['outdoor_model'],
+            'unit_type' => 'outdoor',
+        ]);
 
-        if ($product->unit_type === 'indoor' && $outdoorModel !== '') {
-            $outdoor = Product::create([
-                'brand_id'    => $validated['brand_id'],
-                'model'       => $outdoorModel,
-                'name'        => $brand->name . ' ' . $outdoorModel,
-                'unit_type'   => 'outdoor',
-                'supplier_id' => $validated['supplier_id'],
-                'description' => $validated['description'],
-                'cost'        => 0,
-                'price'       => 0,
-                'is_active'   => $validated['is_active'],
-            ]);
+        $indoor->update(['paired_product_id' => $outdoor->id]);
 
-            $product->update(['paired_product_id' => $outdoor->id]);
-
-            return redirect()->route('products.index')->with('success', 'Indoor and outdoor units added as a set.');
-        }
-
-        return redirect()->route('products.index')->with('success', 'Product added successfully.');
+        return redirect()->route('products.index')->with('success', 'Indoor and outdoor units added as a set.');
     }
 
     public function edit(Product $product)

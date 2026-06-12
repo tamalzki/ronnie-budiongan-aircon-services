@@ -3,7 +3,7 @@
 @section('content')
 <div class="container-fluid">
 
-    <x-page-header title="Add Product" subtitle="Products are identified by Brand + Model + Unit Type" icon="bi-plus-circle">
+    <x-page-header title="Add Product" subtitle="Add an indoor and outdoor unit together as one set" icon="bi-plus-circle">
         <x-slot name="actions">
             <a href="{{ route('products.index') }}" class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-arrow-left"></i> Back
@@ -20,7 +20,7 @@
             <div class="alert alert-info border-0 shadow-sm py-2 px-3 mb-3 small">
                 <i class="bi bi-lightbulb-fill me-1"></i>
                 <strong>Recommended workflow:</strong>
-                Add product here → Create Purchase Order (cost auto-fills) → Receive Stock → Sell
+                Add product here (indoor + outdoor as one set) → Create Purchase Order (cost auto-fills) → Receive Stock → Sell
             </div>
 
             <div class="card app-card-panel">
@@ -31,7 +31,7 @@
                     <form action="{{ route('products.store') }}" method="POST">
                         @csrf
 
-                        {{-- Brand & Model --}}
+                        {{-- Brand --}}
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
                                 <label class="form-label small fw-semibold mb-1">Brand <span class="text-danger">*</span></label>
@@ -46,45 +46,32 @@
                                 </select>
                                 @error('brand_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label small fw-semibold mb-1">Model <span class="text-danger">*</span></label>
-                                <input type="text" name="model"
-                                       class="form-control form-control-sm @error('model') is-invalid @enderror"
-                                       value="{{ old('model') }}"
-                                       placeholder="e.g. FTKC60BVAF" required>
-                                @error('model')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                            </div>
                         </div>
 
-                        {{-- Unit Type --}}
+                        {{-- Indoor & Outdoor Models --}}
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
-                                <label class="form-label small fw-semibold mb-1">Unit Type <span class="text-danger">*</span></label>
-                                <select class="form-select form-select-sm @error('unit_type') is-invalid @enderror"
-                                        id="unit_type" name="unit_type" required>
-                                    <option value="">-- Select Type --</option>
-                                    <option value="indoor" {{ old('unit_type') == 'indoor' ? 'selected' : '' }}>🏠 Indoor Unit</option>
-                                    <option value="outdoor" {{ old('unit_type') == 'outdoor' ? 'selected' : '' }}>🌤️ Outdoor Unit</option>
-                                </select>
-                                @error('unit_type')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                <label class="form-label small fw-semibold mb-1">🏠 Indoor Unit Model <span class="text-danger">*</span></label>
+                                <input type="text" name="indoor_model"
+                                       class="form-control form-control-sm @error('indoor_model') is-invalid @enderror"
+                                       value="{{ old('indoor_model') }}"
+                                       placeholder="e.g. FTKC60BVAF" required>
+                                @error('indoor_model')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             </div>
-                        </div>
-
-                        {{-- Set pairing: create the matching outdoor unit at the same time --}}
-                        <div class="mb-3" id="setWrap" style="display:none;">
-                            <label class="form-label small fw-semibold mb-1">
-                                Outdoor Unit Model <span class="text-muted fw-normal">(creates a linked set)</span>
-                            </label>
-                            <input type="text" name="outdoor_model"
-                                   class="form-control form-control-sm @error('outdoor_model') is-invalid @enderror"
-                                   value="{{ old('outdoor_model') }}"
-                                   placeholder="e.g. RKC60BVA">
-                            @error('outdoor_model')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                            <small class="text-muted">
-                                If filled, a matching outdoor unit is created and paired with this indoor unit automatically.
-                                Stock/serials are still tracked separately for each unit, but they share one price in
-                                purchase orders and sales. Leave blank to add this unit by itself.
-                            </small>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-semibold mb-1">🌤️ Outdoor Unit Model <span class="text-danger">*</span></label>
+                                <input type="text" name="outdoor_model"
+                                       class="form-control form-control-sm @error('outdoor_model') is-invalid @enderror"
+                                       value="{{ old('outdoor_model') }}"
+                                       placeholder="e.g. RKC60BVA" required>
+                                @error('outdoor_model')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            </div>
+                            <div class="col-12">
+                                <small class="text-muted">
+                                    Both units are created and linked as one set — inventory (serials/stock) is tracked
+                                    separately for each, but they share one price in purchase orders and sales.
+                                </small>
+                            </div>
                         </div>
 
                         {{-- Supplier --}}
@@ -105,22 +92,6 @@
                             <label class="form-label small fw-semibold mb-1">Description</label>
                             <textarea class="form-control form-control-sm" name="description" rows="2"
                                       placeholder="Optional">{{ old('description') }}</textarea>
-                        </div>
-
-                        {{-- Cost --}}
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label small fw-semibold mb-1">Cost</label>
-                                <div class="input-group input-group-sm">
-                                    <span class="input-group-text">₱</span>
-                                    <input type="number" step="0.01" min="0"
-                                           class="form-control @error('cost') is-invalid @enderror"
-                                           name="cost" value="{{ old('cost', 0) }}"
-                                           placeholder="e.g. 28000.00">
-                                </div>
-                                @error('cost')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
-                                <small class="text-muted">Used as default in PO</small>
-                            </div>
                         </div>
 
                         {{-- Active --}}
@@ -144,16 +115,4 @@
         </div>
     </div>
 </div>
-
-@push('scripts')
-<script>
-function toggleSetWrap() {
-    const unitType = document.getElementById('unit_type');
-    const wrap = document.getElementById('setWrap');
-    if (unitType && wrap) wrap.style.display = unitType.value === 'indoor' ? '' : 'none';
-}
-document.getElementById('unit_type')?.addEventListener('change', toggleSetWrap);
-toggleSetWrap();
-</script>
-@endpush
 @endsection
