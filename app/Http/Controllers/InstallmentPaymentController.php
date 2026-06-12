@@ -22,11 +22,13 @@ class InstallmentPaymentController extends Controller
         $customersData = Sale::where('payment_type', 'installment')
             ->select('customer_name', 'customer_contact', 'customer_address')
             ->selectRaw('MIN(id) as first_sale_id')
+            ->selectRaw('MAX(sale_date) as latest_sale_date')
             ->selectRaw('SUM(total) as total_amount')
             ->selectRaw('SUM(paid_amount) as total_paid')
             ->selectRaw('SUM(balance) as total_balance')
             ->selectRaw('COUNT(*) as sales_count')
             ->groupBy('customer_name', 'customer_contact', 'customer_address')
+            ->orderByDesc('latest_sale_date')
             ->orderBy('customer_name')
             ->get();
 

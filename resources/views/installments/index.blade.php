@@ -447,11 +447,6 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('balanceFilter').addEventListener('change', filterTable);
     document.getElementById('dueSearch').addEventListener('input', filterDueTable);
     document.getElementById('dueStatusFilter').addEventListener('change', filterDueTable);
-
-    // Auto-open Due This Month tab if there are overdue payments
-    @if($overdueCount > 0)
-    switchTab('due');
-    @endif
 });
 </script>
 @endpush
