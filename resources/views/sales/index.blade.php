@@ -60,7 +60,7 @@
                 <table class="table table-hover table-sm align-middle mb-0 app-table" id="salesTable">
                     <thead>
                         <tr>
-                            <th>Customer / Invoice</th>
+                            <th>Customer</th>
                             <th>Date</th>
                             <th class="text-end">Total</th>
                             <th>Payment</th>
@@ -98,8 +98,7 @@
                             <td class="px-2 py-1" style="white-space:nowrap;max-width:280px;overflow:hidden;text-overflow:ellipsis;">
                                 <span class="fw-semibold">{{ $sale->customer_name }}</span>
                                 <span class="text-muted" style="font-size:0.72rem;">
-                                    · <span style="font-family:monospace;">{{ $sale->invoice_number }}</span>
-                                    @if($sale->customer_contact) · {{ $sale->customer_contact }} @endif
+                                   
                                     @if($serialHint)<span class="text-primary">{{ $serialHint }}</span>@endif
                                 </span>
                             </td>
@@ -120,23 +119,28 @@
                                 <span class="badge {{ $sale->payment_type == 'cash' ? 'bg-success' : 'bg-warning text-dark' }}" style="font-size:0.65rem;">
                                     {{ ucfirst($sale->payment_type) }}
                                 </span>
-                                @if($sale->payment_method)
+                                @if($sale->payment_method && ucwords(str_replace('_', ' ', $sale->payment_method)) !== ucfirst($sale->payment_type))
                                     @php $methodIcons = ['cash'=>'💵','gcash'=>'📱','bank_transfer'=>'🏦','cheque'=>'🧾']; @endphp
                                     <span class="badge bg-secondary bg-opacity-10 text-secondary border" style="font-size:0.65rem;">
                                         {{ $methodIcons[$sale->payment_method] ?? '' }} {{ ucwords(str_replace('_', ' ', $sale->payment_method)) }}
                                     </span>
                                 @endif
-                                @if($sale->balance > 0)
-                                    <small class="text-danger fw-semibold">· ₱{{ number_format($sale->balance, 2) }} due</small>
-                                @else
-                                    <small class="text-success">· Paid</small>
-                                @endif
                             </td>
 
                             <td class="px-2 py-1" style="white-space:nowrap;">
-                                <span class="badge bg-{{ $sale->status == 'completed' ? 'success' : ($sale->status == 'pending' ? 'warning text-dark' : 'danger') }}" style="font-size:0.65rem;">
-                                    {{ ucfirst($sale->status) }}
-                                </span>
+                                @if($sale->status == 'completed' && $sale->payment_type == 'installment' && $sale->balance > 0)
+                                    <span class="badge bg-warning text-dark" style="font-size:0.65rem;">On Going</span>
+                                    <small class="text-danger fw-semibold">· ₱{{ number_format($sale->balance, 2) }} due</small>
+                                @elseif($sale->status == 'completed')
+                                    <span class="badge bg-success" style="font-size:0.65rem;">Completed</span>
+                                    @if($sale->payment_type == 'installment')
+                                        <small class="text-success">· Paid</small>
+                                    @endif
+                                @else
+                                    <span class="badge bg-{{ $sale->status == 'pending' ? 'warning text-dark' : 'danger' }}" style="font-size:0.65rem;">
+                                        {{ ucfirst($sale->status) }}
+                                    </span>
+                                @endif
                             </td>
 
                             <td class="px-2 py-1" style="white-space:nowrap;">
@@ -263,6 +267,11 @@ function syncSaleSearchToServer() {
 
 document.addEventListener('DOMContentLoaded', function () {
     const searchInput = document.getElementById('saleSearchInput');
+
+    if (new URLSearchParams(window.location.search).get('search')) {
+        searchInput.focus();
+        searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
+    }
 
     searchInput.addEventListener('input', function () {
         filterTable();

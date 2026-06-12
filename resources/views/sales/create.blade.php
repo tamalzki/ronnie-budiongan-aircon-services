@@ -255,7 +255,7 @@
 
 {{-- Pick warehouse / new serials (same POST fields as before: serial_ids + new_serials_raw) --}}
 <div class="modal fade" id="salePickSerialModal" tabindex="-1" aria-labelledby="salePickSerialModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-primary text-white border-0 py-3">
                 <h5 class="modal-title" id="salePickSerialModalLabel"><i class="bi bi-upc-scan me-2"></i>Serial numbers</h5>
@@ -264,7 +264,7 @@
             <div class="modal-body">
                 <p class="mb-1 fw-semibold text-dark" id="saleSerialModalLead" style="font-size:0.95rem;"></p>
                 <p class="small text-muted mb-3 d-none" id="saleSerialNoStockHint"></p>
-                <div id="saleSerialSlotsWrap" class="overflow-auto" style="max-height:min(360px,50vh);"></div>
+                <div id="saleSerialSlotsWrap" class="overflow-auto" style="max-height:min(520px,70vh);"></div>
                 <div class="form-check mt-3 pt-3 border-top" id="saleSerialSkipWrap">
                     <input class="form-check-input" type="checkbox" id="saleSerialSkip">
                     <label class="form-check-label small text-muted" for="saleSerialSkip">
@@ -633,8 +633,8 @@ function initSaleSnSearchEvents() {
     });
 }
 
-// Serial lists for the currently open modal, keyed by side ('main' / 'outdoor')
-let saleSerialModalData = { main: [], outdoor: [] };
+// Serial lists for the currently open modal, keyed by side ('main' / 'outdoor'), plus paired (indoor+outdoor) options for Set products
+let saleSerialModalData = { main: [], outdoor: [], pairs: [] };
 const saleSerialLookupUrl = @json(route('sales.serial-lookup'));
 let saleSerialSoldCache = {};
 
@@ -674,8 +674,41 @@ function soldSerialResultsHtml(sold) {
     </div>`;
 }
 
-function renderSaleSerialSideSlots(wrap, serials, qty, slotsDraft, side, heading) {
+/* Inner markup for one serial slot — a searchable dropdown (if stock exists) or a plain "type new" input */
+function buildSaleSnSlotHtml(side, i, serials, d) {
     const hasStock = serials.length > 0;
+
+    if (hasStock) {
+        const matched = d.stockId ? serials.find(s => Number(s.id) === Number(d.stockId)) : null;
+        const stockId = matched ? matched.id : '';
+        const newTxt  = (!matched && d.newTxt) ? String(d.newTxt).trim() : '';
+        const initVal = matched ? matched.serial_number : newTxt;
+
+        return `<div class="sale-sn-slot" data-index="${i}" data-side="${side}" data-hasstock="1"
+                      data-stock-id="${stockId}" data-newtxt="${escapeHtml(newTxt)}">
+                  <div class="input-group input-group-sm">
+                    <span class="input-group-text sale-sn-state" style="min-width:34px;justify-content:center;"></span>
+                    <input type="text" class="form-control form-control-sm sale-sn-search" autocomplete="off"
+                           placeholder="Search or pick…"
+                           value="${escapeHtml(initVal)}" style="font-family:monospace;">
+                    <span class="input-group-text sale-sn-toggle" style="cursor:pointer;" title="Show available serials">
+                      <i class="bi bi-chevron-down"></i>
+                    </span>
+                  </div>
+                  <div class="sale-sn-list bg-white border rounded shadow-sm mt-1"
+                       style="display:none;max-height:200px;overflow-y:auto;"></div>
+                </div>`;
+    }
+
+    return `<div class="sale-sn-slot" data-index="${i}" data-side="${side}" data-hasstock="0">
+              <input type="text" class="form-control form-control-sm sale-sn-newonly" autocomplete="off"
+                     placeholder="Serial from sticker — saved to inventory"
+                     value="${escapeHtml(d.newTxt || '')}">
+            </div>`;
+}
+
+/* Single-column rendering — used for non-set (single unit) products */
+function renderSaleSerialSideSlots(wrap, serials, qty, slotsDraft, side, heading) {
     saleSerialModalData[side] = serials;
 
     if (heading) {
@@ -685,42 +718,310 @@ function renderSaleSerialSideSlots(wrap, serials, qty, slotsDraft, side, heading
 
     for (let i = 0; i < qty; i++) {
         const d = slotsDraft[i] || { stockId: null, newTxt: '' };
-        if (hasStock) {
-            const matched = d.stockId ? serials.find(s => Number(s.id) === Number(d.stockId)) : null;
-            const stockId = matched ? matched.id : '';
-            const newTxt  = (!matched && d.newTxt) ? String(d.newTxt).trim() : '';
-            const initVal = matched ? matched.serial_number : newTxt;
+        wrap.insertAdjacentHTML('beforeend',
+            `<div class="mb-2">
+               <label class="form-label small fw-semibold mb-1 text-muted">Piece ${i + 1} of ${qty}</label>
+               ${buildSaleSnSlotHtml(side, i, serials, d)}
+             </div>`);
+    }
 
-            wrap.insertAdjacentHTML('beforeend',
-                `<div class="sale-sn-slot border rounded p-2 mb-2" data-index="${i}" data-side="${side}" data-hasstock="1"
-                      data-stock-id="${stockId}" data-newtxt="${escapeHtml(newTxt)}">
-                  <label class="form-label small fw-semibold mb-1 text-muted">Piece ${i + 1} of ${qty}</label>
-                  <div class="position-relative">
-                    <div class="input-group input-group-sm">
-                      <span class="input-group-text sale-sn-state" style="min-width:34px;justify-content:center;"></span>
-                      <input type="text" class="form-control form-control-sm sale-sn-search" autocomplete="off"
-                             placeholder="Search serial or pick from list…"
-                             value="${escapeHtml(initVal)}" style="font-family:monospace;">
-                      <span class="input-group-text sale-sn-toggle" style="cursor:pointer;" title="Show available serials">
-                        <i class="bi bi-chevron-down"></i>
-                      </span>
-                    </div>
-                    <div class="sale-sn-list position-absolute w-100 bg-white border rounded shadow-sm"
-                         style="display:none;top:100%;left:0;max-height:170px;overflow-y:auto;z-index:2070;"></div>
+    wrap.querySelectorAll(`.sale-sn-slot[data-side="${side}"][data-hasstock="1"]`).forEach(setSaleSlotState);
+}
+
+/* Build the indoor/outdoor pairing options for a Set product — pairs warehouse serials by stock order */
+function buildSaleSerialPairs(mainSerials, outdoorSerials) {
+    const n = Math.min(mainSerials.length, outdoorSerials.length);
+    const pairs = [];
+    for (let k = 0; k < n; k++) {
+        pairs.push({
+            mainId: mainSerials[k].id, mainSn: mainSerials[k].serial_number,
+            outdoorId: outdoorSerials[k].id, outdoorSn: outdoorSerials[k].serial_number,
+        });
+    }
+    return pairs;
+}
+
+/* Combined indoor+outdoor picker for Set products — one dropdown per piece, showing "Indoor: X / Outdoor: Y" pairs */
+function renderSaleSerialPairedSlots(wrap, mainSerials, outdoorSerials, qty, mainDraft, outdoorDraft, mainModel, outdoorModel) {
+    saleSerialModalData.main    = mainSerials;
+    saleSerialModalData.outdoor = outdoorSerials;
+    saleSerialModalData.pairs   = buildSaleSerialPairs(mainSerials, outdoorSerials);
+
+    wrap.insertAdjacentHTML('beforeend',
+        `<div class="small text-muted mb-2">
+           <span style="color:#0d6efd;">❄️ Indoor — ${escapeHtml(mainModel)}</span>
+           &nbsp;/&nbsp;
+           <span style="color:#198754;">🌀 Outdoor — ${escapeHtml(outdoorModel)}</span>
+         </div>`);
+
+    for (let i = 0; i < qty; i++) {
+        const md = mainDraft[i]    || { stockId: null, newTxt: '' };
+        const od = outdoorDraft[i] || { stockId: null, newTxt: '' };
+
+        wrap.insertAdjacentHTML('beforeend',
+            `<div class="mb-2">
+               <label class="form-label small fw-semibold mb-1 text-muted">Piece ${i + 1} of ${qty}</label>
+               ${buildSaleSnPairSlotHtml(i, md, od)}
+             </div>`);
+    }
+
+    wrap.querySelectorAll('.sale-sn-pair-slot').forEach(setSaleSnPairState);
+}
+
+/* Inner markup for one paired (indoor+outdoor) serial slot */
+function buildSaleSnPairSlotHtml(i, md, od) {
+    const pairs = saleSerialModalData.pairs;
+
+    let matchedPair = null;
+    if (md.stockId && od.stockId) {
+        matchedPair = pairs.find(p => Number(p.mainId) === Number(md.stockId) && Number(p.outdoorId) === Number(od.stockId)) || null;
+    }
+
+    const mainStockId    = matchedPair ? matchedPair.mainId    : '';
+    const outdoorStockId = matchedPair ? matchedPair.outdoorId : '';
+    const manualMode     = !matchedPair && (md.newTxt || od.newTxt || !pairs.length);
+    const mainNewTxt     = manualMode ? (md.newTxt || '') : '';
+    const outdoorNewTxt  = manualMode ? (od.newTxt || '') : '';
+    const displayVal     = matchedPair ? `Indoor: ${matchedPair.mainSn}  /  Outdoor: ${matchedPair.outdoorSn}` : '';
+
+    return `<div class="sale-sn-pair-slot" data-index="${i}"
+                  data-main-stock-id="${mainStockId}" data-main-newtxt="${escapeHtml(mainNewTxt)}"
+                  data-outdoor-stock-id="${outdoorStockId}" data-outdoor-newtxt="${escapeHtml(outdoorNewTxt)}">
+              <div class="sale-sn-pair-dropdown${manualMode ? ' d-none' : ''}">
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text sale-sn-pair-state" style="min-width:34px;justify-content:center;"></span>
+                  <input type="text" class="form-control form-control-sm sale-sn-pair-search" autocomplete="off"
+                         placeholder="Search or pick an indoor/outdoor pair…"
+                         value="${escapeHtml(displayVal)}" style="font-family:monospace;font-size:0.8rem;">
+                  <span class="input-group-text sale-sn-pair-toggle" style="cursor:pointer;" title="Show available pairs">
+                    <i class="bi bi-chevron-down"></i>
+                  </span>
+                </div>
+                <div class="sale-sn-pair-list bg-white border rounded shadow-sm mt-1"
+                     style="display:none;max-height:240px;overflow-y:auto;"></div>
+              </div>
+              <div class="sale-sn-pair-manual${manualMode ? '' : ' d-none'}">
+                <div class="row g-2">
+                  <div class="col-6">
+                    <input type="text" class="form-control form-control-sm sale-sn-pair-manual-main" autocomplete="off"
+                           placeholder="Indoor serial (sticker)" value="${escapeHtml(mainNewTxt)}">
                   </div>
-                </div>`);
+                  <div class="col-6">
+                    <input type="text" class="form-control form-control-sm sale-sn-pair-manual-outdoor" autocomplete="off"
+                           placeholder="Outdoor serial (sticker)" value="${escapeHtml(outdoorNewTxt)}">
+                  </div>
+                </div>
+                ${pairs.length ? `<div class="sale-sn-pair-back text-primary small mt-1" style="cursor:pointer;"><i class="bi bi-arrow-left"></i> Pick from warehouse list</div>` : ''}
+              </div>
+            </div>`;
+}
 
-            setSaleSlotState(wrap.lastElementChild);
+/* Status icon for a paired slot: warehouse pair, new pair, or empty */
+function setSaleSnPairState(slotEl) {
+    const state = slotEl.querySelector('.sale-sn-pair-state');
+    if (!state) return;
+    if (slotEl.dataset.mainStockId && slotEl.dataset.outdoorStockId) {
+        state.innerHTML = '<i class="bi bi-upc-scan text-success"></i>';
+        state.title = 'Warehouse pair';
+    } else if (slotEl.dataset.mainNewtxt || slotEl.dataset.outdoorNewtxt) {
+        state.innerHTML = '<i class="bi bi-plus-circle text-info"></i>';
+        state.title = 'New serials — will be registered';
+    } else {
+        state.innerHTML = '<i class="bi bi-search text-muted"></i>';
+        state.title = '';
+    }
+}
+
+/* Build the filtered dropdown of indoor/outdoor pairs for one slot */
+function buildSaleSnPairList(slotEl) {
+    const input = slotEl.querySelector('.sale-sn-pair-search');
+    const list  = slotEl.querySelector('.sale-sn-pair-list');
+    if (!input || !list) return;
+
+    const q = (input.value || '').trim().toLowerCase();
+    const pairs = saleSerialModalData.pairs || [];
+
+    const taken = new Set();
+    document.querySelectorAll('#saleSerialSlotsWrap .sale-sn-pair-slot').forEach(el => {
+        if (el !== slotEl && el.dataset.mainStockId && el.dataset.outdoorStockId) {
+            taken.add(`${el.dataset.mainStockId}-${el.dataset.outdoorStockId}`);
+        }
+    });
+
+    const matches = pairs.filter(p => {
+        if (!q) return true;
+        return p.mainSn.toLowerCase().includes(q) || p.outdoorSn.toLowerCase().includes(q);
+    });
+
+    let html = matches.slice(0, 60).map(p => {
+        const dis = taken.has(`${p.mainId}-${p.outdoorId}`);
+        const label = `❄️ ${escapeHtml(p.mainSn)}&nbsp;&nbsp;/&nbsp;&nbsp;🌀 ${escapeHtml(p.outdoorSn)}`;
+        return dis
+            ? `<div class="px-2 py-1 text-muted" style="font-size:0.8rem;font-family:monospace;cursor:not-allowed;">${label} <small>(already chosen)</small></div>`
+            : `<div class="px-2 py-1 sale-sn-pair-opt" style="cursor:pointer;font-size:0.8rem;font-family:monospace;"
+                    data-main-id="${p.mainId}" data-main-sn="${escapeHtml(p.mainSn)}"
+                    data-outdoor-id="${p.outdoorId}" data-outdoor-sn="${escapeHtml(p.outdoorSn)}"
+                    onmouseenter="this.style.background='#f0f4ff'" onmouseleave="this.style.background=''">${label}</div>`;
+    }).join('');
+
+    if (!matches.length) {
+        html += `<div class="px-2 py-1 text-muted" style="font-size:0.78rem;">No matching pairs in stock</div>`;
+    }
+
+    html += `<div class="px-2 py-1 sale-sn-pair-manual-opt border-top text-primary fw-semibold" style="cursor:pointer;font-size:0.8rem;">
+                <i class="bi bi-pencil"></i> Not in the list? Enter indoor/outdoor serials manually
+             </div>`;
+
+    list.innerHTML = html;
+    list.style.display = '';
+}
+
+function hideSaleSnPairLists(except) {
+    document.querySelectorAll('#saleSerialSlotsWrap .sale-sn-pair-list').forEach(l => {
+        if (l !== except) l.style.display = 'none';
+    });
+}
+
+/* Searchable indoor/outdoor pair dropdown — delegated events on the modal slot container */
+function initSaleSnPairEvents() {
+    const wrap = document.getElementById('saleSerialSlotsWrap');
+    if (!wrap) return;
+
+    wrap.addEventListener('input', function (e) {
+        const input = e.target.closest('.sale-sn-pair-search');
+        if (!input) return;
+        const slot = input.closest('.sale-sn-pair-slot');
+        slot.dataset.mainStockId = '';
+        slot.dataset.outdoorStockId = '';
+        setSaleSnPairState(slot);
+        buildSaleSnPairList(slot);
+        hideSaleSnPairLists(slot.querySelector('.sale-sn-pair-list'));
+    });
+
+    wrap.addEventListener('focusin', function (e) {
+        const input = e.target.closest('.sale-sn-pair-search');
+        if (!input) return;
+        const slot = input.closest('.sale-sn-pair-slot');
+        buildSaleSnPairList(slot);
+        hideSaleSnPairLists(slot.querySelector('.sale-sn-pair-list'));
+    });
+
+    wrap.addEventListener('click', function (e) {
+        const toggle = e.target.closest('.sale-sn-pair-toggle');
+        if (toggle) {
+            const slot  = toggle.closest('.sale-sn-pair-slot');
+            const input = slot.querySelector('.sale-sn-pair-search');
+            const list  = slot.querySelector('.sale-sn-pair-list');
+            if (list.style.display === '') {
+                list.style.display = 'none';
+                return;
+            }
+            input.focus();
+            buildSaleSnPairList(slot);
+            hideSaleSnPairLists(list);
+            return;
+        }
+
+        const back = e.target.closest('.sale-sn-pair-back');
+        if (back) {
+            const slot = back.closest('.sale-sn-pair-slot');
+            slot.dataset.mainNewtxt = '';
+            slot.dataset.outdoorNewtxt = '';
+            slot.querySelector('.sale-sn-pair-manual-main').value = '';
+            slot.querySelector('.sale-sn-pair-manual-outdoor').value = '';
+            slot.querySelector('.sale-sn-pair-manual').classList.add('d-none');
+            slot.querySelector('.sale-sn-pair-dropdown').classList.remove('d-none');
+            setSaleSnPairState(slot);
+        }
+    });
+
+    wrap.addEventListener('mousedown', function (e) {
+        const opt = e.target.closest('.sale-sn-pair-opt, .sale-sn-pair-manual-opt');
+        if (!opt) return;
+        e.preventDefault();
+        const slot = opt.closest('.sale-sn-pair-slot');
+        const list = slot.querySelector('.sale-sn-pair-list');
+
+        if (opt.classList.contains('sale-sn-pair-opt')) {
+            slot.dataset.mainStockId    = opt.dataset.mainId;
+            slot.dataset.outdoorStockId = opt.dataset.outdoorId;
+            slot.dataset.mainNewtxt    = '';
+            slot.dataset.outdoorNewtxt = '';
+            slot.querySelector('.sale-sn-pair-search').value = `Indoor: ${opt.dataset.mainSn}  /  Outdoor: ${opt.dataset.outdoorSn}`;
         } else {
-            wrap.insertAdjacentHTML('beforeend',
-                `<div class="sale-sn-slot border rounded p-2 mb-2" data-index="${i}" data-side="${side}" data-hasstock="0">
-                  <label class="form-label small fw-semibold mb-1 text-muted">Piece ${i + 1} of ${qty}</label>
-                  <input type="text" class="form-control form-control-sm sale-sn-newonly" autocomplete="off"
-                         placeholder="Serial from sticker — saved to inventory"
-                         value="${escapeHtml(d.newTxt || '')}">
-                </div>`);
+            slot.dataset.mainStockId    = '';
+            slot.dataset.outdoorStockId = '';
+            slot.querySelector('.sale-sn-pair-dropdown').classList.add('d-none');
+            slot.querySelector('.sale-sn-pair-manual').classList.remove('d-none');
+            slot.querySelector('.sale-sn-pair-manual-main').focus();
+        }
+        setSaleSnPairState(slot);
+        list.style.display = 'none';
+    });
+
+    wrap.addEventListener('input', function (e) {
+        const input = e.target.closest('.sale-sn-pair-manual-main, .sale-sn-pair-manual-outdoor');
+        if (!input) return;
+        const slot = input.closest('.sale-sn-pair-slot');
+        if (input.classList.contains('sale-sn-pair-manual-main')) {
+            slot.dataset.mainNewtxt = input.value.trim();
+        } else {
+            slot.dataset.outdoorNewtxt = input.value.trim();
+        }
+        setSaleSnPairState(slot);
+    });
+
+    wrap.addEventListener('focusout', function (e) {
+        const input = e.target.closest('.sale-sn-pair-search');
+        if (!input) return;
+        const slot = input.closest('.sale-sn-pair-slot');
+        setTimeout(() => {
+            const list = slot.querySelector('.sale-sn-pair-list');
+            if (list && !slot.contains(document.activeElement)) list.style.display = 'none';
+            if (!slot.dataset.mainStockId || !slot.dataset.outdoorStockId) {
+                input.value = '';
+            }
+        }, 180);
+    });
+}
+
+/* Collect indoor+outdoor selections for every piece of a Set product */
+function collectSaleSerialPairs() {
+    const mainIds = [], mainNews = [], mainSlots = [];
+    const outdoorIds = [], outdoorNews = [], outdoorSlots = [];
+
+    for (const slotEl of document.querySelectorAll('#saleSerialSlotsWrap .sale-sn-pair-slot')) {
+        if (slotEl.dataset.mainStockId && slotEl.dataset.outdoorStockId) {
+            const mainId = parseInt(slotEl.dataset.mainStockId, 10);
+            const outdoorId = parseInt(slotEl.dataset.outdoorStockId, 10);
+            mainIds.push(mainId);
+            mainSlots.push({ stockId: mainId, newTxt: '' });
+            outdoorIds.push(outdoorId);
+            outdoorSlots.push({ stockId: outdoorId, newTxt: '' });
+        } else {
+            const mainTxt    = (slotEl.querySelector('.sale-sn-pair-manual-main')?.value || '').trim();
+            const outdoorTxt = (slotEl.querySelector('.sale-sn-pair-manual-outdoor')?.value || '').trim();
+            if (!mainTxt || !outdoorTxt) {
+                return { error: 'Pick an indoor/outdoor pair — or enter both serial numbers manually — for each piece.' };
+            }
+            mainNews.push(mainTxt);
+            mainSlots.push({ stockId: null, newTxt: mainTxt });
+            outdoorNews.push(outdoorTxt);
+            outdoorSlots.push({ stockId: null, newTxt: outdoorTxt });
         }
     }
+
+    if (new Set(mainIds).size !== mainIds.length || new Set(outdoorIds).size !== outdoorIds.length) {
+        return { error: 'You chose the same warehouse serial twice. Each piece needs a different one.' };
+    }
+    if (new Set(mainNews).size !== mainNews.length || new Set(outdoorNews).size !== outdoorNews.length) {
+        return { error: 'Duplicate new serial entries — use a unique number per piece.' };
+    }
+
+    return {
+        main:    { ids: mainIds, news: mainNews, slots: mainSlots },
+        outdoor: { ids: outdoorIds, news: outdoorNews, slots: outdoorSlots },
+    };
 }
 
 /* Status icon for a searchable slot: warehouse pick, new serial, or empty */
@@ -799,7 +1100,7 @@ function buildSaleSnList(slotEl) {
         } else {
             slotEl.dataset.soldTo = '';
             tail += `<div class="px-2 py-1 text-muted border-top" style="font-size:0.72rem;">
-                <i class="bi bi-plus-circle"></i> Not in the list? Type the sticker serial number above to add it as new.
+                <i class="bi bi-plus-circle"></i> Not listed? Type it above to add manually.
             </div>`;
         }
 
@@ -926,8 +1227,8 @@ function openSalePickSerialModal(id) {
     }
 
     if (isSet) {
-        renderSaleSerialSideSlots(wrap, serials, qty, draft.slots || [], 'main', `❄️ Indoor unit — ${escapeHtml(prod.indoor_model || '')}`);
-        renderSaleSerialSideSlots(wrap, outdoorSerials, qty, draft.outdoorSlots || [], 'outdoor', `🌀 Outdoor unit — ${escapeHtml(prod.outdoor_model || '')}`);
+        renderSaleSerialPairedSlots(wrap, serials, outdoorSerials, qty, draft.slots || [], draft.outdoorSlots || [],
+            prod.indoor_model || '', prod.outdoor_model || '');
     } else {
         renderSaleSerialSideSlots(wrap, serials, qty, draft.slots || [], 'main', '');
     }
@@ -1021,13 +1322,20 @@ function applySalePickSerialModal() {
         return { ids, news, slots };
     };
 
-    const main = collectSide('main', isSet ? 'indoor' : 'unit');
-    if (main.error) { alert(main.error); return; }
-
-    let outdoor = { ids: [], news: [], slots: [] };
+    let main, outdoor;
     if (isSet) {
-        outdoor = collectSide('outdoor', 'outdoor');
-        if (outdoor.error) { alert(outdoor.error); return; }
+        const pairs = collectSaleSerialPairs();
+        if (pairs.error) { alert(pairs.error); return; }
+        main = pairs.main;
+        outdoor = pairs.outdoor;
+        if (main.ids.length + main.news.length !== qty) {
+            alert(`This line is quantity ${qty}. You must assign exactly that many pieces.`);
+            return;
+        }
+    } else {
+        main = collectSide('main', 'unit');
+        if (main.error) { alert(main.error); return; }
+        outdoor = { ids: [], news: [], slots: [] };
     }
 
     if (row) row.dataset.serialDraftJson = JSON.stringify({ attach: true, slots: main.slots, outdoorSlots: outdoor.slots });
@@ -1268,6 +1576,7 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('saleSerialApplyBtn')?.addEventListener('click', applySalePickSerialModal);
     document.getElementById('saleSerialSkip')?.addEventListener('change', saleSerialToggleSlotsVisibility);
     initSaleSnSearchEvents();
+    initSaleSnPairEvents();
 
     document.getElementById('saleForm').addEventListener('submit', function (e) {
         if (!document.querySelector('.item-row')) {
