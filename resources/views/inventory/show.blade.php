@@ -390,9 +390,6 @@
                             placeholder="Enter quantity">
                     </div>
                         <div id="serialInputsContainer" class="mt-3"></div>
-                        @if($pairedProduct)
-                        <div id="pairedSerialInputsContainer" class="mt-3"></div>
-                        @endif
                     <div class="mb-3">
                         <label class="form-label fw-semibold">From Supplier (Optional)</label>
                         <select class="form-select" name="supplier_id">
@@ -526,19 +523,63 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const quantityInput = document.getElementById('stockInQuantity');
     const container = document.getElementById('serialInputsContainer');
-    const pairedContainer = document.getElementById('pairedSerialInputsContainer');
 
     quantityInput.addEventListener('input', function () {
 
         const quantity = parseInt(this.value) || 0;
         container.innerHTML = '';
-        if (pairedContainer) pairedContainer.innerHTML = '';
 
         if (quantity > 0) {
 
+            @if($pairedProduct)
+            const indoorName  = '{{ $product->unit_type === "indoor" ? "serial_numbers" : "paired_serial_numbers" }}[]';
+            const outdoorName = '{{ $product->unit_type === "outdoor" ? "serial_numbers" : "paired_serial_numbers" }}[]';
+
             const label = document.createElement('label');
             label.className = 'form-label fw-semibold';
-            label.innerText = '{{ $pairedProduct ? ucfirst($product->unit_type) . " Unit Serial Numbers" : "Enter Serial Numbers" }}';
+            label.innerText = 'Enter Serial Numbers (Indoor & Outdoor)';
+            container.appendChild(label);
+
+            for (let i = 0; i < quantity; i++) {
+                const row = document.createElement('div');
+                row.className = 'row g-2 mb-2';
+
+                const indoorCol = document.createElement('div');
+                indoorCol.className = 'col-6';
+                const indoorLabel = document.createElement('div');
+                indoorLabel.className = 'form-text mb-1';
+                indoorLabel.innerText = 'Indoor';
+                const indoorInput = document.createElement('input');
+                indoorInput.type = 'text';
+                indoorInput.name = indoorName;
+                indoorInput.className = 'form-control';
+                indoorInput.placeholder = 'Indoor Serial #' + (i + 1);
+                indoorInput.required = true;
+                indoorCol.appendChild(indoorLabel);
+                indoorCol.appendChild(indoorInput);
+
+                const outdoorCol = document.createElement('div');
+                outdoorCol.className = 'col-6';
+                const outdoorLabel = document.createElement('div');
+                outdoorLabel.className = 'form-text mb-1';
+                outdoorLabel.innerText = 'Outdoor';
+                const outdoorInput = document.createElement('input');
+                outdoorInput.type = 'text';
+                outdoorInput.name = outdoorName;
+                outdoorInput.className = 'form-control';
+                outdoorInput.placeholder = 'Outdoor Serial #' + (i + 1);
+                outdoorInput.required = true;
+                outdoorCol.appendChild(outdoorLabel);
+                outdoorCol.appendChild(outdoorInput);
+
+                row.appendChild(indoorCol);
+                row.appendChild(outdoorCol);
+                container.appendChild(row);
+            }
+            @else
+            const label = document.createElement('label');
+            label.className = 'form-label fw-semibold';
+            label.innerText = 'Enter Serial Numbers';
             container.appendChild(label);
 
             for (let i = 0; i < quantity; i++) {
@@ -550,23 +591,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 input.required = true;
 
                 container.appendChild(input);
-            }
-
-            @if($pairedProduct)
-            const pairedLabel = document.createElement('label');
-            pairedLabel.className = 'form-label fw-semibold mt-2';
-            pairedLabel.innerText = '{{ ucfirst($pairedProduct->unit_type) }} Unit Serial Numbers ({{ $pairedProduct->brand->name ?? "" }} {{ $pairedProduct->model }})';
-            pairedContainer.appendChild(pairedLabel);
-
-            for (let i = 0; i < quantity; i++) {
-                const pairedInput = document.createElement('input');
-                pairedInput.type = 'text';
-                pairedInput.name = 'paired_serial_numbers[]';
-                pairedInput.className = 'form-control mb-2';
-                pairedInput.placeholder = '{{ ucfirst($pairedProduct->unit_type) }} Serial #' + (i + 1);
-                pairedInput.required = true;
-
-                pairedContainer.appendChild(pairedInput);
             }
             @endif
         }
