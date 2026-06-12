@@ -121,11 +121,11 @@ class ProductController extends Controller
             'supplier_id' => 'nullable|exists:suppliers,id',
             'description' => 'nullable|string',
             'cost'        => 'nullable|numeric|min:0',
-            'price'       => 'required|numeric|min:0.01',
         ]);
 
         $validated['is_active'] = $request->has('is_active');
         $validated['cost']      = $validated['cost'] ?? 0;
+        $validated['price']     = 0;
 
         $brand = Brand::find($validated['brand_id']);
         $validated['name'] = $brand->name . ' ' . $validated['model'];

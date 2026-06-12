@@ -139,7 +139,7 @@
                         <td>
                             <a href="{{ route('inventory.show', $product) }}" class="products-model">{{ $product->model ?? '—' }}</a>
                             @if($isSet)
-                                <span class="text-muted">+</span>
+                                <span class="text-muted"> / </span>
                                 <a href="{{ route('inventory.show', $outdoor) }}" class="products-model">{{ $outdoor->model }}</a>
                             @endif
                         </td>

@@ -56,7 +56,7 @@
                             </div>
                         </div>
 
-                        {{-- Unit Type & Serial Number --}}
+                        {{-- Unit Type --}}
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
                                 <label class="form-label small fw-semibold mb-1">Unit Type <span class="text-danger">*</span></label>
@@ -67,15 +67,6 @@
                                     <option value="outdoor" {{ old('unit_type') == 'outdoor' ? 'selected' : '' }}>🌤️ Outdoor Unit</option>
                                 </select>
                                 @error('unit_type')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label small fw-semibold mb-1">Serial Number</label>
-                                <input type="text" name="serial_number"
-                                       class="form-control form-control-sm @error('serial_number') is-invalid @enderror"
-                                       value="{{ old('serial_number') }}"
-                                       placeholder="Optional">
-                                @error('serial_number')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                                <small class="text-muted">For inventory tracking</small>
                             </div>
                         </div>
 
@@ -99,7 +90,7 @@
                                       placeholder="Optional">{{ old('description') }}</textarea>
                         </div>
 
-                        {{-- Cost & Selling Price --}}
+                        {{-- Cost --}}
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
                                 <label class="form-label small fw-semibold mb-1">Cost</label>
@@ -113,28 +104,6 @@
                                 @error('cost')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                                 <small class="text-muted">Used as default in PO</small>
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label small fw-semibold mb-1">
-                                    Selling Price <span class="text-danger">*</span>
-                                </label>
-                                <div class="input-group input-group-sm">
-                                    <span class="input-group-text">₱</span>
-                                    <input type="number" step="0.01" min="0.01"
-                                           class="form-control @error('price') is-invalid @enderror"
-                                           name="price" value="{{ old('price', '') }}"
-                                           placeholder="e.g. 35000.00" required>
-                                </div>
-                                @error('price')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
-                                <small class="text-muted">What customers pay</small>
-                            </div>
-                        </div>
-
-                        {{-- Stock --}}
-                        <div class="mb-3">
-                            <label class="form-label small fw-semibold mb-1">Initial Stock <span class="text-danger">*</span></label>
-                            <input type="number" class="form-control form-control-sm @error('stock_quantity') is-invalid @enderror"
-                                   name="stock_quantity" value="{{ old('stock_quantity', 0) }}" min="0" required>
-                            @error('stock_quantity')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
 
                         {{-- Active --}}
