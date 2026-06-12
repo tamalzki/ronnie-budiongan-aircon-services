@@ -102,8 +102,6 @@
                                         @if(!$item->product_id)
                                             <span class="badge bg-info text-dark" style="font-size:0.65rem;">Service</span>
                                         @elseif($isSetItem)
-                                            <span class="badge" style="background:#e8f0fe;color:#1a56db;border:1px solid #93c5fd;font-size:0.68rem;">❄️ Indoor</span>
-                                            <span class="badge" style="background:#dcfce7;color:#166534;border:1px solid #86efac;font-size:0.68rem;">🌀 Outdoor</span>
                                             <span class="badge bg-secondary" style="font-size:0.65rem;">Set</span>
                                         @elseif($item->product->unit_type === 'indoor')
                                             <span class="badge" style="background:#e8f0fe;color:#1a56db;border:1px solid #93c5fd;font-size:0.68rem;">❄️ Indoor</span>

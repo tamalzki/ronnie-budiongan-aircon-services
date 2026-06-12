@@ -201,7 +201,6 @@
                         <tr>
                             <th>Order Date</th>
                             <th>PO No.</th>
-                            <th>Doc No. (DR)</th>
                             <th>Supplier</th>
                             <th class="text-center">Units</th>
                             <th class="text-end">Amount</th>
@@ -219,7 +218,7 @@
                             }
                             $poUnits   = $po->serials_count ?? 0;
                             $poSold    = $po->sold_serials_count ?? 0;
-                            $poStock   = $poUnits - $poSold;
+                            $poPairs   = intdiv($poUnits, 2);
                         @endphp
                         <tr class="{{ $rowClass }} po-row"
                             data-po="{{ strtolower($po->po_number . ' ' . ($po->supplier_po_number ?? '')) }}"
@@ -243,18 +242,6 @@
                                 </span>
                             </td>
 
-                            {{-- Doc No (DR) --}}
-                            <td style="white-space:nowrap">
-                                @if($po->delivery_number)
-                                    <span class="fw-semibold text-primary"
-                                          style="font-family:monospace;font-size:0.8rem;">
-                                        {{ $po->delivery_number }}
-                                    </span>
-                                @else
-                                    <span class="text-muted" style="font-size:0.78rem;">—</span>
-                                @endif
-                            </td>
-
                             {{-- Supplier --}}
                             <td style="white-space:nowrap">
                                 <span class="fw-semibold">{{ $po->supplier->name }}</span>
@@ -264,13 +251,11 @@
                             <td class="px-2 py-1 text-center" style="white-space:nowrap">
                                 @if($po->status === 'pending')
                                     <span class="badge bg-warning text-dark" style="font-size:0.65rem;">
-                                        <i class="bi bi-hourglass-split"></i> Awaiting{{ $poUnits > 0 ? ' · ' . $poUnits . ' in' : '' }}
+                                        <i class="bi bi-hourglass-split"></i> Awaiting{{ $poPairs > 0 ? ' · ' . $poPairs . ' in' : '' }}
                                     </span>
                                 @else
-                                    <span class="fw-bold">{{ $poUnits }}</span>
-                                    @if($poSold > 0)
-                                        <small class="text-muted">({{ $poStock }} stk · {{ $poSold }} sold)</small>
-                                    @endif
+                                    <span class="fw-bold">{{ $poPairs }}</span>
+                                    <small class="text-muted">{{ $poPairs == 1 ? 'pair' : 'pairs' }}</small>
                                 @endif
                             </td>
 
@@ -338,7 +323,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="8" class="text-center py-4 text-muted">
+                            <td colspan="7" class="text-center py-4 text-muted">
                                 <i class="bi bi-inbox fs-2 d-block mb-2"></i>
                                 No purchase orders yet
                             </td>
@@ -658,7 +643,7 @@ function filterTable() {
         if (!noResults) {
             noResults = document.createElement('tr');
             noResults.id = 'noResultsRow';
-            noResults.innerHTML = '<td colspan="8" class="text-center py-5 text-muted"><i class="bi bi-search fs-1 d-block mb-2"></i>No results found</td>';
+            noResults.innerHTML = '<td colspan="7" class="text-center py-5 text-muted"><i class="bi bi-search fs-1 d-block mb-2"></i>No results found</td>';
             document.getElementById('poTableBody').appendChild(noResults);
         }
         noResults.style.display = '';
