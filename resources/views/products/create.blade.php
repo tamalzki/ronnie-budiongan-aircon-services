@@ -61,13 +61,30 @@
                             <div class="col-md-6">
                                 <label class="form-label small fw-semibold mb-1">Unit Type <span class="text-danger">*</span></label>
                                 <select class="form-select form-select-sm @error('unit_type') is-invalid @enderror"
-                                        name="unit_type" required>
+                                        id="unit_type" name="unit_type" required>
                                     <option value="">-- Select Type --</option>
                                     <option value="indoor" {{ old('unit_type') == 'indoor' ? 'selected' : '' }}>🏠 Indoor Unit</option>
                                     <option value="outdoor" {{ old('unit_type') == 'outdoor' ? 'selected' : '' }}>🌤️ Outdoor Unit</option>
                                 </select>
                                 @error('unit_type')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             </div>
+                        </div>
+
+                        {{-- Set pairing: create the matching outdoor unit at the same time --}}
+                        <div class="mb-3" id="setWrap" style="display:none;">
+                            <label class="form-label small fw-semibold mb-1">
+                                Outdoor Unit Model <span class="text-muted fw-normal">(creates a linked set)</span>
+                            </label>
+                            <input type="text" name="outdoor_model"
+                                   class="form-control form-control-sm @error('outdoor_model') is-invalid @enderror"
+                                   value="{{ old('outdoor_model') }}"
+                                   placeholder="e.g. RKC60BVA">
+                            @error('outdoor_model')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            <small class="text-muted">
+                                If filled, a matching outdoor unit is created and paired with this indoor unit automatically.
+                                Stock/serials are still tracked separately for each unit, but they share one price in
+                                purchase orders and sales. Leave blank to add this unit by itself.
+                            </small>
                         </div>
 
                         {{-- Supplier --}}
@@ -127,4 +144,16 @@
         </div>
     </div>
 </div>
+
+@push('scripts')
+<script>
+function toggleSetWrap() {
+    const unitType = document.getElementById('unit_type');
+    const wrap = document.getElementById('setWrap');
+    if (unitType && wrap) wrap.style.display = unitType.value === 'indoor' ? '' : 'none';
+}
+document.getElementById('unit_type')?.addEventListener('change', toggleSetWrap);
+toggleSetWrap();
+</script>
+@endpush
 @endsection

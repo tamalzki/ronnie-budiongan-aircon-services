@@ -49,6 +49,17 @@
                             <th class="px-3 py-2 text-muted">Price</th>
                             <td class="px-3 py-2 fw-semibold text-success">₱{{ number_format($product->price, 2) }}</td>
                         </tr>
+                        @if($pairedProduct)
+                        <tr>
+                            <th class="px-3 py-2 text-muted">Set Pair</th>
+                            <td class="px-3 py-2">
+                                <a href="{{ route('inventory.show', $pairedProduct) }}" class="text-decoration-none">
+                                    {{ ucfirst($pairedProduct->unit_type) }}: {{ $pairedProduct->brand->name ?? '' }} {{ $pairedProduct->model }}
+                                </a>
+                                <div class="text-muted" style="font-size:0.72rem;">Sold as one set with one price — stock is tracked separately for each unit.</div>
+                            </td>
+                        </tr>
+                        @endif
                         @if($product->description)
                         <tr>
                             <th class="px-3 py-2 text-muted">Notes</th>
@@ -361,16 +372,27 @@
                     <div class="alert alert-info border-0 mb-3">
                         <i class="bi bi-info-circle"></i> Current stock: <strong>{{ $product->stock_count }} units</strong>
                     </div>
+                    @if($pairedProduct)
+                    <div class="alert alert-secondary border-0 mb-3">
+                        <i class="bi bi-link-45deg"></i> This unit is part of a set with
+                        <strong>{{ $pairedProduct->brand->name ?? '' }} {{ $pairedProduct->model }}</strong>
+                        ({{ ucfirst($pairedProduct->unit_type) }}, currently {{ $pairedProduct->stock_count }} units).
+                        Enter serials for both units below — inventory stays separate, but they're priced as one set.
+                    </div>
+                    @endif
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Quantity to Add <span class="text-danger">*</span></label>
-                        <input type="number" 
-                            class="form-control" 
+                        <input type="number"
+                            class="form-control"
                             id="stockInQuantity"
                             min="1"
-                            required 
-                            placeholder="Enter quantity">    
+                            required
+                            placeholder="Enter quantity">
                     </div>
                         <div id="serialInputsContainer" class="mt-3"></div>
+                        @if($pairedProduct)
+                        <div id="pairedSerialInputsContainer" class="mt-3"></div>
+                        @endif
                     <div class="mb-3">
                         <label class="form-label fw-semibold">From Supplier (Optional)</label>
                         <select class="form-select" name="supplier_id">
@@ -504,17 +526,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const quantityInput = document.getElementById('stockInQuantity');
     const container = document.getElementById('serialInputsContainer');
+    const pairedContainer = document.getElementById('pairedSerialInputsContainer');
 
     quantityInput.addEventListener('input', function () {
 
         const quantity = parseInt(this.value) || 0;
         container.innerHTML = '';
+        if (pairedContainer) pairedContainer.innerHTML = '';
 
         if (quantity > 0) {
 
             const label = document.createElement('label');
             label.className = 'form-label fw-semibold';
-            label.innerText = 'Enter Serial Numbers';
+            label.innerText = '{{ $pairedProduct ? ucfirst($product->unit_type) . " Unit Serial Numbers" : "Enter Serial Numbers" }}';
             container.appendChild(label);
 
             for (let i = 0; i < quantity; i++) {
@@ -527,6 +551,24 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 container.appendChild(input);
             }
+
+            @if($pairedProduct)
+            const pairedLabel = document.createElement('label');
+            pairedLabel.className = 'form-label fw-semibold mt-2';
+            pairedLabel.innerText = '{{ ucfirst($pairedProduct->unit_type) }} Unit Serial Numbers ({{ $pairedProduct->brand->name ?? "" }} {{ $pairedProduct->model }})';
+            pairedContainer.appendChild(pairedLabel);
+
+            for (let i = 0; i < quantity; i++) {
+                const pairedInput = document.createElement('input');
+                pairedInput.type = 'text';
+                pairedInput.name = 'paired_serial_numbers[]';
+                pairedInput.className = 'form-control mb-2';
+                pairedInput.placeholder = '{{ ucfirst($pairedProduct->unit_type) }} Serial #' + (i + 1);
+                pairedInput.required = true;
+
+                pairedContainer.appendChild(pairedInput);
+            }
+            @endif
         }
     });
 

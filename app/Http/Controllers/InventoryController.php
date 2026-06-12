@@ -24,6 +24,10 @@ class InventoryController extends Controller
 
         $product->load(['brand', 'supplier']);
 
+        $pairedProduct = $product->paired_product_id
+            ? Product::with('brand')->find($product->paired_product_id)
+            : Product::with('brand')->where('paired_product_id', $product->id)->first();
+
         $movements = InventoryMovement::where('product_id', $product->id)
             ->with('user')
             ->orderBy('created_at', 'desc')
@@ -53,6 +57,7 @@ class InventoryController extends Controller
 
         return view('inventory.show', compact(
             'product',
+            'pairedProduct',
             'movements',
             'totalStockIn',
             'totalStockOut',
@@ -128,12 +133,33 @@ class InventoryController extends Controller
     {
         $this->authorize('update', $product);
 
-        $validated = $request->validate([
+        $pairedProduct = $product->paired_product_id
+            ? $product->pairedProduct
+            : Product::where('paired_product_id', $product->id)->first();
+
+        $rules = [
             'serial_numbers'   => ['required', 'array', 'min:1'],
             'serial_numbers.*' => ['required', 'string', 'distinct', 'unique:product_serials,serial_number'],
             'supplier_id'      => ['nullable', 'exists:suppliers,id'],
             'notes'            => ['nullable', 'string'],
-        ]);
+        ];
+
+        if ($pairedProduct) {
+            $rules['paired_serial_numbers']   = ['required', 'array', 'min:1'];
+            $rules['paired_serial_numbers.*'] = ['required', 'string', 'distinct', 'unique:product_serials,serial_number'];
+        }
+
+        $validated = $request->validate($rules);
+
+        if ($pairedProduct) {
+            if (count($validated['paired_serial_numbers']) !== count($validated['serial_numbers'])) {
+                return back()->withInput()->with('error', 'Enter the same number of serials for both the indoor and outdoor units.');
+            }
+
+            if (array_intersect($validated['serial_numbers'], $validated['paired_serial_numbers'])) {
+                return back()->withInput()->with('error', 'Serial numbers must be unique across both units in the set.');
+            }
+        }
 
         DB::beginTransaction();
 
@@ -161,6 +187,32 @@ class InventoryController extends Controller
                 'notes'          => $validated['notes'] ?? 'Manual stock in',
                 'user_id'        => auth()->id(),
             ]);
+
+            if ($pairedProduct) {
+                $pairedStockBefore = $pairedProduct->stock_count;
+
+                foreach ($validated['paired_serial_numbers'] as $serial) {
+                    ProductSerial::create([
+                        'product_id'    => $pairedProduct->id,
+                        'serial_number' => trim($serial),
+                        'status'        => 'in_stock',
+                        'received_date' => now(),
+                    ]);
+                }
+
+                $pairedStockAfter = $pairedProduct->fresh()->stock_count;
+
+                InventoryMovement::create([
+                    'product_id'     => $pairedProduct->id,
+                    'type'           => 'stock_in',
+                    'quantity'       => count($validated['paired_serial_numbers']),
+                    'stock_before'   => $pairedStockBefore,
+                    'stock_after'    => $pairedStockAfter,
+                    'reference_type' => 'Manual Stock In',
+                    'notes'          => $validated['notes'] ?? 'Manual stock in (set)',
+                    'user_id'        => auth()->id(),
+                ]);
+            }
 
             DB::commit();
 
