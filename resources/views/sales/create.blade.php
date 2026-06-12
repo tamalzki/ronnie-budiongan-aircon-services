@@ -584,6 +584,22 @@ function initSaleSnSearchEvents() {
         hideSaleSnLists(slot.querySelector('.sale-sn-list'));
     });
 
+    // Dropdown chevron — toggles the list; opening (re)loads it, filtered by whatever is already typed
+    wrap.addEventListener('click', function (e) {
+        const toggle = e.target.closest('.sale-sn-toggle');
+        if (!toggle) return;
+        const slot  = toggle.closest('.sale-sn-slot');
+        const input = slot.querySelector('.sale-sn-search');
+        const list  = slot.querySelector('.sale-sn-list');
+        if (list.style.display === '') {
+            list.style.display = 'none';
+            return;
+        }
+        input.focus();
+        buildSaleSnList(slot);
+        hideSaleSnLists(list);
+    });
+
     wrap.addEventListener('mousedown', function (e) {
         const opt = e.target.closest('.sale-sn-opt, .sale-sn-opt-new');
         if (!opt) return;
@@ -683,8 +699,11 @@ function renderSaleSerialSideSlots(wrap, serials, qty, slotsDraft, side, heading
                     <div class="input-group input-group-sm">
                       <span class="input-group-text sale-sn-state" style="min-width:34px;justify-content:center;"></span>
                       <input type="text" class="form-control form-control-sm sale-sn-search" autocomplete="off"
-                             placeholder="🔍 Search serial — warehouse, sold customer lookup, or new"
+                             placeholder="Search serial or pick from list…"
                              value="${escapeHtml(initVal)}" style="font-family:monospace;">
+                      <span class="input-group-text sale-sn-toggle" style="cursor:pointer;" title="Show available serials">
+                        <i class="bi bi-chevron-down"></i>
+                      </span>
                     </div>
                     <div class="sale-sn-list position-absolute w-100 bg-white border rounded shadow-sm"
                          style="display:none;top:100%;left:0;max-height:170px;overflow-y:auto;z-index:2070;"></div>
@@ -779,6 +798,9 @@ function buildSaleSnList(slotEl) {
                           onmouseenter="this.style.background='#f0f9ff'" onmouseleave="this.style.background=''">➕ Use “${escapeHtml(q)}” as a NEW serial</div>`;
         } else {
             slotEl.dataset.soldTo = '';
+            tail += `<div class="px-2 py-1 text-muted border-top" style="font-size:0.72rem;">
+                <i class="bi bi-plus-circle"></i> Not in the list? Type the sticker serial number above to add it as new.
+            </div>`;
         }
 
         list.innerHTML = html + tail;
