@@ -170,13 +170,27 @@
                         <div class="mb-2">
                             <label class="form-label small fw-semibold">Payment Method <span class="text-danger">*</span></label>
                             <select class="form-select form-select-sm @error('payment_method') is-invalid @enderror"
-                                    name="payment_method" required>
+                                    id="payment_method" name="payment_method" required>
                                 <option value="">-- Select Method --</option>
                                 <option value="cash"          {{ old('payment_method', $sale->payment_method ?? '') == 'cash'          ? 'selected' : '' }}>💵 Cash</option>
                                 <option value="gcash"         {{ old('payment_method', $sale->payment_method ?? '') == 'gcash'         ? 'selected' : '' }}>📱 GCash</option>
                                 <option value="bank_transfer" {{ old('payment_method', $sale->payment_method ?? '') == 'bank_transfer' ? 'selected' : '' }}>🏦 Bank Transfer</option>
                                 <option value="cheque"        {{ old('payment_method', $sale->payment_method ?? '') == 'cheque'        ? 'selected' : '' }}>🧾 Cheque</option>
                             </select>
+                        </div>
+                        <div id="chequeFields" style="display:none;">
+                            <div class="mb-2">
+                                <label class="form-label small fw-semibold">Bank / Account Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control form-control-sm @error('cheque_bank') is-invalid @enderror"
+                                       name="cheque_bank" placeholder="e.g. BDO - Juan Dela Cruz"
+                                       value="{{ old('cheque_bank', $sale->cheque_bank ?? '') }}">
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label small fw-semibold">Check Number <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control form-control-sm @error('cheque_number') is-invalid @enderror"
+                                       name="cheque_number" placeholder="e.g. 0001234"
+                                       value="{{ old('cheque_number', $sale->cheque_number ?? '') }}">
+                            </div>
                         </div>
                         <div class="mb-2">
                             <label class="form-label small fw-semibold">Discount (₱)</label>
@@ -213,13 +227,27 @@
                             </div>
                             <div class="mb-1">
                                 <label class="form-label small fw-semibold">Down Payment Method</label>
-                                <select class="form-select form-select-sm" name="down_payment_method">
+                                <select class="form-select form-select-sm" id="down_payment_method" name="down_payment_method">
                                     <option value="">-- Same as above --</option>
                                     <option value="cash"          {{ old('down_payment_method', $prefillDownMethod ?? '') == 'cash'          ? 'selected' : '' }}>💵 Cash</option>
                                     <option value="gcash"         {{ old('down_payment_method', $prefillDownMethod ?? '') == 'gcash'         ? 'selected' : '' }}>📱 GCash</option>
                                     <option value="bank_transfer" {{ old('down_payment_method', $prefillDownMethod ?? '') == 'bank_transfer' ? 'selected' : '' }}>🏦 Bank Transfer</option>
                                     <option value="cheque"        {{ old('down_payment_method', $prefillDownMethod ?? '') == 'cheque'        ? 'selected' : '' }}>🧾 Cheque</option>
                                 </select>
+                            </div>
+                            <div id="downChequeFields" style="display:none;">
+                                <div class="mb-2">
+                                    <label class="form-label small fw-semibold">Down Payment Bank / Account Name <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control form-control-sm @error('down_payment_cheque_bank') is-invalid @enderror"
+                                           name="down_payment_cheque_bank" placeholder="e.g. BDO - Juan Dela Cruz"
+                                           value="{{ old('down_payment_cheque_bank', $prefillDownChequeBank ?? '') }}">
+                                </div>
+                                <div class="mb-1">
+                                    <label class="form-label small fw-semibold">Down Payment Check Number <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control form-control-sm @error('down_payment_cheque_number') is-invalid @enderror"
+                                           name="down_payment_cheque_number" placeholder="e.g. 0001234"
+                                           value="{{ old('down_payment_cheque_number', $prefillDownChequeNumber ?? '') }}">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1202,6 +1230,23 @@ document.addEventListener('DOMContentLoaded', function () {
         instSum.style.display = '';
         calculateTotals();
     }
+
+    // Show/hide cheque detail fields based on selected payment method
+    const paymentMethod = document.getElementById('payment_method');
+    const chequeFields  = document.getElementById('chequeFields');
+    const toggleChequeFields = () => {
+        chequeFields.style.display = paymentMethod.value === 'cheque' ? '' : 'none';
+    };
+    paymentMethod.addEventListener('change', toggleChequeFields);
+    toggleChequeFields();
+
+    const downPaymentMethod = document.getElementById('down_payment_method');
+    const downChequeFields  = document.getElementById('downChequeFields');
+    const toggleDownChequeFields = () => {
+        downChequeFields.style.display = downPaymentMethod.value === 'cheque' ? '' : 'none';
+    };
+    downPaymentMethod.addEventListener('change', toggleDownChequeFields);
+    toggleDownChequeFields();
 
     if (prefillItems.length) {
         prefillSaleItems(prefillItems);

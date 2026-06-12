@@ -18,6 +18,7 @@ class InstallmentPayment extends Model
         'paid_date',
         'status',
         'payment_method',
+        'cheque_bank',
         'reference_number',
         'notes',
     ];

@@ -61,6 +61,10 @@ class InstallmentPaymentController extends Controller
             'amount_paid'      => ['required', 'numeric', 'min:0.01', 'max:' . $installment->amount],
             'paid_date'        => ['required', 'date'],
             'payment_method'   => ['required', Rule::in(PaymentMethod::values())],
+            'cheque_bank'      => [
+                'nullable', 'string', 'max:255',
+                Rule::requiredIf(fn () => $request->payment_method === PaymentMethod::CHEQUE),
+            ],
             'reference_number' => ['nullable', 'string'],
             'notes'            => ['nullable', 'string'],
         ]);
@@ -78,6 +82,7 @@ class InstallmentPaymentController extends Controller
                     'amount_paid'      => $newPaid,
                     'paid_date'        => $request->paid_date,
                     'payment_method'   => $request->payment_method,
+                    'cheque_bank'      => $request->payment_method === PaymentMethod::CHEQUE ? $request->cheque_bank : null,
                     'reference_number' => $request->reference_number,
                     'notes'            => $request->notes,
                     'status'           => $newPaid >= (float) $installment->amount ? 'paid' : 'partial',
@@ -277,12 +282,17 @@ class InstallmentPaymentController extends Controller
             'amount_paid'      => ['required', 'numeric', 'min:0.01'],
             'paid_date'        => ['required', 'date'],
             'payment_method'   => ['required', Rule::in(PaymentMethod::values())],
+            'cheque_bank'      => [
+                'nullable', 'string', 'max:255',
+                Rule::requiredIf(fn () => $request->payment_method === PaymentMethod::CHEQUE),
+            ],
             'reference_number' => ['nullable', 'string', 'max:255'],
             'notes'            => ['nullable', 'string'],
         ], [
             'amount_paid.min' => 'Payment amount must be at least ₱0.01',
         ]);
 
+        $chequeBank = $validated['payment_method'] === PaymentMethod::CHEQUE ? ($validated['cheque_bank'] ?? null) : null;
         $referenceNumber = $validated['reference_number'] ?? null;
         $notes = $validated['notes'] ?? null;
 
@@ -307,6 +317,7 @@ class InstallmentPaymentController extends Controller
                 $installment->update([
                     'paid_date'        => $validated['paid_date'],
                     'payment_method'   => $validated['payment_method'],
+                    'cheque_bank'      => $chequeBank,
                     'reference_number' => $referenceNumber,
                     'notes'            => $notes,
                     'status'           => (float) $installment->amount_paid >= (float) $installment->amount ? 'paid' : 'partial',
@@ -321,6 +332,7 @@ class InstallmentPaymentController extends Controller
                     'amount_paid'      => $installment->amount,
                     'paid_date'        => $validated['paid_date'],
                     'payment_method'   => $validated['payment_method'],
+                    'cheque_bank'      => $chequeBank,
                     'reference_number' => $referenceNumber,
                     'notes'            => $notes,
                     'status'           => 'paid',

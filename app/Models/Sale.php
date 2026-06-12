@@ -21,6 +21,8 @@ class Sale extends Model
         'total',
         'payment_type',
         'payment_method',
+        'cheque_bank',
+        'cheque_number',
         'installment_months',
         'installment_amount',
         'paid_amount',

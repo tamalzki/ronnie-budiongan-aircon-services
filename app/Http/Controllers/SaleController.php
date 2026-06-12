@@ -138,6 +138,8 @@ class SaleController extends Controller
                 'balance'          => $balance,
                 'status'           => 'completed',
                 'payment_method'   => $request->payment_method,
+                'cheque_bank'      => $request->payment_method === PaymentMethod::CHEQUE ? $request->cheque_bank : null,
+                'cheque_number'    => $request->payment_method === PaymentMethod::CHEQUE ? $request->cheque_number : null,
                 'notes'            => $request->notes,
                 'user_id'          => auth()->id(),
             ]);
@@ -201,6 +203,8 @@ class SaleController extends Controller
                 'total'            => $total,
                 'payment_type'     => $request->payment_type,
                 'payment_method'   => $request->payment_method,
+                'cheque_bank'      => $request->payment_method === PaymentMethod::CHEQUE ? $request->cheque_bank : null,
+                'cheque_number'    => $request->payment_method === PaymentMethod::CHEQUE ? $request->cheque_number : null,
                 'paid_amount'      => $paidAmount,
                 'balance'          => $balance,
                 'status'           => 'completed',
@@ -351,7 +355,9 @@ class SaleController extends Controller
         $data['prefillItems']        = $sale ? $this->buildPrefillItems($sale) : [];
         $data['hasPaidInstallments'] = false;
         $data['prefillDownPayment']  = 0;
-        $data['prefillDownMethod']   = '';
+        $data['prefillDownMethod']      = '';
+        $data['prefillDownChequeBank']  = '';
+        $data['prefillDownChequeNumber'] = '';
 
         if ($sale) {
             $sale->load('installmentPayments');
@@ -360,6 +366,8 @@ class SaleController extends Controller
             if ($sale->payment_type === 'installment' && $downRow && $downRow->status === 'paid') {
                 $data['prefillDownPayment'] = (float) $downRow->amount_paid;
                 $data['prefillDownMethod']  = $downRow->payment_method ?? '';
+                $data['prefillDownChequeBank']   = $downRow->cheque_bank ?? '';
+                $data['prefillDownChequeNumber'] = $downRow->reference_number ?? '';
             }
             $hasDown = $downRow && $downRow->status === 'paid' && (float) $downRow->amount_paid > 0;
             $data['hasPaidInstallments'] = $sale->installmentPayments
@@ -403,6 +411,17 @@ class SaleController extends Controller
         })->values()->all();
     }
 
+    private function isDownPaymentCheque(Request $request): bool
+    {
+        if ($request->payment_type !== 'installment' || (float) ($request->down_payment ?? 0) <= 0) {
+            return false;
+        }
+
+        $downMethod = $request->down_payment_method ?: $request->payment_method;
+
+        return $downMethod === PaymentMethod::CHEQUE;
+    }
+
     private function validateSaleItemsRequest(Request $request, ?int $ignoreSaleId): array
     {
         $request->validate([
@@ -412,6 +431,14 @@ class SaleController extends Controller
             'sale_date'            => 'required|date',
             'payment_type'         => 'required|in:cash,installment',
             'payment_method'       => ['required', Rule::in(PaymentMethod::values())],
+            'cheque_bank'          => [
+                'nullable', 'string', 'max:255',
+                Rule::requiredIf(fn () => $request->payment_method === PaymentMethod::CHEQUE),
+            ],
+            'cheque_number'        => [
+                'nullable', 'string', 'max:255',
+                Rule::requiredIf(fn () => $request->payment_method === PaymentMethod::CHEQUE),
+            ],
             'items'                => 'required|array|min:1',
             'items.*.type'         => 'required|in:product,service',
             'items.*.id'           => 'required|integer',
@@ -433,6 +460,14 @@ class SaleController extends Controller
                         && (float) ($request->down_payment ?? 0) > 0;
                 }),
                 Rule::in(PaymentMethod::values()),
+            ],
+            'down_payment_cheque_bank'   => [
+                'nullable', 'string', 'max:255',
+                Rule::requiredIf(fn () => $this->isDownPaymentCheque($request)),
+            ],
+            'down_payment_cheque_number' => [
+                'nullable', 'string', 'max:255',
+                Rule::requiredIf(fn () => $this->isDownPaymentCheque($request)),
             ],
             'installment_months'   => 'nullable|integer|min:1|max:60',
         ]);
@@ -558,6 +593,8 @@ class SaleController extends Controller
         $num      = 1;
 
         if ($down > 0) {
+            $downMethod = $request->down_payment_method ?: $request->payment_method;
+
             InstallmentPayment::create([
                 'sale_id'            => $sale->id,
                 'installment_number' => $num++,
@@ -566,7 +603,9 @@ class SaleController extends Controller
                 'due_date'           => $saleDate,
                 'paid_date'          => $saleDate,
                 'status'             => 'paid',
-                'payment_method'     => $request->down_payment_method ?: $request->payment_method,
+                'payment_method'     => $downMethod,
+                'cheque_bank'        => $downMethod === PaymentMethod::CHEQUE ? $request->down_payment_cheque_bank : null,
+                'reference_number'   => $downMethod === PaymentMethod::CHEQUE ? $request->down_payment_cheque_number : null,
                 'notes'              => 'Downpayment',
             ]);
         }

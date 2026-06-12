@@ -210,6 +210,9 @@
                             <td class="px-3 py-2" style="white-space:nowrap">
                                 @php $icons = ['cash'=>'💵','gcash'=>'📱','bank_transfer'=>'🏦','cheque'=>'🧾']; $m = $inst->payment_method; @endphp
                                 {{ $m ? ($icons[$m] ?? '') . ' ' . ucwords(str_replace('_',' ',$m)) : '—' }}
+                                @if($m === 'cheque' && $inst->cheque_bank)
+                                    <br><small class="text-muted">{{ $inst->cheque_bank }}@if($inst->reference_number) · #{{ $inst->reference_number }}@endif</small>
+                                @endif
                             </td>
                             <td class="px-3 py-2">
                                 @if($inst->status === 'paid')
@@ -251,6 +254,16 @@
                             {{ ($icons[$sale->payment_method] ?? '') . ' ' . ucwords(str_replace('_',' ',$sale->payment_method ?? '—')) }}
                         </span>
                     </div>
+                    @if($sale->payment_method === 'cheque')
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Bank / Account</span>
+                        <span>{{ $sale->cheque_bank ?? '—' }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Check Number</span>
+                        <span>{{ $sale->cheque_number ?? '—' }}</span>
+                    </div>
+                    @endif
                     <div class="d-flex justify-content-between mb-2">
                         <span class="text-muted">Status</span>
                         <span class="badge bg-{{ $sale->status == 'completed' ? 'success' : ($sale->status == 'pending' ? 'warning text-dark' : 'danger') }}">

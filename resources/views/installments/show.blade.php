@@ -271,10 +271,12 @@
                             <th class="border-0 px-3 py-2">Date Paid</th>
                             <th class="border-0 px-3 py-2">Installment #</th>
                             <th class="border-0 px-3 py-2">Amount Paid</th>
+                            <th class="border-0 px-3 py-2">Payment Method</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach($paidInstallments as $payment)
+                        @php $histIcons = ['cash'=>'💵','gcash'=>'📱','bank_transfer'=>'🏦','cheque'=>'🧾']; @endphp
                         <tr>
                             <td class="px-3 py-2" style="white-space:nowrap">
                                 {{ $payment->paid_date ? $payment->paid_date->format('M d, Y h:i A') : '—' }}
@@ -284,6 +286,16 @@
                             </td>
                             <td class="px-3 py-2" style="white-space:nowrap">
                                 <span class="text-success fw-semibold">₱{{ number_format($payment->amount_paid, 2) }}</span>
+                            </td>
+                            <td class="px-3 py-2" style="white-space:nowrap">
+                                @if($payment->payment_method)
+                                    {{ $histIcons[$payment->payment_method] ?? '' }} {{ ucwords(str_replace('_', ' ', $payment->payment_method)) }}
+                                    @if($payment->payment_method === 'cheque' && $payment->cheque_bank)
+                                        <br><small class="text-muted">{{ $payment->cheque_bank }}@if($payment->reference_number) · #{{ $payment->reference_number }}@endif</small>
+                                    @endif
+                                @else
+                                    —
+                                @endif
                             </td>
                         </tr>
                         @endforeach
@@ -425,13 +437,17 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Payment Method <span class="text-danger">*</span></label>
-                        <select class="form-select" name="payment_method" required>
+                        <select class="form-select pay-method-select" name="payment_method" required>
                             <option value="">-- Select Method --</option>
                             <option value="cash">💵 Cash</option>
                             <option value="gcash">📱 GCash</option>
                             <option value="bank_transfer">🏦 Bank Transfer</option>
                             <option value="cheque">🧾 Cheque</option>
                         </select>
+                    </div>
+                    <div class="mb-3 pay-cheque-fields" style="display:none;">
+                        <label class="form-label fw-semibold">Bank / Account Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="cheque_bank" placeholder="e.g. BDO - Juan Dela Cruz">
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Reference Number</label>
@@ -489,12 +505,17 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Payment Method <span class="text-danger">*</span></label>
-                        <select class="form-select" name="payment_method" required>
+                        <select class="form-select pay-method-select" name="payment_method" required>
                             <option value="cash"          {{ ($installment->payment_method ?? '') == 'cash'          ? 'selected' : '' }}>💵 Cash</option>
                             <option value="gcash"         {{ ($installment->payment_method ?? '') == 'gcash'         ? 'selected' : '' }}>📱 GCash</option>
                             <option value="bank_transfer" {{ ($installment->payment_method ?? '') == 'bank_transfer' ? 'selected' : '' }}>🏦 Bank Transfer</option>
                             <option value="cheque"        {{ ($installment->payment_method ?? '') == 'cheque'        ? 'selected' : '' }}>🧾 Cheque</option>
                         </select>
+                    </div>
+                    <div class="mb-3 pay-cheque-fields" style="{{ ($installment->payment_method ?? '') == 'cheque' ? '' : 'display:none;' }}">
+                        <label class="form-label fw-semibold">Bank / Account Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="cheque_bank"
+                               value="{{ $installment->cheque_bank }}" placeholder="e.g. BDO - Juan Dela Cruz">
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Reference Number</label>
@@ -517,5 +538,20 @@
     </div>
 </div>
 @endforeach
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.pay-method-select').forEach(function (select) {
+        const chequeFields = select.closest('.modal-body').querySelector('.pay-cheque-fields');
+        const toggle = () => {
+            chequeFields.style.display = select.value === 'cheque' ? '' : 'none';
+        };
+        select.addEventListener('change', toggle);
+        toggle();
+    });
+});
+</script>
+@endpush
 
 @endsection

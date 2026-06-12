@@ -120,6 +120,12 @@
                                 <span class="badge {{ $sale->payment_type == 'cash' ? 'bg-success' : 'bg-warning text-dark' }}" style="font-size:0.65rem;">
                                     {{ ucfirst($sale->payment_type) }}
                                 </span>
+                                @if($sale->payment_method)
+                                    @php $methodIcons = ['cash'=>'💵','gcash'=>'📱','bank_transfer'=>'🏦','cheque'=>'🧾']; @endphp
+                                    <span class="badge bg-secondary bg-opacity-10 text-secondary border" style="font-size:0.65rem;">
+                                        {{ $methodIcons[$sale->payment_method] ?? '' }} {{ ucwords(str_replace('_', ' ', $sale->payment_method)) }}
+                                    </span>
+                                @endif
                                 @if($sale->balance > 0)
                                     <small class="text-danger fw-semibold">· ₱{{ number_format($sale->balance, 2) }} due</small>
                                 @else
