@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\InventoryMovement;
+use App\Models\Part;
 use App\Models\ProductSerial;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
@@ -32,13 +33,14 @@ class PurchaseOrderController extends Controller
             ->withCount([
                 'serials as serials_count',
                 'serials as sold_serials_count' => fn($q) => $q->where('status', 'sold'),
+                'items as part_items_count'     => fn($q) => $q->whereNotNull('part_id'),
             ])
             ->orderBy('order_date', 'desc')
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
         // Orders awaiting receiving (serials not yet encoded / stock not in)
-        $toReceive = PurchaseOrder::with(['supplier', 'items.product'])
+        $toReceive = PurchaseOrder::with(['supplier', 'items.product', 'items.part'])
             ->where('status', 'pending')
             ->orderBy('order_date')
             ->get();
@@ -90,8 +92,31 @@ class PurchaseOrderController extends Controller
     {
         $suppliers = Supplier::where('is_active', true)->orderBy('name')->get();
         $productsJson = $this->productCatalog->activeProductsForPurchaseOrderJson();
+        $partsJson = $this->activePartsForPurchaseOrderJson();
 
-        return view('purchase-orders.create', compact('suppliers', 'productsJson'));
+        return view('purchase-orders.create', compact('suppliers', 'productsJson', 'partsJson'));
+    }
+
+    /**
+     * Active parts as JSON-friendly rows for the PO parts combobox.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function activePartsForPurchaseOrderJson(): array
+    {
+        return Part::with('product.pairedProduct')
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Part $part) => [
+                'id'                => $part->id,
+                'name'              => $part->name,
+                'cost'              => (float) $part->cost,
+                'linked_model_label' => $part->linked_model_label,
+                'stock_quantity'    => $part->stock_quantity,
+            ])
+            ->values()
+            ->all();
     }
 
     public function store(Request $request)
@@ -106,7 +131,11 @@ class PurchaseOrderController extends Controller
             'payment_type'             => 'required|in:full,45days',
             'notes'                    => 'nullable|string',
             'items'                    => 'required|array|min:1',
-            'items.*.product_id'       => 'required|exists:products,id',
+            'items.*.item_type'        => 'nullable|in:product,part',
+            'items.*.product_id'       => 'required_if:items.*.item_type,product|nullable|exists:products,id',
+            'items.*.part_id'          => 'nullable|exists:parts,id',
+            'items.*.new_part_name'    => 'nullable|string|max:255',
+            'items.*.new_part_product_id' => 'nullable|exists:products,id',
             'items.*.quantity'         => 'required|integer|min:1',
             'items.*.unit_cost'        => 'nullable|numeric|min:0',
             'items.*.discount_percent' => 'nullable|numeric|min:0|max:100',
@@ -180,6 +209,11 @@ class PurchaseOrderController extends Controller
 
             // ── Create PO items; stock-in serials for lines that have them ──
             foreach ($lines as $line) {
+                if ($line['type'] === 'part') {
+                    $this->applyPartLine($po, $line, 'Received on PO creation: ' . $po->display_po_number);
+                    continue;
+                }
+
                 PurchaseOrderItem::create([
                     'purchase_order_id' => $po->id,
                     'product_id'        => $line['product']->id,
@@ -273,6 +307,14 @@ class PurchaseOrderController extends Controller
         $lines = [];
 
         foreach ($items as $index => $item) {
+            if (($item['item_type'] ?? 'product') === 'part') {
+                $line = $this->normalizePartItem($item, $index, $errors);
+                if ($line !== null) {
+                    $lines[] = $line;
+                }
+                continue;
+            }
+
             $product = Product::with('pairedProduct')->findOrFail($item['product_id']);
             $isSet   = $product->is_set_primary;
             $pair    = $isSet ? $product->pairedProduct : null;
@@ -322,6 +364,7 @@ class PurchaseOrderController extends Controller
             }
 
             $lines[] = [
+                'type'             => 'product',
                 'product'          => $product,
                 'pair'             => $pair,
                 'is_set'           => $isSet,
@@ -337,6 +380,87 @@ class PurchaseOrderController extends Controller
         }
 
         return $lines;
+    }
+
+    /** Normalize a "parts only" order line — resolves or creates the Part. */
+    private function normalizePartItem(array $item, int $index, array &$errors): ?array
+    {
+        $qty = (int) ($item['quantity'] ?? 0);
+
+        $discountPercent = (float) ($item['discount_percent'] ?? 0);
+        $discountAmount  = (float) ($item['discount_amount'] ?? 0);
+        $unitCost        = (float) ($item['unit_cost'] ?? 0);
+
+        $netCost = $unitCost * (1 - ($discountPercent / 100));
+        if ($qty > 0 && $discountAmount > 0) {
+            $netCost -= ($discountAmount / $qty);
+        }
+        $netCost = max(0, $netCost);
+
+        $partId      = $item['part_id'] ?? null;
+        $newPartName = trim((string) ($item['new_part_name'] ?? ''));
+
+        if ($partId) {
+            $part = Part::find($partId);
+            if ($part === null) {
+                $errors["items.{$index}.part_id"] = 'Selected part could not be found.';
+                return null;
+            }
+        } elseif ($newPartName !== '') {
+            $part = Part::create([
+                'name'       => $newPartName,
+                'product_id' => $item['new_part_product_id'] ?? null,
+                'cost'       => $netCost,
+                'is_active'  => true,
+            ]);
+        } else {
+            $errors["items.{$index}.part_id"] = 'Select an existing part or enter a name for a new part.';
+            return null;
+        }
+
+        return [
+            'type'             => 'part',
+            'part'             => $part,
+            'quantity'         => $qty,
+            'unit_cost'        => $unitCost,
+            'discount_percent' => $discountPercent,
+            'discount_amount'  => $discountAmount,
+            'net_cost'         => $netCost,
+            'received'         => true,
+        ];
+    }
+
+    /** Create the PO item, update the part's cost, and log a stock-in movement for a part line. */
+    private function applyPartLine(PurchaseOrder $po, array $line, string $note): void
+    {
+        PurchaseOrderItem::create([
+            'purchase_order_id' => $po->id,
+            'part_id'           => $line['part']->id,
+            'is_set'            => false,
+            'quantity_ordered'  => $line['quantity'],
+            'quantity_received' => $line['quantity'],
+            'unit_cost'         => $line['unit_cost'],
+            'discount_percent'  => $line['discount_percent'],
+            'discount_amount'   => $line['discount_amount'],
+            'discounted_cost'   => $line['net_cost'],
+            'total_cost'        => $line['quantity'] * $line['net_cost'],
+        ]);
+
+        $line['part']->update(['cost' => $line['net_cost']]);
+
+        $stockBefore = $line['part']->stock_quantity;
+
+        InventoryMovement::create([
+            'part_id'        => $line['part']->id,
+            'type'           => 'stock_in',
+            'quantity'       => $line['quantity'],
+            'stock_before'   => $stockBefore,
+            'stock_after'    => $stockBefore + $line['quantity'],
+            'reference_type' => 'PurchaseOrder',
+            'reference_id'   => $po->id,
+            'notes'          => $note . ' at ₱' . number_format($line['net_cost'], 2) . '/unit',
+            'user_id'        => auth()->id(),
+        ]);
     }
 
     /** When the edit form omits serials, keep the ones already received on this PO. */
@@ -443,7 +567,7 @@ class PurchaseOrderController extends Controller
     {
         $this->authorize('view', $purchaseOrder);
 
-        $purchaseOrder->load(['supplier', 'items.product.brand', 'items.product.pairedProduct', 'user']);
+        $purchaseOrder->load(['supplier', 'items.product.brand', 'items.product.pairedProduct', 'items.part.product.pairedProduct', 'user']);
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('purchase-orders.pdf', [
             'po' => $purchaseOrder,
@@ -462,6 +586,7 @@ class PurchaseOrderController extends Controller
             'supplier',
             'items.product.brand',
             'items.product.pairedProduct',
+            'items.part.product.pairedProduct',
             'payments',
             'user',
             'serials',
@@ -673,7 +798,7 @@ class PurchaseOrderController extends Controller
                 'Cannot edit this purchase order — one or more units from it have already been sold.');
         }
 
-        $purchaseOrder->load(['supplier', 'items.product.brand']);
+        $purchaseOrder->load(['supplier', 'items.product.brand', 'items.part']);
 
         // Load this PO's serials (in stock or still pending) grouped by product_id
         $existingSerials = ProductSerial::where('purchase_order_id', $purchaseOrder->id)
@@ -684,9 +809,10 @@ class PurchaseOrderController extends Controller
 
         $suppliers    = Supplier::where('is_active', true)->orderBy('name')->get();
         $productsJson = $this->productCatalog->activeProductsForPurchaseOrderJson();
+        $partsJson    = $this->activePartsForPurchaseOrderJson();
 
         return view('purchase-orders.edit', compact(
-            'purchaseOrder', 'suppliers', 'productsJson', 'existingSerials'
+            'purchaseOrder', 'suppliers', 'productsJson', 'partsJson', 'existingSerials'
         ));
     }
 
@@ -715,7 +841,11 @@ class PurchaseOrderController extends Controller
             'payment_type'             => 'required|in:full,45days',
             'notes'                    => 'nullable|string',
             'items'                    => 'required|array|min:1',
-            'items.*.product_id'       => 'required|exists:products,id',
+            'items.*.item_type'        => 'nullable|in:product,part',
+            'items.*.product_id'       => 'required_if:items.*.item_type,product|nullable|exists:products,id',
+            'items.*.part_id'          => 'nullable|exists:parts,id',
+            'items.*.new_part_name'    => 'nullable|string|max:255',
+            'items.*.new_part_product_id' => 'nullable|exists:products,id',
             'items.*.quantity'         => 'required|integer|min:1',
             'items.*.unit_cost'        => 'nullable|numeric|min:0',
             'items.*.discount_amount'  => 'nullable|numeric|min:0',
@@ -753,6 +883,11 @@ class PurchaseOrderController extends Controller
 
             foreach ($lines as $line) {
                 $subtotal += $line['quantity'] * $line['net_cost'];
+
+                if ($line['type'] === 'part') {
+                    $this->applyPartLine($purchaseOrder, $line, 'Updated PO ' . $purchaseOrder->display_po_number);
+                    continue;
+                }
 
                 PurchaseOrderItem::create([
                     'purchase_order_id' => $purchaseOrder->id,

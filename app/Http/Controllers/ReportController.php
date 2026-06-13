@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DailyCustomer;
 use App\Models\OperationExpense;
 use App\Models\Product;
 use App\Models\Sale;
@@ -12,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 
 class ReportController extends Controller
 {
-    public const REPORT_KEYS = ['overview', 'sales', 'installments', 'purchases', 'customers', 'inventory', 'expenses'];
+    public const REPORT_KEYS = ['overview', 'sales', 'installments', 'purchases', 'customers', 'daily_customers', 'inventory', 'expenses'];
 
     public function index(Request $request)
     {
@@ -170,6 +171,34 @@ class ReportController extends Controller
             ->take(10)
             ->get();
 
+        // ── Daily Customers ───────────────────────────────────────────
+        $dcStats = DailyCustomer::whereBetween('service_date', [$startDate, $endDate])
+            ->selectRaw('COUNT(*) as total_count')
+            ->selectRaw('COALESCE(SUM(amount), 0) as total_amount')
+            ->selectRaw("COUNT(CASE WHEN status = 'paid' THEN 1 END) as paid_count")
+            ->selectRaw("COALESCE(SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END), 0) as paid_amount")
+            ->selectRaw("COUNT(CASE WHEN status = 'unpaid' THEN 1 END) as unpaid_count")
+            ->selectRaw("COALESCE(SUM(CASE WHEN status = 'unpaid' THEN amount ELSE 0 END), 0) as unpaid_amount")
+            ->first();
+
+        $dailyCustomersCount  = (int) ($dcStats->total_count ?? 0);
+        $dailyCustomersAmount = (float) ($dcStats->total_amount ?? 0);
+        $dailyCustomersPaidCount    = (int) ($dcStats->paid_count ?? 0);
+        $dailyCustomersPaidAmount   = (float) ($dcStats->paid_amount ?? 0);
+        $dailyCustomersUnpaidCount  = (int) ($dcStats->unpaid_count ?? 0);
+        $dailyCustomersUnpaidAmount = (float) ($dcStats->unpaid_amount ?? 0);
+
+        $dailyCustomersByService = DailyCustomer::whereBetween('service_date', [$startDate, $endDate])
+            ->select('service_type', DB::raw('COUNT(*) as cnt'), DB::raw('COALESCE(SUM(amount), 0) as amt'))
+            ->groupBy('service_type')
+            ->orderByDesc('amt')
+            ->get();
+
+        $dailyCustomersList = DailyCustomer::whereBetween('service_date', [$startDate, $endDate])
+            ->orderByDesc('service_date')
+            ->orderByDesc('id')
+            ->get();
+
         return view('reports.index', compact(
             'startDate', 'endDate', 'currentReport',
             'totalSales', 'totalCashSales', 'totalInstallmentSales',
@@ -186,6 +215,10 @@ class ReportController extends Controller
             'expensesByCategory', 'operationExpensesList',
             'salesDetailList',
             'topCustomers',
+            'dailyCustomersCount', 'dailyCustomersAmount',
+            'dailyCustomersPaidCount', 'dailyCustomersPaidAmount',
+            'dailyCustomersUnpaidCount', 'dailyCustomersUnpaidAmount',
+            'dailyCustomersByService', 'dailyCustomersList',
             'inventorySnapshot', 'totalStockValue', 'totalStockUnits'
         ));
     }

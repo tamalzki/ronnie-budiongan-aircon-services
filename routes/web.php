@@ -15,6 +15,8 @@ use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\SupplierPaymentController;
 use App\Http\Controllers\ExpenseCategoryController;
 use App\Http\Controllers\OperationExpenseController;
+use App\Http\Controllers\DailyCustomerController;
+use App\Http\Controllers\PartController;
 
 // Root: logged in → dashboard, guest → login
 Route::get('/', function () {
@@ -41,9 +43,15 @@ Route::middleware('auth')->group(function () {
     Route::resource('brands', BrandController::class);
     Route::resource('suppliers', SupplierController::class);
     Route::resource('services', ServiceController::class);
+    Route::resource('parts', PartController::class);
+    Route::post('parts/{part}/stock-in', [PartController::class, 'stockIn'])->name('parts.stock-in');
     Route::resource('products', ProductController::class);
     Route::get('sales/serial-lookup', [SaleController::class, 'lookupSerial'])->name('sales.serial-lookup');
     Route::resource('sales', SaleController::class);
+
+    // Daily Customers
+    Route::patch('daily-customers/{daily_customer}/status', [DailyCustomerController::class, 'updateStatus'])->name('daily-customers.update-status');
+    Route::resource('daily-customers', DailyCustomerController::class)->except(['create', 'edit', 'show']);
 
     // Installments
     Route::get('installments', [InstallmentPaymentController::class, 'index'])->name('installments.index');

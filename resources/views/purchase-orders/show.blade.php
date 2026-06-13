@@ -144,6 +144,34 @@
                     </thead>
                     <tbody>
                         @foreach($purchaseOrder->items as $item)
+                        @if($item->is_part)
+                        @php
+                            $remaining = max(0, $item->quantity_ordered - $item->quantity_received);
+                        @endphp
+                        <tr>
+                            <td class="px-3 py-2 text-center text-muted fw-semibold">{{ $loop->iteration }}</td>
+                            <td class="px-3 py-2">
+                                <span class="fw-bold" style="font-family:monospace;font-size:0.8rem;">{{ $item->part->name }}</span>
+                            </td>
+                            <td class="px-3 py-2">
+                                <div class="fw-semibold">{{ $item->part->name }}</div>
+                                <div class="d-flex gap-1 mt-1 flex-wrap align-items-center">
+                                    <span class="badge" style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;font-size:0.63rem;">🔧 Aircon Part</span>
+                                    <span class="text-muted" style="font-size:0.7rem;">For: {{ $item->part->linked_model_label ?? 'General / Unlinked' }}</span>
+                                    @if($remaining > 0)
+                                        <span class="badge bg-warning text-dark" style="font-size:0.63rem;">{{ $remaining }} to receive</span>
+                                    @endif
+                                </div>
+                            </td>
+                            <td class="px-3 py-2 text-center">
+                                <span class="fw-bold">{{ $item->quantity_ordered }}</span>
+                                <div class="text-muted" style="font-size:0.68rem;">PC</div>
+                            </td>
+                            <td class="px-3 py-2">
+                                <span class="text-muted" style="font-size:0.78rem;">Stock: {{ $item->part->stock_quantity }}</span>
+                            </td>
+                            <td class="px-3 py-2 text-end">₱{{ number_format($item->unit_cost, 2) }}</td>
+                        @else
                         @php
                             $isSetItem      = $item->is_set && $item->product->pairedProduct;
                             $itemSerials    = $purchaseOrder->serials->where('product_id', $item->product_id)->sortBy('serial_number');
@@ -217,6 +245,7 @@
                                 @endif
                             </td>
                             <td class="px-3 py-2 text-end">₱{{ number_format($item->unit_cost, 2) }}</td>
+                        @endif
                             <td class="px-3 py-2 text-center">
                                 @if($item->discount_percent > 0)
                                     <span class="badge bg-success bg-opacity-10 text-success border border-success" style="font-size:0.7rem;">

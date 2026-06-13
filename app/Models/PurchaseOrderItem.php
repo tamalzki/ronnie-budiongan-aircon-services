@@ -12,6 +12,7 @@ class PurchaseOrderItem extends Model
     protected $fillable = [
         'purchase_order_id',
         'product_id',
+        'part_id',
         'is_set',
         'quantity_ordered',
         'quantity_received',
@@ -47,6 +48,11 @@ class PurchaseOrderItem extends Model
     public function product()
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function part()
+    {
+        return $this->belongsTo(Part::class);
     }
 
     // All serials for this specific item (same product + same PO)
@@ -86,5 +92,21 @@ class PurchaseOrderItem extends Model
     public function getRemainingQuantityAttribute(): int
     {
         return max(0, $this->quantity_ordered - $this->quantity_received);
+    }
+
+    // Whether this line item is a part (not a full product/set)
+    public function getIsPartAttribute(): bool
+    {
+        return $this->part_id !== null;
+    }
+
+    // Display label: part name for part lines, set/model label for product lines
+    public function getDisplayLabelAttribute(): string
+    {
+        if ($this->is_part) {
+            return $this->part->name;
+        }
+
+        return $this->is_set ? $this->product->set_model_label : $this->product->model;
     }
 }

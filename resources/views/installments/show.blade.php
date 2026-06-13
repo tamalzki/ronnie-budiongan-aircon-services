@@ -19,66 +19,59 @@
     <x-flash />
 
     {{-- Summary Cards --}}
-    <div class="row g-3 mb-4">
+    <div class="row g-2 mb-3">
         <div class="col-6 col-md-3">
             <div class="card border-0 shadow-sm">
-                <div class="card-body d-flex align-items-center gap-3 py-3">
-                    <div class="bg-primary bg-opacity-10 rounded p-2">
-                        <i class="bi bi-cash-stack fs-4 text-primary"></i>
+                <div class="card-body d-flex align-items-center gap-2 py-2 px-3">
+                    <div class="bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:34px;height:34px;">
+                        <i class="bi bi-cash-stack text-primary"></i>
                     </div>
                     <div>
-                        <div class="text-muted small">Total Amount</div>
-                        <div class="fw-bold">₱{{ number_format($totalAmount, 2) }}</div>
+                        <div class="text-muted" style="font-size:0.7rem;line-height:1.1;">Total Amount</div>
+                        <div class="fw-bold" style="font-size:1.05rem;line-height:1.2;">₱{{ number_format($totalAmount, 2) }}</div>
                     </div>
                 </div>
             </div>
         </div>
         <div class="col-6 col-md-3">
             <div class="card border-0 shadow-sm">
-                <div class="card-body d-flex align-items-center gap-3 py-3">
-                    <div class="bg-success bg-opacity-10 rounded p-2">
-                        <i class="bi bi-check-circle fs-4 text-success"></i>
+                <div class="card-body d-flex align-items-center gap-2 py-2 px-3">
+                    <div class="bg-success bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:34px;height:34px;">
+                        <i class="bi bi-check-circle text-success"></i>
                     </div>
                     <div>
-                        <div class="text-muted small">Total Paid</div>
-                        <div class="fw-bold text-success">₱{{ number_format($totalPaid, 2) }}</div>
+                        <div class="text-muted" style="font-size:0.7rem;line-height:1.1;">Total Paid</div>
+                        <div class="fw-bold text-success" style="font-size:1.05rem;line-height:1.2;">₱{{ number_format($totalPaid, 2) }}</div>
                     </div>
                 </div>
             </div>
         </div>
         <div class="col-6 col-md-3">
             <div class="card border-0 shadow-sm">
-                <div class="card-body d-flex align-items-center gap-3 py-3">
-                    <div class="bg-danger bg-opacity-10 rounded p-2">
-                        <i class="bi bi-exclamation-triangle fs-4 text-danger"></i>
+                <div class="card-body d-flex align-items-center gap-2 py-2 px-3">
+                    <div class="bg-danger bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:34px;height:34px;">
+                        <i class="bi bi-exclamation-triangle text-danger"></i>
                     </div>
                     <div>
-                        <div class="text-muted small">Balance</div>
-                        <div class="fw-bold text-danger">₱{{ number_format($totalBalance, 2) }}</div>
+                        <div class="text-muted" style="font-size:0.7rem;line-height:1.1;">Balance</div>
+                        <div class="fw-bold text-danger" style="font-size:1.05rem;line-height:1.2;">₱{{ number_format($totalBalance, 2) }}</div>
                     </div>
                 </div>
             </div>
         </div>
         <div class="col-6 col-md-3">
             <div class="card border-0 shadow-sm">
-                <div class="card-body d-flex align-items-center gap-3 py-3">
-                    <div class="bg-info bg-opacity-10 rounded p-2">
-                        <i class="bi bi-calendar3 fs-4 text-info"></i>
+                <div class="card-body d-flex align-items-center gap-2 py-2 px-3">
+                    <div class="bg-info bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:34px;height:34px;">
+                        <i class="bi bi-calendar3 text-info"></i>
                     </div>
                     <div>
-                        <div class="text-muted small">Installments</div>
-                        <div class="fw-bold">{{ $installments->count() }} payments</div>
+                        <div class="text-muted" style="font-size:0.7rem;line-height:1.1;">Installments</div>
+                        <div class="fw-bold" style="font-size:1.05rem;line-height:1.2;">{{ $installments->count() }} payments</div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-
-    {{-- Row color legend --}}
-    <div class="d-flex gap-3 mb-2" style="font-size:0.8rem;">
-        <span><span class="d-inline-block rounded" style="width:12px;height:12px;background:#f8d7da;border:1px solid #f5c2c7"></span> Overdue / Unpaid past due</span>
-        <span><span class="d-inline-block rounded" style="width:12px;height:12px;background:#fff3cd;border:1px solid #ffc107"></span> Due this month</span>
-        <span><span class="d-inline-block rounded" style="width:12px;height:12px;background:#d1e7dd;border:1px solid #a3cfbb"></span> Paid</span>
     </div>
 
     {{-- Units Purchased Info --}}
@@ -142,9 +135,9 @@
     </div>
 
     {{-- Installment Schedule --}}
-    <div class="card border-0 shadow-sm mb-4">
-        <div class="card-header bg-white border-bottom py-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
-            <h5 class="mb-0"><i class="bi bi-calendar-check text-primary"></i> Installment Schedule</h5>
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white border-bottom py-2 px-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <h6 class="mb-0 fw-semibold"><i class="bi bi-calendar-check text-primary"></i> Installment Schedule</h6>
             <div class="d-flex flex-wrap gap-1">
                 @foreach($sales as $s)
                 <button class="btn btn-outline-primary btn-sm"
@@ -157,16 +150,16 @@
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover table-sm mb-0" style="font-size:0.875rem;">
+                <table class="table table-hover table-sm table-bordered align-middle mb-0" style="font-size:0.85rem;">
                     <thead class="bg-light">
                         <tr>
-                            <th class="border-0 px-3 py-2">#</th>
-                            <th class="border-0 px-3 py-2" style="white-space:nowrap">Due Date</th>
-                            <th class="border-0 px-3 py-2" style="white-space:nowrap">Amount Due</th>
-                            <th class="border-0 px-3 py-2" style="white-space:nowrap">Amount Paid</th>
-                            <th class="border-0 px-3 py-2">Balance</th>
-                            <th class="border-0 px-3 py-2">Status</th>
-                            <th class="border-0 px-3 py-2">Actions</th>
+                            <th class="px-2 py-2 text-center">#</th>
+                            <th class="px-2 py-2" style="white-space:nowrap">Due Date</th>
+                            <th class="px-2 py-2 text-end" style="white-space:nowrap">Amount Due</th>
+                            <th class="px-2 py-2 text-end" style="white-space:nowrap">Amount Paid</th>
+                            <th class="px-2 py-2 text-end">Balance</th>
+                            <th class="px-2 py-2 text-center">Status</th>
+                            <th class="px-2 py-2 text-center">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -177,32 +170,27 @@
                                               && $installment->due_date->year === now()->year;
                             $isOverdue    = $installment->due_date < now() && $installment->status !== 'paid';
                             $isPaid       = $installment->status === 'paid';
-
-                            $rowClass = '';
-                            if ($isPaid)            $rowClass = 'table-success';
-                            elseif ($isOverdue)     $rowClass = 'table-danger';
-                            elseif ($isCurrentMonth) $rowClass = 'table-warning';
                         @endphp
-                        <tr class="{{ $rowClass }}">
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                        <tr>
+                            <td class="px-2 py-2 text-center" style="white-space:nowrap">
                                 <span class="badge bg-primary">{{ $loop->iteration }}</span>
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
-                                <div>{{ $installment->due_date->format('M d, Y') }}</div>
-                                <small class="text-muted">{{ $installment->due_date->diffForHumans() }}</small>
+                            <td class="px-2 py-2" style="white-space:nowrap">
+                                {{ $installment->due_date->format('M d, Y') }}
+                                <span class="text-muted">· {{ $installment->due_date->diffForHumans() }}</span>
                             </td>
-                            <td class="px-3 py-2 fw-semibold" style="white-space:nowrap">
+                            <td class="px-2 py-2 text-end fw-semibold" style="white-space:nowrap">
                                 ₱{{ number_format($installment->amount, 2) }}
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            <td class="px-2 py-2 text-end" style="white-space:nowrap">
                                 <span class="text-success fw-semibold">₱{{ number_format($installment->amount_paid, 2) }}</span>
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            <td class="px-2 py-2 text-end" style="white-space:nowrap">
                                 <span class="{{ $balance > 0 ? 'text-danger fw-semibold' : 'text-success fw-semibold' }}">
                                     ₱{{ number_format($balance, 2) }}
                                 </span>
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            <td class="px-2 py-2 text-center" style="white-space:nowrap">
                                 @if($isPaid)
                                     <span class="badge bg-success"><i class="bi bi-check-circle"></i> Paid</span>
                                 @elseif($installment->status === 'partial')
@@ -215,20 +203,19 @@
                                     <span class="badge bg-secondary"><i class="bi bi-clock"></i> Upcoming</span>
                                 @endif
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
-                                <div class="d-flex gap-1">
+                            <td class="px-2 py-2 text-center" style="white-space:nowrap">
+                                <div class="d-flex gap-1 justify-content-center">
                                     @if(!$isPaid)
                                     {{-- Pay Now --}}
                                     <button class="btn btn-success"
                                             style="padding:2px 8px;font-size:0.78rem"
                                             data-bs-toggle="modal"
                                             data-bs-target="#payModal{{ $installment->id }}">
-                                        <i class="bi bi-cash"></i> Pay Now
+                                        <i class="bi bi-cash"></i> Record Payment
                                     </button>
                                     @else
                                     {{-- Paid: show date + Edit button --}}
                                     <span class="text-muted" style="font-size:0.78rem">
-                                        <i class="bi bi-check-circle text-success"></i>
                                         {{ $installment->paid_date ? $installment->paid_date->format('M d, Y') : '—' }}
                                     </span>
                                     <button class="btn btn-outline-secondary"
@@ -260,34 +247,34 @@
     @php $paidInstallments = $installments->where('status', '!=', 'unpaid'); @endphp
     @if($paidInstallments->count() > 0)
     <div class="card border-0 shadow-sm">
-        <div class="card-header bg-white border-bottom py-3">
-            <h5 class="mb-0"><i class="bi bi-clock-history text-success"></i> Payment History</h5>
+        <div class="card-header bg-white border-bottom py-2 px-3">
+            <h6 class="mb-0 fw-semibold"><i class="bi bi-clock-history text-success"></i> Payment History</h6>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover table-sm mb-0" style="font-size:0.875rem;">
+                <table class="table table-hover table-sm table-bordered align-middle mb-0" style="font-size:0.85rem;">
                     <thead class="bg-light">
                         <tr>
-                            <th class="border-0 px-3 py-2">Date Paid</th>
-                            <th class="border-0 px-3 py-2">Installment #</th>
-                            <th class="border-0 px-3 py-2">Amount Paid</th>
-                            <th class="border-0 px-3 py-2">Payment Method</th>
+                            <th class="px-2 py-2">Date Paid</th>
+                            <th class="px-2 py-2 text-center">Installment #</th>
+                            <th class="px-2 py-2 text-end">Amount Paid</th>
+                            <th class="px-2 py-2">Payment Method</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach($paidInstallments as $payment)
                         @php $histIcons = ['cash'=>'💵','gcash'=>'📱','bank_transfer'=>'🏦','cheque'=>'🧾']; @endphp
                         <tr>
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            <td class="px-2 py-2" style="white-space:nowrap">
                                 {{ $payment->paid_date ? $payment->paid_date->format('M d, Y h:i A') : '—' }}
                             </td>
-                            <td class="px-3 py-2">
+                            <td class="px-2 py-2 text-center">
                                 <span class="badge bg-primary">Installment #{{ $loop->iteration }}</span>
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            <td class="px-2 py-2 text-end" style="white-space:nowrap">
                                 <span class="text-success fw-semibold">₱{{ number_format($payment->amount_paid, 2) }}</span>
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            <td class="px-2 py-2" style="white-space:nowrap">
                                 @if($payment->payment_method)
                                     {{ $histIcons[$payment->payment_method] ?? '' }} {{ ucwords(str_replace('_', ' ', $payment->payment_method)) }}
                                     @if($payment->payment_method === 'cheque' && $payment->cheque_bank)

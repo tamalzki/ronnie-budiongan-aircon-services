@@ -643,6 +643,12 @@
                             <span>Installments</span>
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a href="{{ route('daily-customers.index') }}" class="nav-link {{ request()->routeIs('daily-customers.*') ? 'active' : '' }}">
+                            <i class="bi bi-person-lines-fill"></i>
+                            <span>Daily Customers</span>
+                        </a>
+                    </li>
                 </ul>
             </div>
 
@@ -654,6 +660,12 @@
                         <a href="{{ route('products.index') }}" class="nav-link {{ request()->routeIs('products.*', 'inventory.*') ? 'active' : '' }}">
                             <i class="bi bi-boxes"></i>
                             <span>Products &amp; Stock</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ route('parts.index') }}" class="nav-link {{ request()->routeIs('parts.*') ? 'active' : '' }}">
+                            <i class="bi bi-nut"></i>
+                            <span>Aircon Parts</span>
                         </a>
                     </li>
                 </ul>

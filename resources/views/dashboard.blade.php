@@ -166,6 +166,31 @@
                 </div>
             </div>
         </div>
+
+        <div class="col-6 col-lg-3">
+            <a href="{{ route('daily-customers.index', ['status' => 'unpaid']) }}" class="text-decoration-none">
+                <div class="card app-card-panel border-0 shadow-sm h-100 {{ $unpaidDailyCustomersCount > 0 ? 'border-start border-danger border-4' : '' }}">
+                    <div class="card-body py-3 px-3">
+                        <div class="d-flex align-items-start gap-2">
+                            <div class="bg-danger bg-opacity-10 rounded p-2 flex-shrink-0">
+                                <i class="bi bi-person-exclamation fs-5 text-danger" aria-hidden="true"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="text-muted small mb-0">Unpaid daily customers</div>
+                                <div class="fw-bold fs-5 text-danger text-truncate">₱{{ number_format($unpaidDailyCustomersAmount, 2) }}</div>
+                                <div style="font-size:0.72rem;">
+                                    @if($unpaidDailyCustomersCount > 0)
+                                        <span class="text-danger">{{ $unpaidDailyCustomersCount }} unpaid entr{{ $unpaidDailyCustomersCount == 1 ? 'y' : 'ies' }} — follow up</span>
+                                    @else
+                                        <span class="text-muted">All daily customers settled</span>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
     </div>
 
     {{-- Tables --}}

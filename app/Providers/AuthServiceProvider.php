@@ -3,18 +3,22 @@
 namespace App\Providers;
 
 use App\Models\Brand;
+use App\Models\DailyCustomer;
 use App\Models\ExpenseCategory;
 use App\Models\InstallmentPayment;
 use App\Models\OperationExpense;
+use App\Models\Part;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
 use App\Models\Sale;
 use App\Models\Service;
 use App\Models\Supplier;
 use App\Policies\BrandPolicy;
+use App\Policies\DailyCustomerPolicy;
 use App\Policies\ExpenseCategoryPolicy;
 use App\Policies\InstallmentPaymentPolicy;
 use App\Policies\OperationExpensePolicy;
+use App\Policies\PartPolicy;
 use App\Policies\ProductPolicy;
 use App\Policies\PurchaseOrderPolicy;
 use App\Policies\SalePolicy;
@@ -39,6 +43,8 @@ class AuthServiceProvider extends ServiceProvider
         Service::class            => ServicePolicy::class,
         ExpenseCategory::class    => ExpenseCategoryPolicy::class,
         OperationExpense::class   => OperationExpensePolicy::class,
+        DailyCustomer::class      => DailyCustomerPolicy::class,
+        Part::class               => PartPolicy::class,
     ];
 
     /**

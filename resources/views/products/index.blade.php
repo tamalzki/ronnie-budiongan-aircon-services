@@ -126,16 +126,18 @@
                         data-search="{{ strtolower(($product->brand->name ?? '') . ' ' . ($product->model ?? '') . ' ' . ($isSet ? ($outdoor->model . ' set') : ($product->unit_type ?? ''))) }}"
                         data-qty-tier="{{ $qtyTier }}"
                         data-price="{{ $canSell ? 'priced' : 'noprice' }}"
-                        data-brand="{{ $product->brand_id ?? '' }}">
+                        data-brand="{{ $product->brand_id ?? '' }}"
+                        data-href="{{ route('inventory.show', $product) }}"
+                        style="cursor:pointer;">
 
                         <td class="ps-3">
                             <span class="products-brand">{{ $product->brand->name ?? '—' }}</span>
                         </td>
-                        <td>
-                            <a href="{{ route('inventory.show', $product) }}" class="products-model">{{ $product->model ?? '—' }}</a>
+                        <td class="products-model-cell" title="{{ $product->model }}{{ $isSet ? ' / ' . $outdoor->model : '' }}">
+                            <span class="products-model">{{ $product->model ?? '—' }}</span>
                             @if($isSet)
                                 <span class="text-muted"> / </span>
-                                <a href="{{ route('inventory.show', $outdoor) }}" class="products-model">{{ $outdoor->model }}</a>
+                                <span class="products-model">{{ $outdoor->model }}</span>
                             @endif
                         </td>
                         <td>
@@ -164,22 +166,25 @@
                             @endif
                         </td>
                         <td class="text-center">
-                            <a href="{{ route('inventory.show', $product) }}" class="products-qty-wrap"
-                               title="{{ $isSet ? "Complete sets — indoor: {$ownStock}, outdoor: {$outdoorStock}" : 'Open inventory' }}">
+                            @php
+                                $qtyTitleParts = [];
+                                if ($isSet) {
+                                    $qtyTitleParts[] = "Indoor: {$ownStock} · Outdoor: {$outdoorStock}";
+                                }
+                                if ($pending > 0) {
+                                    $qtyTitleParts[] = "{$pending} pending (not received)";
+                                }
+                                $qtyTitle = !empty($qtyTitleParts) ? implode(' · ', $qtyTitleParts) : 'Open inventory';
+                            @endphp
+                            <span class="products-qty-wrap" title="{{ $qtyTitle }}">
                                 <span class="products-qty products-qty--{{ $qtyTier }}">{{ $inStock }}</span>
-                                @if($isSet)
-                                    <span class="products-pending" title="Indoor in stock / Outdoor in stock">{{ $ownStock }} IDU · {{ $outdoorStock }} ODU</span>
-                                @endif
                                 @if($pending > 0)
-                                    <span class="products-pending" title="{{ $pending }} pending (not received)">+{{ $pending }}</span>
+                                    <span class="products-pending">+{{ $pending }}</span>
                                 @endif
-                            </a>
+                            </span>
                         </td>
                         <td class="text-end pe-3">
                             <div class="products-actions">
-                                <a href="{{ route('inventory.show', $product) }}" class="btn btn-light border btn-sm products-act" title="Inventory &amp; serials">
-                                    <i class="bi bi-sliders"></i><span>Manage</span>
-                                </a>
                                 <a href="{{ route('inventory.show', $product) }}#stock-in" class="btn btn-light border btn-sm products-act" title="Stock in">
                                     <i class="bi bi-box-arrow-in-down"></i><span>Stock in</span>
                                 </a>
@@ -271,6 +276,13 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('stockFilter').addEventListener('change', filterTable);
     document.getElementById('priceFilter').addEventListener('change', filterTable);
     document.getElementById('brandFilter').addEventListener('change', filterTable);
+
+    document.querySelectorAll('.product-row[data-href]').forEach(row => {
+        row.addEventListener('click', function (e) {
+            if (e.target.closest('a, button, form, input, select, .modal')) return;
+            window.location.href = this.dataset.href;
+        });
+    });
 });
 </script>
 @endpush
@@ -383,6 +395,12 @@ document.addEventListener('DOMContentLoaded', function () {
     white-space: nowrap;
     vertical-align: bottom;
 }
+.products-model-cell {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 20rem;
+}
 .products-model {
     font-weight: 600;
     color: var(--bs-body-color);
@@ -426,7 +444,8 @@ document.addEventListener('DOMContentLoaded', function () {
     align-items: center;
     justify-content: center;
     gap: 0.35rem;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    white-space: nowrap;
     text-decoration: none;
 }
 .products-qty {

@@ -1,0 +1,22 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('daily_customers', function (Blueprint $table) {
+            $table->boolean('parts_included_in_price')->nullable()->after('notes');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('daily_customers', function (Blueprint $table) {
+            $table->dropColumn('parts_included_in_price');
+        });
+    }
+};

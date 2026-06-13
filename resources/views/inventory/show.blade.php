@@ -15,22 +15,109 @@
 
     <x-flash />
 
-    {{-- ═══════════════════════════════════════════════════
-         ROW 1: Product Info + Stock Status + Actions
-    ════════════════════════════════════════════════════ --}}
-    <div class="row g-3 mb-4">
+    @php
+        $stockColor = $product->stock_count == 0 ? 'danger' : ($product->stock_count <= 5 ? 'warning' : 'success');
+        $stockLabel = $product->stock_count == 0 ? 'Out of Stock' : ($product->stock_count <= 5 ? 'Low Stock' : 'In Stock');
+    @endphp
 
-        {{-- Product Info --}}
-        <div class="col-md-4">
-            <div class="card app-card-panel h-100">
-                <div class="card-header bg-white py-2 px-3">
-                    <span class="fw-semibold small"><i class="bi bi-info-circle text-primary me-1"></i>Product Information</span>
+    {{-- ═══════════════════════════════════════════════════
+         Summary Stats
+    ════════════════════════════════════════════════════ --}}
+    <div class="row g-2 mb-3">
+        <div class="col-6 col-md-2">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center gap-2 py-2 px-3">
+                    <div class="bg-{{ $stockColor }} bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:34px;height:34px;">
+                        <i class="bi bi-box-seam text-{{ $stockColor }}"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted" style="font-size:0.7rem;line-height:1.1;">Current Stock</div>
+                        <div class="fw-bold text-{{ $stockColor }}" style="font-size:1.05rem;line-height:1.2;">{{ $product->stock_count }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-2">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center gap-2 py-2 px-3">
+                    <div class="bg-success bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:34px;height:34px;">
+                        <i class="bi bi-cash-stack text-success"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted" style="font-size:0.7rem;line-height:1.1;">Stock Value</div>
+                        <div class="fw-bold text-success" style="font-size:1.05rem;line-height:1.2;">₱{{ number_format($product->stock_count * $product->price, 2) }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-2">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center gap-2 py-2 px-3">
+                    <div class="bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:34px;height:34px;">
+                        <i class="bi bi-box-arrow-in-down text-primary"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted" style="font-size:0.7rem;line-height:1.1;">Stock In</div>
+                        <div class="fw-bold" style="font-size:1.05rem;line-height:1.2;">{{ $totalStockIn }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-2">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center gap-2 py-2 px-3">
+                    <div class="bg-danger bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:34px;height:34px;">
+                        <i class="bi bi-box-arrow-up text-danger"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted" style="font-size:0.7rem;line-height:1.1;">Sold</div>
+                        <div class="fw-bold" style="font-size:1.05rem;line-height:1.2;">{{ $totalStockOut }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-2">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center gap-2 py-2 px-3">
+                    <div class="bg-warning bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:34px;height:34px;">
+                        <i class="bi bi-arrow-return-left text-warning"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted" style="font-size:0.7rem;line-height:1.1;">Returns</div>
+                        <div class="fw-bold" style="font-size:1.05rem;line-height:1.2;">{{ $totalReturns }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-2">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center gap-2 py-2 px-3">
+                    <div class="bg-info bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:34px;height:34px;">
+                        <i class="bi bi-gear text-info"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted" style="font-size:0.7rem;line-height:1.1;">Adjustments</div>
+                        <div class="fw-bold" style="font-size:1.05rem;line-height:1.2;">{{ $totalAdjustments }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- ═══════════════════════════════════════════════════
+         Product Info + Quick Actions (anchor #stock-in opens Stock In modal from listing pages)
+    ════════════════════════════════════════════════════ --}}
+    <div class="row g-2 mb-3">
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-bottom py-2 px-3">
+                    <span class="fw-semibold" style="font-size:0.85rem;"><i class="bi bi-info-circle text-primary me-1"></i>Product Information</span>
                 </div>
                 <div class="card-body p-0">
-                    <table class="table table-sm table-borderless mb-0" style="font-size:0.875rem;">
+                    <table class="table table-sm table-borderless mb-0" style="font-size:0.82rem;">
                         <tr>
-                            <th class="px-3 py-2 text-muted" width="90">Brand</th>
-                            <td class="px-3 py-2">
+                            <th class="px-3 py-1 text-muted" width="90">Brand</th>
+                            <td class="px-3 py-1">
                                 @if($product->brand)
                                     <span class="badge bg-secondary">{{ $product->brand->name }}</span>
                                 @else <span class="text-muted">—</span>
@@ -38,21 +125,21 @@
                             </td>
                         </tr>
                         <tr>
-                            <th class="px-3 py-2 text-muted">Model</th>
-                            <td class="px-3 py-2">{{ $product->model ?? '—' }}</td>
+                            <th class="px-3 py-1 text-muted">Model</th>
+                            <td class="px-3 py-1">{{ $product->model ?? '—' }}</td>
                         </tr>
                         <tr>
-                            <th class="px-3 py-2 text-muted">Supplier</th>
-                            <td class="px-3 py-2">{{ $product->supplier->name ?? '—' }}</td>
+                            <th class="px-3 py-1 text-muted">Supplier</th>
+                            <td class="px-3 py-1">{{ $product->supplier->name ?? '—' }}</td>
                         </tr>
                         <tr>
-                            <th class="px-3 py-2 text-muted">Price</th>
-                            <td class="px-3 py-2 fw-semibold text-success">₱{{ number_format($product->price, 2) }}</td>
+                            <th class="px-3 py-1 text-muted">Price</th>
+                            <td class="px-3 py-1 fw-semibold text-success">₱{{ number_format($product->price, 2) }}</td>
                         </tr>
                         @if($pairedProduct)
                         <tr>
-                            <th class="px-3 py-2 text-muted">Set Pair</th>
-                            <td class="px-3 py-2">
+                            <th class="px-3 py-1 text-muted">Set Pair</th>
+                            <td class="px-3 py-1">
                                 <a href="{{ route('inventory.show', $pairedProduct) }}" class="text-decoration-none">
                                     {{ ucfirst($pairedProduct->unit_type) }}: {{ $pairedProduct->brand->name ?? '' }} {{ $pairedProduct->model }}
                                 </a>
@@ -62,8 +149,8 @@
                         @endif
                         @if($product->description)
                         <tr>
-                            <th class="px-3 py-2 text-muted">Notes</th>
-                            <td class="px-3 py-2 text-muted small">{{ $product->description }}</td>
+                            <th class="px-3 py-1 text-muted">Notes</th>
+                            <td class="px-3 py-1 text-muted small">{{ $product->description }}</td>
                         </tr>
                         @endif
                     </table>
@@ -71,125 +158,55 @@
             </div>
         </div>
 
-        {{-- Stock Status --}}
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header border-0 py-2"
-                     style="background:{{ $product->stock_count == 0 ? '#dc3545' : ($product->stock_count <= 5 ? '#ffc107' : '#198754') }}">
-                    <h6 class="mb-0 text-white"><i class="bi bi-box"></i> Current Stock</h6>
-                </div>
-                <div class="card-body text-center d-flex flex-column justify-content-center py-4">
-                    <div class="fw-bold mb-1" style="font-size:3.5rem;line-height:1;color:{{ $product->stock_count == 0 ? '#dc3545' : ($product->stock_count <= 5 ? '#e0a800' : '#198754') }}">
-                        {{ $product->stock_count }}
-                    </div>
-                    <div class="text-muted mb-3" style="font-size:0.85rem;">units available</div>
-
-                    @if($product->stock_count == 0)
-                        <span class="badge bg-danger align-self-center px-3 py-2 mb-3">
-                            <i class="bi bi-exclamation-triangle"></i> Out of Stock
-                        </span>
-                    @elseif($product->stock_count <= 5)
-                        <span class="badge bg-warning text-dark align-self-center px-3 py-2 mb-3">
-                            <i class="bi bi-exclamation-circle"></i> Low Stock — Reorder Soon
-                        </span>
-                    @else
-                        <span class="badge bg-success align-self-center px-3 py-2 mb-3">
-                            <i class="bi bi-check-circle"></i> In Stock
-                        </span>
-                    @endif
-
-                    <div class="bg-light rounded p-2">
-                        <small class="text-muted d-block">Total Stock Value</small>
-                        <strong class="text-success fs-5">₱{{ number_format($product->stock_count * $product->price, 2) }}</strong>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        {{-- Quick Actions + Stats (anchor #stock-in opens Stock In modal from listing pages) --}}
         <div class="col-md-4" id="stock-in" style="scroll-margin-top: 1rem;">
-            <div class="card border-0 shadow-sm mb-3">
-                <div class="card-header bg-light border-0 py-2">
-                    <h6 class="mb-0"><i class="bi bi-lightning-fill text-warning"></i> Quick Actions</h6>
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-bottom py-2 px-3 d-flex align-items-center justify-content-between">
+                    <span class="fw-semibold" style="font-size:0.85rem;"><i class="bi bi-lightning-fill text-warning me-1"></i>Quick Actions</span>
+                    <span class="badge bg-{{ $stockColor }}">{{ $stockLabel }}</span>
                 </div>
-                <div class="card-body py-3">
+                <div class="card-body py-2 px-3">
                     <div class="d-grid gap-2">
                         <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#stockInModal">
                             <i class="bi bi-plus-circle"></i> Add Stock (Stock In)
                         </button>
-                       
                         <button class="btn btn-outline-danger btn-sm" disabled>
-    <i class="bi bi-arrow-return-left"></i> Return to Supplier (Disabled)
-</button>
-                    </div>
-                </div>
-            </div>
-
-            {{-- Mini stats --}}
-            <div class="row g-2">
-                <div class="col-6">
-                    <div class="card border-0 shadow-sm text-center py-2">
-                        <div class="text-success fw-bold fs-5">{{ $totalStockIn }}</div>
-                        <div class="text-muted" style="font-size:0.72rem;"><i class="bi bi-box-arrow-in-down"></i> Stock In</div>
-                    </div>
-                </div>
-                <div class="col-6">
-                    <div class="card border-0 shadow-sm text-center py-2">
-                        <div class="text-danger fw-bold fs-5">{{ $totalStockOut }}</div>
-                        <div class="text-muted" style="font-size:0.72rem;"><i class="bi bi-box-arrow-up"></i> Sold</div>
-                    </div>
-                </div>
-                <div class="col-6">
-                    <div class="card border-0 shadow-sm text-center py-2">
-                        <div class="text-warning fw-bold fs-5">{{ $totalReturns }}</div>
-                        <div class="text-muted" style="font-size:0.72rem;"><i class="bi bi-arrow-return-left"></i> Returns</div>
-                    </div>
-                </div>
-                <div class="col-6">
-                    <div class="card border-0 shadow-sm text-center py-2">
-                        <div class="text-info fw-bold fs-5">{{ $totalAdjustments }}</div>
-                        <div class="text-muted" style="font-size:0.72rem;"><i class="bi bi-gear"></i> Adjustments</div>
+                            <i class="bi bi-arrow-return-left"></i> Return to Supplier (Disabled)
+                        </button>
                     </div>
                 </div>
             </div>
         </div>
-
     </div>
 
     {{-- ═══════════════════════════════════════════════════
-         ROW 2: Serial Numbers
+         Serial Numbers
     ════════════════════════════════════════════════════ --}}
-    <div class="card border-0 shadow-sm mb-4">
-        <div class="card-header border-0 py-2 d-flex justify-content-between align-items-center flex-wrap gap-2"
-             style="background:linear-gradient(135deg,#4F46E5,#4338CA);">
-            <h6 class="mb-0 text-white"><i class="bi bi-upc-scan me-1"></i>Serial Numbers
-                <span class="badge bg-white text-dark ms-1" style="font-size:0.72rem;">{{ $serials->count() }}</span>
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white border-bottom py-2 px-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h6 class="mb-0 fw-semibold"><i class="bi bi-upc-scan text-primary me-1"></i>Serial Numbers
+                <span class="badge bg-secondary ms-1">{{ $serials->count() }}</span>
             </h6>
             <div class="d-flex flex-wrap gap-1">
-                <button class="btn btn-sm btn-light sn-filter-btn active" data-filter="all" onclick="filterSN('all')" style="font-size:0.72rem;">
+                <button class="btn btn-outline-secondary btn-sm sn-filter-btn active" data-filter="all" onclick="filterSN('all')">
                     All <span class="badge bg-secondary ms-1">{{ $serials->count() }}</span>
                 </button>
                 @if($serialCounts['in_stock'] > 0)
-                <button class="btn btn-sm sn-filter-btn" data-filter="in_stock" onclick="filterSN('in_stock')"
-                        style="font-size:0.72rem;background:#d1fae5;color:#065f46;border:1px solid #86efac;">
-                    In Stock <span class="badge ms-1" style="background:#10b981;">{{ $serialCounts['in_stock'] }}</span>
+                <button class="btn btn-outline-success btn-sm sn-filter-btn" data-filter="in_stock" onclick="filterSN('in_stock')">
+                    In Stock <span class="badge bg-success ms-1">{{ $serialCounts['in_stock'] }}</span>
                 </button>
                 @endif
                 @if($serialCounts['pending'] > 0)
-                <button class="btn btn-sm sn-filter-btn" data-filter="pending" onclick="filterSN('pending')"
-                        style="font-size:0.72rem;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;">
+                <button class="btn btn-outline-warning btn-sm sn-filter-btn text-dark" data-filter="pending" onclick="filterSN('pending')">
                     Pending <span class="badge bg-warning text-dark ms-1">{{ $serialCounts['pending'] }}</span>
                 </button>
                 @endif
                 @if($serialCounts['sold'] > 0)
-                <button class="btn btn-sm sn-filter-btn" data-filter="sold" onclick="filterSN('sold')"
-                        style="font-size:0.72rem;background:#dbeafe;color:#1e40af;border:1px solid #93c5fd;">
-                    Sold <span class="badge ms-1" style="background:#3b82f6;">{{ $serialCounts['sold'] }}</span>
+                <button class="btn btn-outline-primary btn-sm sn-filter-btn" data-filter="sold" onclick="filterSN('sold')">
+                    Sold <span class="badge bg-primary ms-1">{{ $serialCounts['sold'] }}</span>
                 </button>
                 @endif
                 @if($serialCounts['defective'] + $serialCounts['lost'] > 0)
-                <button class="btn btn-sm sn-filter-btn" data-filter="defective" onclick="filterSN('defective')"
-                        style="font-size:0.72rem;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;">
+                <button class="btn btn-outline-danger btn-sm sn-filter-btn" data-filter="defective" onclick="filterSN('defective')">
                     Defective/Lost <span class="badge bg-danger ms-1">{{ $serialCounts['defective'] + $serialCounts['lost'] }}</span>
                 </button>
                 @endif
@@ -198,42 +215,42 @@
         <div class="card-body p-0">
             @if($serials->count() > 0)
             <div class="table-responsive">
-                <table class="table table-hover table-sm mb-0" style="font-size:0.875rem;">
-                    <thead class="table-light">
+                <table class="table table-hover table-sm table-bordered align-middle mb-0" style="font-size:0.85rem;">
+                    <thead class="bg-light">
                         <tr>
-                            <th class="px-3 py-2">#</th>
-                            <th class="px-3 py-2"><i class="bi bi-upc-scan me-1"></i>Serial Number</th>
-                            <th class="px-3 py-2">Status</th>
-                            <th class="px-3 py-2">Purchase Order</th>
-                            <th class="px-3 py-2">Received</th>
-                            <th class="px-3 py-2">Sale / Customer</th>
+                            <th class="px-2 py-2 text-center">#</th>
+                            <th class="px-2 py-2">Serial Number</th>
+                            <th class="px-2 py-2 text-center">Status</th>
+                            <th class="px-2 py-2">Purchase Order</th>
+                            <th class="px-2 py-2">Received</th>
+                            <th class="px-2 py-2">Sale / Customer</th>
                         </tr>
                     </thead>
                     <tbody id="snTableBody">
                         @foreach($serials as $serial)
                         @php
                             $snCfg = [
-                                'in_stock'  => ['bg'=>'#f0fdf4','badge'=>'bg-success',              'icon'=>'✅','label'=>'In Stock'],
-                                'pending'   => ['bg'=>'#fffbeb','badge'=>'bg-warning text-dark',     'icon'=>'⏳','label'=>'Pending'],
-                                'sold'      => ['bg'=>'#eff6ff','badge'=>'bg-primary',               'icon'=>'🛒','label'=>'Sold'],
-                                'returned'  => ['bg'=>'#fdf4ff','badge'=>'bg-secondary',             'icon'=>'↩️','label'=>'Returned'],
-                                'defective' => ['bg'=>'#fff1f2','badge'=>'bg-danger',                'icon'=>'⚠️','label'=>'Defective'],
-                                'lost'      => ['bg'=>'#f9fafb','badge'=>'bg-secondary',             'icon'=>'❓','label'=>'Lost'],
+                                'in_stock'  => ['badge'=>'bg-success',          'label'=>'In Stock'],
+                                'pending'   => ['badge'=>'bg-warning text-dark', 'label'=>'Pending'],
+                                'sold'      => ['badge'=>'bg-primary',           'label'=>'Sold'],
+                                'returned'  => ['badge'=>'bg-secondary',         'label'=>'Returned'],
+                                'defective' => ['badge'=>'bg-danger',            'label'=>'Defective'],
+                                'lost'      => ['badge'=>'bg-secondary',         'label'=>'Lost'],
                             ];
                             $cfg = $snCfg[$serial->status] ?? $snCfg['lost'];
                             $snFilter = in_array($serial->status, ['defective','lost']) ? 'defective' : $serial->status;
                         @endphp
-                        <tr class="sn-row" data-status="{{ $snFilter }}" style="background:{{ $cfg['bg'] }};">
-                            <td class="px-3 py-2 text-muted">{{ $loop->iteration }}</td>
-                            <td class="px-3 py-2">
-                                <code class="fw-semibold" style="font-size:0.88rem;color:#1e293b;letter-spacing:0.03em;">
+                        <tr class="sn-row" data-status="{{ $snFilter }}">
+                            <td class="px-2 py-2 text-center text-muted">{{ $loop->iteration }}</td>
+                            <td class="px-2 py-2">
+                                <code class="fw-semibold" style="letter-spacing:0.03em;">
                                     {{ $serial->serial_number }}
                                 </code>
                             </td>
-                            <td class="px-3 py-2">
-                                <span class="badge {{ $cfg['badge'] }}">{{ $cfg['icon'] }} {{ $cfg['label'] }}</span>
+                            <td class="px-2 py-2 text-center">
+                                <span class="badge {{ $cfg['badge'] }}">{{ $cfg['label'] }}</span>
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            <td class="px-2 py-2" style="white-space:nowrap">
                                 @if($serial->purchaseOrder)
                                     <a href="{{ route('purchase-orders.show', $serial->purchaseOrder) }}"
                                        class="text-decoration-none text-primary fw-semibold" style="font-size:0.82rem;">
@@ -243,14 +260,14 @@
                                     <span class="text-muted small">—</span>
                                 @endif
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            <td class="px-2 py-2" style="white-space:nowrap">
                                 @if($serial->received_date)
                                     <small>{{ \Carbon\Carbon::parse($serial->received_date)->format('M d, Y') }}</small>
                                 @else
                                     <small class="text-muted">—</small>
                                 @endif
                             </td>
-                            <td class="px-3 py-2">
+                            <td class="px-2 py-2">
                                 @if($serial->sale)
                                     <a href="{{ route('sales.show', $serial->sale) }}"
                                        class="text-decoration-none text-success fw-semibold" style="font-size:0.82rem;">
@@ -281,36 +298,36 @@
     </div>
 
     {{-- ═══════════════════════════════════════════════════
-         ROW 3: Movement History (full width)
+         Movement History (full width)
     ════════════════════════════════════════════════════ --}}
     <div class="card border-0 shadow-sm">
-        <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center py-2">
-            <h6 class="mb-0"><i class="bi bi-clock-history text-primary"></i> Movement History</h6>
+        <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center py-2 px-3">
+            <h6 class="mb-0 fw-semibold"><i class="bi bi-clock-history text-primary"></i> Movement History</h6>
             <small class="text-muted">{{ $movements->count() }} record(s)</small>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover table-sm mb-0" style="font-size:0.875rem;">
+                <table class="table table-hover table-sm table-bordered align-middle mb-0" style="font-size:0.85rem;">
                     <thead class="bg-light">
                         <tr>
-                            <th class="border-0 px-3 py-2" style="white-space:nowrap">Date & Time</th>
-                            <th class="border-0 px-3 py-2">Type</th>
-                            <th class="border-0 px-3 py-2 text-center">Qty</th>
-                            <th class="border-0 px-3 py-2 text-center">Before</th>
-                            <th class="border-0 px-3 py-2 text-center">After</th>
-                            <th class="border-0 px-3 py-2">Reference</th>
-                            <th class="border-0 px-3 py-2">Notes</th>
-                            <th class="border-0 px-3 py-2">By</th>
+                            <th class="px-2 py-2" style="white-space:nowrap">Date & Time</th>
+                            <th class="px-2 py-2 text-center">Type</th>
+                            <th class="px-2 py-2 text-center">Qty</th>
+                            <th class="px-2 py-2 text-center">Before</th>
+                            <th class="px-2 py-2 text-center">After</th>
+                            <th class="px-2 py-2">Reference</th>
+                            <th class="px-2 py-2">Notes</th>
+                            <th class="px-2 py-2">By</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse($movements as $movement)
                         <tr>
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            <td class="px-2 py-2" style="white-space:nowrap">
                                 <div>{{ $movement->created_at->format('M d, Y') }}</div>
                                 <small class="text-muted">{{ $movement->created_at->format('h:i A') }}</small>
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            <td class="px-2 py-2 text-center" style="white-space:nowrap">
                                 @if($movement->type == 'stock_in')
                                     <span class="badge bg-success"><i class="bi bi-box-arrow-in-down"></i> Stock In</span>
                                 @elseif($movement->type == 'stock_out')
@@ -321,24 +338,24 @@
                                     <span class="badge bg-info text-dark"><i class="bi bi-gear"></i> Adjustment</span>
                                 @endif
                             </td>
-                            <td class="px-3 py-2 text-center fw-bold" style="white-space:nowrap">
+                            <td class="px-2 py-2 text-center fw-bold" style="white-space:nowrap">
                                 <span class="{{ $movement->quantity > 0 ? 'text-success' : 'text-danger' }}">
                                     {{ $movement->quantity > 0 ? '+' : '' }}{{ $movement->quantity }}
                                 </span>
                             </td>
-                            <td class="px-3 py-2 text-center text-muted" style="white-space:nowrap">
+                            <td class="px-2 py-2 text-center text-muted" style="white-space:nowrap">
                                 {{ $movement->stock_before }}
                             </td>
-                            <td class="px-3 py-2 text-center fw-semibold" style="white-space:nowrap">
+                            <td class="px-2 py-2 text-center fw-semibold" style="white-space:nowrap">
                                 {{ $movement->stock_after }}
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            <td class="px-2 py-2" style="white-space:nowrap">
                                 <small class="text-muted">{{ $movement->reference_type ?? '—' }}</small>
                             </td>
-                            <td class="px-3 py-2">
+                            <td class="px-2 py-2">
                                 <small class="text-muted">{{ $movement->notes ?? '—' }}</small>
                             </td>
-                            <td class="px-3 py-2" style="white-space:nowrap">
+                            <td class="px-2 py-2" style="white-space:nowrap">
                                 <small class="text-muted">{{ $movement->user->name ?? '—' }}</small>
                             </td>
                         </tr>

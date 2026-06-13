@@ -22,10 +22,14 @@
                     <span class="fw-semibold small"><i class="bi bi-box-seam text-primary me-1"></i>Product Details</span>
                 </div>
                 <div class="card-body p-3">
+                    @php
+                        $isOutdoor = $product->unit_type === 'outdoor';
+                        $pairedProduct = $product->pairedProduct;
+                    @endphp
                     <form action="{{ route('products.update', $product) }}" method="POST">
                         @csrf @method('PUT')
 
-                        {{-- Brand & Model --}}
+                        {{-- Brand --}}
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
                                 <label class="form-label small fw-semibold mb-1">Brand <span class="text-danger">*</span></label>
@@ -43,65 +47,45 @@
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
                             </div>
-
-                            <div class="col-md-6">
-                                <label class="form-label small fw-semibold mb-1">Model <span class="text-danger">*</span></label>
-                                <input type="text"
-                                       class="form-control form-control-sm @error('model') is-invalid @enderror"
-                                       name="model"
-                                       value="{{ old('model', $product->model) }}"
-                                       placeholder="e.g. FTKC60BVAF"
-                                       required>
-                                @error('model')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
                         </div>
 
-                        {{-- Unit Type & Serial Number --}}
+                        {{-- Indoor & Outdoor Models --}}
                         <div class="row g-3 mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label small fw-semibold mb-1">Unit Type <span class="text-danger">*</span></label>
-                                <select class="form-select form-select-sm @error('unit_type') is-invalid @enderror"
-                                        name="unit_type" required>
-                                    <option value="">-- Select Type --</option>
-                                    <option value="indoor" {{ old('unit_type', $product->unit_type) == 'indoor' ? 'selected' : '' }}>🏠 Indoor Unit</option>
-                                    <option value="outdoor" {{ old('unit_type', $product->unit_type) == 'outdoor' ? 'selected' : '' }}>🌤️ Outdoor Unit</option>
-                                </select>
-                                @error('unit_type')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
-
-                            <div class="col-md-6">
-                                <label class="form-label small fw-semibold mb-1">Serial Number</label>
-                                <input type="text"
-                                       class="form-control form-control-sm @error('serial_number') is-invalid @enderror"
-                                       name="serial_number"
-                                       value="{{ old('serial_number', $product->serial_number) }}"
-                                       placeholder="">
-                                @error('serial_number')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                                <small class="text-muted">For inventory tracking</small>
-                            </div>
-                        </div>
-
-                        {{-- Paired outdoor unit (sets) --}}
-                        <div class="mb-3" id="pairedWrap" style="{{ old('unit_type', $product->unit_type) === 'indoor' ? '' : 'display:none;' }}">
-                            <label class="form-label small fw-semibold mb-1">Paired Outdoor Unit <span class="text-muted fw-normal">(sold as one set, one price)</span></label>
-                            <select class="form-select form-select-sm @error('paired_product_id') is-invalid @enderror" name="paired_product_id">
-                                <option value="">-- Not paired (sold individually) --</option>
-                                @foreach($outdoorUnits ?? [] as $o)
-                                    <option value="{{ $o->id }}" {{ old('paired_product_id', $product->paired_product_id) == $o->id ? 'selected' : '' }}>
-                                        {{ $o->brand->name ?? '' }} {{ $o->model }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            @error('paired_product_id')
-                                <div class="invalid-feedback d-block">{{ $message }}</div>
-                            @enderror
-                            <small class="text-muted">When paired, this indoor unit and the outdoor unit appear as a single line in inventory, purchase orders, and sales.</small>
+                            @if($isOutdoor)
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-semibold mb-1">🌤️ Outdoor Unit Model <span class="text-danger">*</span></label>
+                                    <input type="text" name="model"
+                                           class="form-control form-control-sm @error('model') is-invalid @enderror"
+                                           value="{{ old('model', $product->model) }}"
+                                           placeholder="e.g. RKC60BVA" required>
+                                    @error('model')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                </div>
+                            @else
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-semibold mb-1">🏠 Indoor Unit Model <span class="text-danger">*</span></label>
+                                    <input type="text" name="model"
+                                           class="form-control form-control-sm @error('model') is-invalid @enderror"
+                                           value="{{ old('model', $product->model) }}"
+                                           placeholder="e.g. FTKC60BVAF" required>
+                                    @error('model')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                </div>
+                                @if($pairedProduct)
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-semibold mb-1">🌤️ Outdoor Unit Model <span class="text-danger">*</span></label>
+                                        <input type="text" name="paired_model"
+                                               class="form-control form-control-sm @error('paired_model') is-invalid @enderror"
+                                               value="{{ old('paired_model', $pairedProduct->model) }}"
+                                               placeholder="e.g. RKC60BVA" required>
+                                        @error('paired_model')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                    </div>
+                                    <div class="col-12">
+                                        <small class="text-muted">
+                                            Both units are tracked as one set — inventory (serials/stock) is tracked
+                                            separately for each, but they share one price in purchase orders and sales.
+                                        </small>
+                                    </div>
+                                @endif
+                            @endif
                         </div>
 
                         {{-- Supplier --}}
@@ -220,11 +204,6 @@ if (priceInput && costInput) {
     priceInput.addEventListener('input', updateProfit);
     costInput.addEventListener('input', updateProfit);
 }
-
-document.querySelector('select[name="unit_type"]')?.addEventListener('change', function () {
-    const wrap = document.getElementById('pairedWrap');
-    if (wrap) wrap.style.display = this.value === 'indoor' ? '' : 'none';
-});
 </script>
 @endpush
 @endsection

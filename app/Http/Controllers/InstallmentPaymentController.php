@@ -32,6 +32,35 @@ class InstallmentPaymentController extends Controller
             ->orderBy('customer_name')
             ->get();
 
+        // Per-customer: last payment made + next due installment (and which one)
+        $customersData->each(function ($customer) {
+            $salesQuery = Sale::where('payment_type', 'installment')
+                ->where('customer_name', $customer->customer_name)
+                ->where('customer_contact', $customer->customer_contact);
+
+            if ($customer->customer_address === null || $customer->customer_address === '') {
+                $salesQuery->where(function ($q) {
+                    $q->whereNull('customer_address')->orWhere('customer_address', '');
+                });
+            } else {
+                $salesQuery->where('customer_address', $customer->customer_address);
+            }
+
+            $saleIds = $salesQuery->pluck('id');
+
+            $customer->last_payment_date = InstallmentPayment::whereIn('sale_id', $saleIds)
+                ->where('amount_paid', '>', 0)
+                ->max('paid_date');
+
+            $nextDue = InstallmentPayment::whereIn('sale_id', $saleIds)
+                ->whereIn('status', ['unpaid', 'partial'])
+                ->orderBy('due_date')
+                ->first();
+
+            $customer->next_due_date = $nextDue?->due_date;
+            $customer->next_installment_number = $nextDue?->installment_number;
+        });
+
         // Payments due this calendar month (unpaid / partial)
         $dueThisMonth = InstallmentPayment::whereYear('due_date', now()->year)
             ->whereMonth('due_date', now()->month)
@@ -47,9 +76,15 @@ class InstallmentPaymentController extends Controller
 
         $dueThisMonthTotal = $dueThisMonth->sum(fn ($p) => $p->amount - $p->amount_paid);
 
+        // Customers whose next due installment falls within the current month
+        $dueThisMonthCustomers = $customersData->filter(function ($customer) {
+            return $customer->next_due_date && \Carbon\Carbon::parse($customer->next_due_date)->isSameMonth(now());
+        })->values();
+
         return view('installments.index', compact(
             'customersData',
             'dueThisMonth',
+            'dueThisMonthCustomers',
             'overdueCount',
             'dueThisMonthTotal'
         ));

@@ -257,6 +257,11 @@
                                     <span class="fw-bold">{{ $poPairs }}</span>
                                     <small class="text-muted">{{ $poPairs == 1 ? 'pair' : 'pairs' }}</small>
                                 @endif
+                                @if(($po->part_items_count ?? 0) > 0)
+                                    <span class="badge" style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;font-size:0.63rem;">
+                                        🔧 {{ $po->part_items_count }} part{{ $po->part_items_count == 1 ? '' : 's' }}
+                                    </span>
+                                @endif
                             </td>
 
                             {{-- Amount --}}
@@ -386,7 +391,7 @@
                             <td class="px-2 py-1" style="white-space:nowrap">{{ $po->supplier->name }}</td>
                             <td class="px-2 py-1" style="font-size:0.78rem;">
                                 @foreach($po->items->take(3) as $item)
-                                    <div>{{ $item->quantity_ordered }}× {{ $item->is_set ? $item->product->set_model_label : $item->product->model }}</div>
+                                    <div>{{ $item->quantity_ordered }}× {{ $item->part_id ? $item->part->name . ' (Aircon Part)' : ($item->is_set ? $item->product->set_model_label : $item->product->model) }}</div>
                                 @endforeach
                                 @if($po->items->count() > 3)
                                     <div class="text-muted">+{{ $po->items->count() - 3 }} more…</div>

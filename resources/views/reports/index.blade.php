@@ -12,6 +12,7 @@
             'installments' => 'Installments',
             'purchases'    => 'Purchases',
             'customers'    => 'Customers',
+            'daily_customers' => 'Daily Customers',
             'inventory'    => 'Inventory',
             'expenses'     => 'Operational expense report',
         ];
@@ -35,6 +36,7 @@
                 ['key' => 'installments', 'title' => 'Installments',               'desc' => 'Due this month, overdue, collections',                 'icon' => 'bi-calendar-check', 'circle' => 'warning'],
                 ['key' => 'purchases',    'title' => 'Purchases',                  'desc' => 'Purchase orders, paid vs outstanding',                 'icon' => 'bi-cart-plus',      'circle' => 'primary'],
                 ['key' => 'customers',    'title' => 'Customers',                  'desc' => 'Top spenders, pending installment balances',           'icon' => 'bi-people',         'circle' => 'info'],
+                ['key' => 'daily_customers', 'title' => 'Daily Customers',         'desc' => 'Walk-in services, paid vs unpaid, by service type',    'icon' => 'bi-person-lines-fill', 'circle' => 'warning'],
                 ['key' => 'inventory',    'title' => 'Inventory',                  'desc' => 'Stock levels, value, low-stock alerts',                'icon' => 'bi-boxes',          'circle' => 'secondary'],
                 ['key' => 'expenses',     'title' => 'Operational Expenses',       'desc' => 'Totals by category and line items for the period',     'icon' => 'bi-receipt-cutoff', 'circle' => 'danger'],
             ];
@@ -73,8 +75,8 @@
 
         @include('reports._date-toolbar', ['preserveReport' => $currentReport])
 
-        {{-- KPI Summary Strip — hidden on Sales report (it has its own strip) --}}
-        @if($currentReport !== 'sales')
+        {{-- KPI Summary Strip — hidden on Sales / Daily Customers reports (they have their own strip) --}}
+        @if($currentReport !== 'sales' && $currentReport !== 'daily_customers')
         <div class="row g-3 mb-4">
             <div class="col-6 col-md-3">
                 <div class="card app-card-panel">
@@ -140,6 +142,8 @@
                 @include('reports.sections.purchases')
             @elseif($currentReport === 'customers')
                 @include('reports.sections.customers')
+            @elseif($currentReport === 'daily_customers')
+                @include('reports.sections.daily-customers')
             @elseif($currentReport === 'inventory')
                 @include('reports.sections.inventory')
             @elseif($currentReport === 'expenses')

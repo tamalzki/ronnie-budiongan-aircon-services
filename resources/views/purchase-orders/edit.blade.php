@@ -122,9 +122,14 @@
                 <div class="card border-0 shadow-sm mb-3">
                     <div class="card-header bg-light border-0 py-2 d-flex justify-content-between align-items-center">
                         <h6 class="mb-0"><i class="bi bi-box-seam"></i> Order Items</h6>
-                        <button type="button" class="btn btn-success btn-sm" onclick="addItem()">
-                            <i class="bi bi-plus-circle"></i> Add Product
-                        </button>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-success btn-sm" onclick="addItem()">
+                                <i class="bi bi-plus-circle"></i> Add Product
+                            </button>
+                            <button type="button" class="btn btn-outline-warning btn-sm" onclick="addPartRow()">
+                                <i class="bi bi-nut"></i> Add Aircon Part
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body p-0">
                         <div class="po-items-scroll">
@@ -221,6 +226,7 @@
 @push('scripts')
 <script>
 const products = {!! json_encode($productsJson) !!};
+const parts = {!! json_encode($partsJson) !!};
 let rowIndex = 0;
 
 function unitTypeBadge(unitType) {
@@ -263,6 +269,7 @@ function addItem(prefill) {
         <td class="text-center text-muted fw-semibold" id="row-label-${idx}">${idx}</td>
 
         <td>
+            <input type="hidden" name="items[${idx}][item_type]" value="product">
             <select name="items[${idx}][product_id]" class="product-select d-none" data-row="${idx}" required>
                 <option value="">-- Select --</option>
                 ${products.map(p => `<option value="${p.id}" data-cost="${p.cost}">${p.label}</option>`).join('')}
@@ -362,10 +369,300 @@ function onQtyChange(idx) {
     calcRow(idx);
 }
 
+function partById(id) {
+    return parts.find(p => String(p.id) === String(id)) || null;
+}
+
+function addPartRow(prefill) {
+    document.getElementById('emptyState')?.remove();
+    rowIndex++;
+    const idx = rowIndex;
+
+    const newPartOpt = `<div class="cb-option px-3 py-2 border-bottom" style="cursor:pointer;font-size:0.82rem;font-weight:600;color:#198754;"
+                 onmouseenter="this.style.background='#f0f4ff'"
+                 onmouseleave="this.style.background=''"
+                 onclick="pickNewPart(${idx})">
+              ➕ New Aircon Part…
+            </div>`;
+
+    const partOpts = parts.map(p => {
+        const linked  = p.linked_model_label || 'Unlinked';
+        const costStr = p.cost > 0 ? ` — ₱${parseFloat(p.cost).toFixed(2)}` : '';
+        return `<div class="cb-option px-3 py-2" style="cursor:pointer;font-size:0.82rem;"
+                     data-value="${p.id}" data-cost="${p.cost}" data-label="${p.name}"
+                     onmouseenter="this.style.background='#f0f4ff'"
+                     onmouseleave="this.style.background=''"
+                     onclick="pickPartCombo(${idx}, '${p.id}', '${p.cost}', this.getAttribute('data-label'))">
+                  <div class="d-flex justify-content-between align-items-center gap-2">
+                    <span class="text-truncate">${p.name}${costStr}</span>
+                    <span class="text-muted text-truncate" style="font-size:0.72rem;flex-shrink:0;">${linked} · stock ${p.stock_quantity}</span>
+                  </div>
+                </div>`;
+    }).join('');
+
+    const html = `
+    <tr class="item-row part-row" id="row-${idx}" data-item="${idx}">
+        <td class="text-center text-muted fw-semibold" id="row-label-${idx}">${idx}</td>
+
+        {{-- Part --}}
+        <td>
+            <input type="hidden" name="items[${idx}][item_type]" value="part">
+            <input type="hidden" name="items[${idx}][part_id]" class="part-id-input">
+            <div class="combobox position-relative" id="pacb-${idx}">
+                <div class="form-control form-control-sm d-flex justify-content-between align-items-center gap-1"
+                     style="cursor:pointer;user-select:none;background:#fff;overflow:hidden;"
+                     onclick="togglePartCombo(${idx})">
+                    <div class="d-flex align-items-center gap-1 flex-nowrap" style="flex:1;min-width:0;overflow:hidden;">
+                        <span class="pacb-display-${idx} text-muted text-truncate" style="font-size:0.82rem;min-width:0;">-- Select Aircon Part --</span>
+                        <span class="flex-shrink-0" style="font-size:0.7rem;padding:1px 6px;border-radius:20px;background:#fd7e1415;color:#fd7e14;border:1px solid #fd7e1440;font-weight:600;white-space:nowrap;">🔧 Aircon Part</span>
+                    </div>
+                    <i class="bi bi-chevron-down flex-shrink-0" style="font-size:0.7rem;color:#888;"></i>
+                </div>
+                <div class="pacb-panel-${idx} position-absolute bg-white border rounded shadow-sm"
+                     style="display:none;z-index:9999;top:100%;left:0;min-width:280px;">
+                    <div class="p-2 border-bottom">
+                        <input type="text" class="form-control form-control-sm pacb-search-${idx}"
+                               placeholder="🔍 Search part…"
+                               oninput="searchPartCombo(${idx})"
+                               onclick="event.stopPropagation()">
+                    </div>
+                    <div class="pacb-list-${idx}" style="max-height:220px;overflow-y:auto;">
+                        ${newPartOpt}${partOpts}
+                    </div>
+                </div>
+            </div>
+            <div class="new-part-fields-${idx} mt-1" style="display:none;">
+                <input type="text" class="form-control form-control-sm mb-1" name="items[${idx}][new_part_name]"
+                       placeholder="New part name">
+                <input type="hidden" name="items[${idx}][new_part_product_id]" class="new-part-product-input">
+                <div class="combobox position-relative" id="nplcb-${idx}">
+                    <div class="form-control form-control-sm d-flex justify-content-between align-items-center gap-1"
+                         style="cursor:pointer;user-select:none;background:#fff;overflow:hidden;"
+                         onclick="toggleNewPartLinkCombo(${idx})">
+                        <span class="nplcb-display-${idx} text-muted text-truncate" style="font-size:0.8rem;min-width:0;" title="-- Linked model (optional) --">-- Linked model (optional) --</span>
+                        <i class="bi bi-chevron-down flex-shrink-0" style="font-size:0.7rem;color:#888;"></i>
+                    </div>
+                    <div class="nplcb-panel-${idx} position-absolute bg-white border rounded shadow-sm"
+                         style="display:none;z-index:9999;top:100%;left:0;min-width:280px;max-width:380px;">
+                        <div class="p-2 border-bottom">
+                            <input type="text" class="form-control form-control-sm nplcb-search-${idx}"
+                                   placeholder="🔍 Search model…"
+                                   oninput="searchNewPartLinkCombo(${idx})"
+                                   onclick="event.stopPropagation()">
+                        </div>
+                        <div class="nplcb-list-${idx}" style="max-height:220px;overflow-y:auto;">
+                            <div class="cb-option px-3 py-2 border-bottom text-muted" style="cursor:pointer;font-size:0.82rem;"
+                                 onmouseenter="this.style.background='#f0f4ff'"
+                                 onmouseleave="this.style.background=''"
+                                 onclick="pickNewPartLinkCombo(${idx}, '', '-- Linked model (optional) --')">
+                                None / Unlinked
+                            </div>
+                            ${products.map(p => `<div class="cb-option px-3 py-2" style="cursor:pointer;font-size:0.82rem;"
+                                 data-value="${p.id}" data-label="${p.label}"
+                                 onmouseenter="this.style.background='#f0f4ff'"
+                                 onmouseleave="this.style.background=''"
+                                 onclick="pickNewPartLinkCombo(${idx}, '${p.id}', this.getAttribute('data-label'))">
+                                ${p.label}
+                            </div>`).join('')}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </td>
+
+        {{-- Qty --}}
+        <td>
+            <input type="number" class="form-control form-control-sm qty-input text-center" name="items[${idx}][quantity]"
+                   value="1" min="1" required onchange="onQtyChange(${idx})">
+        </td>
+
+        {{-- Unit Cost (optional) --}}
+        <td>
+            <div class="input-group input-group-sm">
+                <span class="input-group-text">₱</span>
+                <input type="number" step="0.01" class="form-control cost-input" name="items[${idx}][unit_cost]"
+                       value="" min="0" placeholder="0.00" onchange="calcRow(${idx})">
+            </div>
+        </td>
+
+        {{-- Disc % --}}
+        <td>
+            <input type="number" step="0.01" class="form-control form-control-sm disc-input text-center"
+                   name="items[${idx}][discount_percent]" value="" min="0" max="100" placeholder="0" onchange="calcRow(${idx})">
+        </td>
+
+        {{-- Disc ₱ --}}
+        <td>
+            <div class="input-group input-group-sm">
+                <span class="input-group-text">₱</span>
+                <input type="number" step="0.01" class="form-control discount-amount-input"
+                       name="items[${idx}][discount_amount]" value="" min="0" placeholder="0.00" onchange="calcRow(${idx})">
+            </div>
+        </td>
+
+        {{-- Net --}}
+        <td class="text-end">
+            <input type="text" class="form-control form-control-sm text-end" id="net-${idx}" readonly value="0.00"
+                   style="background:#f8f9fa;">
+        </td>
+
+        {{-- Total --}}
+        <td class="text-end fw-bold text-primary">₱<span id="total-${idx}" class="total-display">0.00</span></td>
+
+        {{-- Action --}}
+        <td class="text-center">
+            <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeRow(${idx})" style="padding:1px 7px;">
+                <i class="bi bi-trash"></i>
+            </button>
+        </td>
+    </tr>`;
+
+    document.getElementById('itemsTableBody').insertAdjacentHTML('beforeend', html);
+
+    if (prefill) {
+        const row = document.getElementById(`row-${idx}`);
+
+        if (prefill.part_id) {
+            const p = partById(prefill.part_id);
+            pickPartCombo(idx, prefill.part_id, prefill.unit_cost ?? (p ? p.cost : 0), prefill.label || (p ? p.name : ('Part #' + prefill.part_id)), true);
+        } else if (prefill.new_part_name) {
+            pickNewPart(idx, true);
+            row.querySelector(`input[name="items[${idx}][new_part_name]"]`).value = prefill.new_part_name;
+            if (prefill.new_part_product_id) {
+                const linkedProduct = products.find(p => String(p.id) === String(prefill.new_part_product_id));
+                pickNewPartLinkCombo(idx, prefill.new_part_product_id, linkedProduct ? linkedProduct.label : 'Linked model');
+            }
+        }
+
+        row.querySelector('.qty-input').value = prefill.quantity || 1;
+        if (prefill.unit_cost !== '' && prefill.unit_cost != null) {
+            row.querySelector('.cost-input').value = parseFloat(prefill.unit_cost).toFixed(2);
+        }
+        row.querySelector('.disc-input').value = (prefill.discount_percent ?? prefill.discount) || '';
+        row.querySelector('.discount-amount-input').value = prefill.discount_amount || '';
+
+        calcRow(idx);
+    } else if (parts.length === 0) {
+        // No parts in the catalog yet — skip straight to "type a new part" entry
+        pickNewPart(idx);
+    }
+}
+
+/* ── PART COMBOBOX FUNCTIONS ── */
+function togglePartCombo(idx) {
+    const panel  = document.querySelector(`.pacb-panel-${idx}`);
+    const isOpen = panel.style.display !== 'none';
+    closeAllCombos();
+    if (!isOpen) {
+        panel.style.display = '';
+        document.querySelector(`.pacb-search-${idx}`)?.focus();
+    }
+}
+
+function searchPartCombo(idx) {
+    const term = document.querySelector(`.pacb-search-${idx}`).value.toLowerCase();
+    document.querySelectorAll(`#pacb-${idx} .cb-option`).forEach(opt => {
+        opt.style.display = opt.textContent.toLowerCase().includes(term) ? '' : 'none';
+    });
+}
+
+function pickPartCombo(idx, value, cost, label, skipCalc) {
+    document.querySelector(`#row-${idx} .part-id-input`).value = value;
+
+    const disp = document.querySelector(`.pacb-display-${idx}`);
+    disp.textContent = label;
+    disp.title = label;
+    disp.style.color = '#212529';
+
+    document.querySelector(`.new-part-fields-${idx}`).style.display = 'none';
+    const row = document.getElementById(`row-${idx}`);
+    row.querySelector(`input[name="items[${idx}][new_part_name]"]`).value = '';
+    row.querySelector(`.new-part-product-input`).value = '';
+    pickNewPartLinkCombo(idx, '', '-- Linked model (optional) --');
+
+    if (cost !== null && cost !== undefined && row.querySelector('.cost-input').value === '') {
+        row.querySelector('.cost-input').value = parseFloat(cost).toFixed(2);
+    }
+
+    document.querySelector(`.pacb-panel-${idx}`).style.display = 'none';
+    const search = document.querySelector(`.pacb-search-${idx}`);
+    if (search) { search.value = ''; searchPartCombo(idx); }
+
+    if (!skipCalc) calcRow(idx);
+}
+
+function pickNewPart(idx, skipFocus) {
+    document.querySelector(`#row-${idx} .part-id-input`).value = '';
+
+    const disp = document.querySelector(`.pacb-display-${idx}`);
+    disp.textContent = '➕ New Aircon Part…';
+    disp.style.color = '#212529';
+
+    document.querySelector(`.new-part-fields-${idx}`).style.display = '';
+    document.querySelector(`.pacb-panel-${idx}`).style.display = 'none';
+
+    if (!skipFocus) {
+        document.querySelector(`input[name="items[${idx}][new_part_name]"]`)?.focus();
+    }
+}
+
+function closeAllPartCombos() {
+    document.querySelectorAll('.part-row').forEach(row => {
+        const idx = row.id.replace('row-', '');
+        const p   = document.querySelector(`.pacb-panel-${idx}`);
+        if (p) p.style.display = 'none';
+    });
+}
+
+/* ── NEW-PART "LINKED MODEL" COMBOBOX FUNCTIONS ── */
+function toggleNewPartLinkCombo(idx) {
+    const panel  = document.querySelector(`.nplcb-panel-${idx}`);
+    const isOpen = panel.style.display !== 'none';
+    closeAllCombos();
+    if (!isOpen) {
+        panel.style.display = '';
+        document.querySelector(`.nplcb-search-${idx}`)?.focus();
+    }
+}
+
+function searchNewPartLinkCombo(idx) {
+    const term = document.querySelector(`.nplcb-search-${idx}`).value.toLowerCase();
+    document.querySelectorAll(`#nplcb-${idx} .cb-option`).forEach(opt => {
+        opt.style.display = opt.textContent.toLowerCase().includes(term) ? '' : 'none';
+    });
+}
+
+function pickNewPartLinkCombo(idx, value, label) {
+    document.querySelector(`#row-${idx} .new-part-product-input`).value = value;
+
+    const disp = document.querySelector(`.nplcb-display-${idx}`);
+    disp.textContent = label;
+    disp.title = label;
+    disp.style.color = value ? '#212529' : '#6c757d';
+
+    document.querySelector(`.nplcb-panel-${idx}`).style.display = 'none';
+    const search = document.querySelector(`.nplcb-search-${idx}`);
+    if (search) { search.value = ''; searchNewPartLinkCombo(idx); }
+}
+
+function closeAllNewPartLinkCombos() {
+    document.querySelectorAll('.part-row').forEach(row => {
+        const idx = row.id.replace('row-', '');
+        const p   = document.querySelector(`.nplcb-panel-${idx}`);
+        if (p) p.style.display = 'none';
+    });
+}
+
+function closeAllCombos() {
+    closeAllPOCombos();
+    closeAllPartCombos();
+    closeAllNewPartLinkCombos();
+}
+
 function togglePOCombo(idx) {
     const panel  = document.querySelector(`.pocb-panel-${idx}`);
     const isOpen = panel.style.display !== 'none';
-    closeAllPOCombos();
+    closeAllCombos();
     if (!isOpen) {
         panel.style.display = '';
         document.querySelector(`.pocb-search-${idx}`)?.focus();
@@ -382,7 +679,7 @@ function searchPOCombo(idx) {
 function pickPOCombo(idx, value, cost, label, unitType) {
     document.querySelector(`select[name="items[${idx}][product_id]"]`).value = value;
     const disp = document.querySelector(`.pocb-display-${idx}`);
-    disp.textContent = label; disp.style.color = '#212529';
+    disp.textContent = label; disp.title = label; disp.style.color = '#212529';
     document.querySelector(`.pocb-badge-${idx}`).innerHTML = unitType ? unitTypeBadge(unitType) : '';
     document.getElementById(`row-${idx}`).querySelector('.cost-input').value = parseFloat(cost).toFixed(2);
     document.querySelector(`.pocb-panel-${idx}`).style.display = 'none';
@@ -475,7 +772,7 @@ function refreshDropdowns() {
 }
 
 document.addEventListener('click', e => {
-    if (!e.target.closest('.combobox')) closeAllPOCombos();
+    if (!e.target.closest('.combobox')) closeAllCombos();
 });
 
 /* ── Payment type note ── */
@@ -489,6 +786,17 @@ document.getElementById('poForm').addEventListener('submit', function (e) {
     if (!document.querySelector('.item-row')) {
         e.preventDefault(); alert('Please add at least one product.'); return;
     }
+
+    let invalidPart = false;
+    document.querySelectorAll('.part-row').forEach(row => {
+        const idx     = row.id.replace('row-', '');
+        const partId  = row.querySelector('.part-id-input')?.value;
+        const newName = row.querySelector(`input[name="items[${idx}][new_part_name]"]`)?.value.trim();
+        if (!partId && !newName) invalidPart = true;
+    });
+    if (invalidPart) {
+        e.preventDefault(); alert('For each part row, select an existing part or enter a name for a new part.'); return;
+    }
 });
 
 /* ── Prefill existing items (or repopulate after a validation error) ── */
@@ -496,8 +804,22 @@ document.getElementById('poForm').addEventListener('submit', function (e) {
     $prefillItems = [];
     if (old('items')) {
         foreach (array_values(old('items')) as $oi) {
+            if (($oi['item_type'] ?? 'product') === 'part') {
+                $prefillItems[] = [
+                    'item_type'           => 'part',
+                    'part_id'             => $oi['part_id'] ?? '',
+                    'new_part_name'       => $oi['new_part_name'] ?? '',
+                    'new_part_product_id' => $oi['new_part_product_id'] ?? '',
+                    'quantity'            => (int) ($oi['quantity'] ?? 1),
+                    'unit_cost'           => $oi['unit_cost'] ?? '',
+                    'discount_percent'    => $oi['discount_percent'] ?? 0,
+                    'discount_amount'     => $oi['discount_amount'] ?? 0,
+                ];
+                continue;
+            }
             if (empty($oi['product_id'])) continue;
             $prefillItems[] = [
+                'item_type'        => 'product',
                 'product_id'       => $oi['product_id'],
                 'quantity'         => (int) ($oi['quantity'] ?? 1),
                 'unit_cost'        => $oi['unit_cost'] ?? '',
@@ -507,7 +829,20 @@ document.getElementById('poForm').addEventListener('submit', function (e) {
         }
     } else {
         foreach ($purchaseOrder->items as $it) {
+            if ($it->is_part) {
+                $prefillItems[] = [
+                    'item_type'           => 'part',
+                    'part_id'             => $it->part_id,
+                    'label'               => $it->part->name,
+                    'quantity'            => $it->quantity_ordered,
+                    'unit_cost'           => $it->unit_cost,
+                    'discount_percent'    => $it->discount_percent ?? 0,
+                    'discount_amount'     => $it->discount_amount ?? 0,
+                ];
+                continue;
+            }
             $prefillItems[] = [
+                'item_type'        => 'product',
                 'product_id'       => $it->product_id,
                 'quantity'         => $it->quantity_ordered,
                 'unit_cost'        => $it->unit_cost,
@@ -522,6 +857,20 @@ const productMap = {};
 products.forEach(p => productMap[p.id] = p);
 
 prefillItems.forEach(it => {
+    if (it.item_type === 'part') {
+        addPartRow({
+            part_id:             it.part_id || '',
+            new_part_name:       it.new_part_name || '',
+            new_part_product_id: it.new_part_product_id || '',
+            label:               it.label || '',
+            quantity:            parseInt(it.quantity) || 1,
+            unit_cost:           it.unit_cost ?? '',
+            discount_percent:    it.discount_percent ?? 0,
+            discount_amount:     it.discount_amount ?? 0,
+        });
+        return;
+    }
+
     const p = productMap[it.product_id] || {};
     addItem({
         product_id:       it.product_id,

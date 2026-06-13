@@ -153,46 +153,20 @@ class ProductController extends Controller
         $brands    = Brand::orderBy('name')->get();
         $suppliers = Supplier::where('is_active', true)->orderBy('name')->get();
 
-        // Outdoor units available to pair with (free, or already paired to this product)
-        $outdoorUnits = Product::where('unit_type', 'outdoor')
-            ->whereKeyNot($product->id)
-            ->orderBy('model')
-            ->get()
-            ->filter(function ($o) use ($product) {
-                $pairedTo = Product::where('paired_product_id', $o->id)->whereKeyNot($product->id)->exists();
-
-                return !$pairedTo;
-            })
-            ->values();
-
-        return view('products.edit', compact('product', 'brands', 'suppliers', 'outdoorUnits'));
+        return view('products.edit', compact('product', 'brands', 'suppliers'));
     }
 
     public function update(Request $request, Product $product)
     {
         $validated = $request->validate([
-            'brand_id'          => 'required|exists:brands,id',
-            'model'             => 'required|string|max:255',
-            'unit_type'         => 'required|in:indoor,outdoor',
-            'supplier_id'       => 'nullable|exists:suppliers,id',
-            'description'       => 'nullable|string',
-            'cost'              => 'nullable|numeric|min:0',
-            'price'             => 'required|numeric|min:0.01',
-            'paired_product_id' => 'nullable|exists:products,id',
+            'brand_id'     => 'required|exists:brands,id',
+            'model'        => 'required|string|max:255',
+            'paired_model' => 'nullable|string|max:255',
+            'supplier_id'  => 'nullable|exists:suppliers,id',
+            'description'  => 'nullable|string',
+            'cost'         => 'nullable|numeric|min:0',
+            'price'        => 'required|numeric|min:0.01',
         ]);
-
-        if ($validated['unit_type'] !== 'indoor') {
-            $validated['paired_product_id'] = null;
-        } elseif (!empty($validated['paired_product_id'])) {
-            $outdoor = Product::find($validated['paired_product_id']);
-            if (!$outdoor || $outdoor->unit_type !== 'outdoor' || (int) $outdoor->id === (int) $product->id) {
-                return back()->withInput()->withErrors(['paired_product_id' => 'The paired unit must be an outdoor unit.']);
-            }
-            $takenBy = Product::where('paired_product_id', $outdoor->id)->whereKeyNot($product->id)->first();
-            if ($takenBy) {
-                return back()->withInput()->withErrors(['paired_product_id' => $outdoor->model . ' is already paired with ' . $takenBy->model . '.']);
-            }
-        }
 
         $validated['is_active'] = $request->has('is_active');
         $validated['cost']      = $validated['cost'] ?? 0;
@@ -200,14 +174,25 @@ class ProductController extends Controller
         $brand = Brand::find($validated['brand_id']);
         $validated['name'] = $brand->name . ' ' . $validated['model'];
 
+        $pairedModel = $validated['paired_model'] ?? null;
+        unset($validated['paired_model']);
+
         $product->update($validated);
 
         // One price per set — keep the paired outdoor unit in sync
         if ($product->paired_product_id) {
-            Product::whereKey($product->paired_product_id)->update([
+            $pairedUpdate = [
                 'price' => $validated['price'],
                 'cost'  => $validated['cost'],
-            ]);
+            ];
+
+            if ($pairedModel) {
+                $pairedBrand = $product->pairedProduct->brand ?? $brand;
+                $pairedUpdate['model'] = $pairedModel;
+                $pairedUpdate['name']  = $pairedBrand->name . ' ' . $pairedModel;
+            }
+
+            Product::whereKey($product->paired_product_id)->update($pairedUpdate);
         }
 
         return redirect()->route('products.index')->with('success', 'Product updated successfully.');

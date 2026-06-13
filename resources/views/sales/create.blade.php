@@ -78,16 +78,13 @@
                             <button type="button" class="btn btn-success btn-sm" onclick="addItem('product')">
                                 <i class="bi bi-plus-circle"></i> Add Product
                             </button>
-                            <button type="button" class="btn btn-info btn-sm" onclick="addItem('service')">
-                                <i class="bi bi-plus-circle"></i> Add Service
-                            </button>
                         </div>
                     </div>
                     <div class="card-body p-3">
                         <div id="itemsContainer">
                             <div class="text-center text-muted py-4" id="emptyState">
                                 <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                                <p class="mb-0">No items yet. Click "Add Product" or "Add Service".</p>
+                                <p class="mb-0">No items yet. Click "Add Product".</p>
                             </div>
                         </div>
                     </div>
@@ -1461,7 +1458,7 @@ function removeItem(id) {
         document.getElementById('itemsContainer').innerHTML =
             `<div class="text-center text-muted py-4" id="emptyState">
               <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-              <p class="mb-0">No items yet. Click "Add Product" or "Add Service".</p>
+              <p class="mb-0">No items yet. Click "Add Product".</p>
             </div>`;
     }
     refreshDropdowns(); calculateTotals();

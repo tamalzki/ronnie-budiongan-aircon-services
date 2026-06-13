@@ -107,6 +107,15 @@ class DashboardController extends Controller
                           ->take(10)
                           ->get();
 
+        // ── Daily Customers: unpaid follow-ups ────────────────────────
+        $dcUnpaidAgg = DB::table('daily_customers')
+            ->where('status', 'unpaid')
+            ->selectRaw('COUNT(*) as cnt, COALESCE(SUM(amount), 0) as amt')
+            ->first();
+
+        $unpaidDailyCustomersCount  = (int) ($dcUnpaidAgg->cnt ?? 0);
+        $unpaidDailyCustomersAmount = (float) ($dcUnpaidAgg->amt ?? 0);
+
         return view('dashboard', compact(
             'todaySales',
             'monthSales',
@@ -122,7 +131,9 @@ class DashboardController extends Controller
             'supplierPaymentsDueCount',
             'installmentsToCollectThisMonth',
             'recentSales',
-            'lowStockProductsList'
+            'lowStockProductsList',
+            'unpaidDailyCustomersCount',
+            'unpaidDailyCustomersAmount'
         ));
     }
 }

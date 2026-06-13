@@ -111,7 +111,7 @@
         @foreach($po->items as $item)
         @php
             $isSet = $item->is_set && $item->product?->pairedProduct;
-            $label = $isSet ? $item->product->set_model_label : ($item->product->model ?? '—');
+            $label = $item->part_id ? $item->part->name : ($isSet ? $item->product->set_model_label : ($item->product->model ?? '—'));
             $discountText = '—';
             if ((float) $item->discount_percent > 0) {
                 $discountText = rtrim(rtrim(number_format($item->discount_percent, 2), '0'), '.') . '%';
@@ -122,8 +122,10 @@
         <tr>
             <td class="ctr">{{ $loop->iteration }}</td>
             <td>
-                <strong>{{ trim(($item->product->brand->name ?? '') . ' ' . $label) }}</strong>
-                @if($isSet)
+                <strong>{{ $item->part_id ? $label : trim(($item->product->brand->name ?? '') . ' ' . $label) }}</strong>
+                @if($item->part_id)
+                    <div class="small muted">Part{{ $item->part->linked_model_label ? ' — For: ' . $item->part->linked_model_label : '' }}</div>
+                @elseif($isSet)
                     <div class="small muted">Indoor + Outdoor Set (one price)</div>
                 @elseif($item->product?->unit_type)
                     <div class="small muted">{{ ucfirst($item->product->unit_type) }} Unit</div>
