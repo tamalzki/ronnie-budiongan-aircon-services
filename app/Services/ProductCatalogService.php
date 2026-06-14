@@ -54,13 +54,11 @@ class ProductCatalogService
      */
     public function mapSet(Product $p): array
     {
-        $brand = $p->brand->name ?? null;
-
         return [
             'id'              => $p->id,
             'is_set'          => true,
             'pair_id'         => $p->paired_product_id,
-            'label'           => implode(' · ', array_filter([$brand, $p->set_model_label])),
+            'label'           => $p->set_model_label ?: 'Unknown Set',
             'indoor_model'    => $p->model,
             'outdoor_model'   => $p->pairedProduct->model ?? '',
             'unit_type'       => 'set',
@@ -75,16 +73,11 @@ class ProductCatalogService
      */
     public function mapProductForPurchaseOrder(Product $p): array
     {
-        $parts = array_filter([
-            $p->brand->name ?? null,
-            $p->model ?? null,
-        ]);
-
         return [
             'id'              => $p->id,
             'is_set'          => false,
             'pair_id'         => null,
-            'label'           => implode(' · ', $parts) ?: 'Unknown Product',
+            'label'           => $p->model ?: 'Unknown Product',
             'indoor_model'    => $p->unit_type === 'indoor' ? $p->model : '',
             'outdoor_model'   => $p->unit_type === 'outdoor' ? $p->model : '',
             'unit_type'       => $p->unit_type,

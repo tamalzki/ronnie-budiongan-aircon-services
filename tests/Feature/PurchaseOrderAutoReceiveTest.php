@@ -190,7 +190,7 @@ class PurchaseOrderAutoReceiveTest extends TestCase
         $this->assertSame(2, ProductSerial::where('purchase_order_id', $po->id)->where('status', 'in_stock')->count());
     }
 
-    public function test_store_allows_optional_unit_cost(): void
+    public function test_store_requires_unit_cost(): void
     {
         $user = User::factory()->create();
         $this->actingAs($user);
@@ -213,17 +213,7 @@ class PurchaseOrderAutoReceiveTest extends TestCase
             ],
         ]);
 
-        $response->assertRedirect();
-        $response->assertSessionMissing('error');
-
-        $po = PurchaseOrder::query()->latest('id')->first();
-        $this->assertNotNull($po);
-        $this->assertSame('received', $po->status);
-        $this->assertSame(0.0, (float) $po->items()->first()->unit_cost);
-        $this->assertSame(0.0, (float) $po->total);
-        $this->assertTrue(
-            ProductSerial::where('purchase_order_id', $po->id)->where('status', 'in_stock')->exists()
-        );
+        $response->assertSessionHasErrors('items.0.unit_cost');
     }
 
     public function test_store_45day_downpayment_receives_and_records_partial_payment(): void

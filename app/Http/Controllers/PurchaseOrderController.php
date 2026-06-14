@@ -109,11 +109,12 @@ class PurchaseOrderController extends Controller
             ->orderBy('name')
             ->get()
             ->map(fn (Part $part) => [
-                'id'                => $part->id,
-                'name'              => $part->name,
-                'cost'              => (float) $part->cost,
+                'id'                 => $part->id,
+                'name'               => $part->name,
+                'product_id'         => $part->product_id,
+                'cost'               => (float) $part->cost,
                 'linked_model_label' => $part->linked_model_label,
-                'stock_quantity'    => $part->stock_quantity,
+                'stock_quantity'     => $part->stock_quantity,
             ])
             ->values()
             ->all();
@@ -137,7 +138,7 @@ class PurchaseOrderController extends Controller
             'items.*.new_part_name'    => 'nullable|string|max:255',
             'items.*.new_part_product_id' => 'nullable|exists:products,id',
             'items.*.quantity'         => 'required|integer|min:1',
-            'items.*.unit_cost'        => 'nullable|numeric|min:0',
+            'items.*.unit_cost'        => 'required|numeric|min:0',
             'items.*.discount_percent' => 'nullable|numeric|min:0|max:100',
             'items.*.discount_amount'  => 'nullable|numeric|min:0',
             'items.*.serials'          => 'nullable|array',
@@ -847,7 +848,7 @@ class PurchaseOrderController extends Controller
             'items.*.new_part_name'    => 'nullable|string|max:255',
             'items.*.new_part_product_id' => 'nullable|exists:products,id',
             'items.*.quantity'         => 'required|integer|min:1',
-            'items.*.unit_cost'        => 'nullable|numeric|min:0',
+            'items.*.unit_cost'        => 'required|numeric|min:0',
             'items.*.discount_amount'  => 'nullable|numeric|min:0',
             'items.*.discount_percent' => 'nullable|numeric|min:0|max:100',
             'items.*.serials'          => 'nullable|array',
