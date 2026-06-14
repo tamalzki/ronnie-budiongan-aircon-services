@@ -833,6 +833,8 @@
     })();
     </script>
 
+    @include('purchase-orders.partials.due-receiving-reminders')
+
     @stack('scripts')
 </body>
 </html>

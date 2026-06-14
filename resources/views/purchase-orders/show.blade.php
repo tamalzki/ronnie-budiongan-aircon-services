@@ -447,78 +447,12 @@
 </div>{{-- end container --}}
 
 {{-- ORDER RECEIVE MODAL --}}
-@if($purchaseOrder->status !== 'cancelled' && $itemsToReceive->count() > 0)
-<div class="modal fade" id="receiveModal" tabindex="-1" aria-labelledby="receiveModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow">
-            <form action="{{ route('purchase-orders.receive', $purchaseOrder) }}" method="POST" id="receiveForm">
-                @csrf
-                <div class="modal-header border-0 text-dark" style="background:#fffbeb;">
-                    <h5 class="modal-title" id="receiveModalLabel" style="font-size:1rem;">
-                        <i class="bi bi-box-arrow-in-down text-warning"></i>
-                        Order Receive — PO No: {{ $purchaseOrder->display_po_number }}
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body p-4" style="font-size:0.875rem;">
-                    <div class="row g-3 mb-3">
-                        <div class="col-md-4">
-                            <label class="form-label small fw-semibold">Received Date <span class="text-danger">*</span></label>
-                            <input type="date" class="form-control form-control-sm" name="received_date"
-                                   value="{{ old('received_date', date('Y-m-d')) }}" required>
-                        </div>
-                        <div class="col-md-5">
-                            <label class="form-label small fw-semibold">Document No. (DR) <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control form-control-sm" name="delivery_number"
-                                   value="{{ old('delivery_number', $purchaseOrder->delivery_number) }}"
-                                   placeholder="e.g. 8010361871" style="font-family:monospace;" required>
-                            <small class="text-muted">Delivery receipt number from the supplier</small>
-                        </div>
-                    </div>
-
-                    @foreach($itemsToReceive as $item)
-                    @php
-                        $isSetItem = $item->is_set && $item->product->pairedProduct;
-                        $remaining = $item->quantity_ordered - $item->quantity_received;
-                    @endphp
-                    <div class="border rounded p-3 mb-2 receive-item"
-                         data-item-id="{{ $item->id }}"
-                         data-is-set="{{ $isSetItem ? 1 : 0 }}"
-                         data-indoor-model="{{ $item->product->model }}"
-                         data-outdoor-model="{{ $isSetItem ? $item->product->pairedProduct->model : '' }}">
-                        <input type="hidden" name="items[{{ $loop->index }}][id]" value="{{ $item->id }}">
-                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
-                            <div>
-                                <span class="fw-bold" style="font-family:monospace;">{{ $isSetItem ? $item->product->set_model_label : $item->product->model }}</span>
-                                @if($isSetItem)
-                                    <span class="badge ms-1" style="background:#f3e8ff;color:#7c3aed;border:1px solid #c4b5fd;font-size:0.63rem;">❄️🌀 Set</span>
-                                @endif
-                                <span class="text-muted small ms-2">{{ $remaining }} {{ $isSetItem ? 'set(s)' : 'unit(s)' }} remaining</span>
-                            </div>
-                            <div class="d-flex align-items-center gap-2">
-                                <label class="small fw-semibold mb-0">Receive now:</label>
-                                <input type="number" class="form-control form-control-sm text-center receive-qty"
-                                       name="items[{{ $loop->index }}][quantity_received]"
-                                       value="{{ $remaining }}" min="0" max="{{ $remaining }}"
-                                       style="width:80px;"
-                                       data-loop-index="{{ $loop->index }}">
-                            </div>
-                        </div>
-                        <div class="receive-serials" id="receive-serials-{{ $loop->index }}"></div>
-                    </div>
-                    @endforeach
-                </div>
-                <div class="modal-footer border-0 bg-light">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-warning fw-semibold">
-                        <i class="bi bi-check-circle"></i> Receive Stock &amp; Save Serials
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-@endif
+@include('purchase-orders.partials.receive-modal', [
+    'purchaseOrder' => $purchaseOrder,
+    'modalId'       => 'receiveModal',
+    'autoOpen'      => false,
+])
+@include('purchase-orders.partials.receive-modal-scripts')
 
 {{-- PAYMENT MODAL --}}
 @if($purchaseOrder->payment_type === '45days' && $purchaseOrder->balance > 0)
@@ -595,62 +529,6 @@
         </div>
     </div>
 </div>
-@endif
-
-@if($purchaseOrder->status !== 'cancelled')
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const form = document.getElementById('receiveForm');
-    if (!form) return;
-
-    function serialGroup(loopIndex, qty, fieldName, heading) {
-        let inputs = '';
-        for (let i = 0; i < qty; i++) {
-            inputs += `
-            <div class="col-md-4 col-sm-6">
-                <div class="input-group input-group-sm mb-1">
-                    <span class="input-group-text text-muted" style="font-size:0.72rem;min-width:36px;">#${i+1}</span>
-                    <input type="text" class="form-control form-control-sm"
-                           name="items[${loopIndex}][${fieldName}][]"
-                           placeholder="Serial #${i+1}" required
-                           style="font-family:monospace;font-size:0.82rem;">
-                </div>
-            </div>`;
-        }
-        const head = heading ? `<div class="small fw-semibold mb-1" style="font-size:0.72rem;">${heading}</div>` : '';
-        return `<div class="mb-1">${head}<div class="row g-1">${inputs}</div></div>`;
-    }
-
-    function rebuild(qtyInput) {
-        const loopIndex = qtyInput.dataset.loopIndex;
-        const wrap      = document.getElementById('receive-serials-' + loopIndex);
-        const card      = qtyInput.closest('.receive-item');
-        const qty       = parseInt(qtyInput.value, 10) || 0;
-        const isSet     = card.dataset.isSet === '1';
-
-        wrap.innerHTML = '';
-        if (qty < 1) return;
-
-        if (isSet) {
-            wrap.insertAdjacentHTML('beforeend', serialGroup(loopIndex, qty, 'serials', '❄️ Indoor unit — ' + card.dataset.indoorModel));
-            wrap.insertAdjacentHTML('beforeend', serialGroup(loopIndex, qty, 'outdoor_serials', '🌀 Outdoor unit — ' + card.dataset.outdoorModel));
-        } else {
-            wrap.insertAdjacentHTML('beforeend', serialGroup(loopIndex, qty, 'serials', ''));
-        }
-    }
-
-    document.querySelectorAll('.receive-qty').forEach(input => {
-        rebuild(input);
-        input.addEventListener('input', () => rebuild(input));
-    });
-
-    // Open the receive modal when arriving from the Order Receiving tab
-    if (window.location.hash === '#receive') {
-        const modalEl = document.getElementById('receiveModal');
-        if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
-    }
-});
-</script>
 @endif
 
 <style>
