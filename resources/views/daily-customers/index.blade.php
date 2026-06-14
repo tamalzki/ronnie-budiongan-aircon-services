@@ -258,11 +258,12 @@
 
                     <div class="row g-2">
                         <div class="col-6">
-                            <label class="form-label small fw-semibold">Amount (₱)</label>
+                            <label class="form-label small fw-semibold" id="dcAmountLabel">Amount (₱)</label>
                             <div class="input-group input-group-sm">
                                 <span class="input-group-text">₱</span>
                                 <input type="number" step="0.01" min="0" class="form-control" name="amount" id="dc_amount" value="{{ old('amount') }}" placeholder="0.00">
                             </div>
+                            @error('amount')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
                         </div>
                         <div class="col-6">
                             <label class="form-label small fw-semibold">Date <span class="text-danger">*</span></label>
@@ -419,6 +420,24 @@ function toggleDcPartsIncludedWrap() {
     const hasParts = document.querySelectorAll('.dc-part-row').length > 0;
     document.getElementById('dcPartsIncludedWrap').style.display = hasParts ? '' : 'none';
     if (!hasParts) setDcPartsIncluded('');
+    updateDcAmountUI();
+}
+
+function updateDcAmountUI() {
+    const hasParts = document.querySelectorAll('.dc-part-row').length > 0;
+    const label = document.getElementById('dcAmountLabel');
+    const input = document.getElementById('dc_amount');
+
+    if (hasParts) {
+        label.innerHTML = 'Amount including parts (₱) <span class="text-danger">*</span>';
+        input.required = true;
+        if (!input.value || parseFloat(input.value) === 0) {
+            input.value = '0';
+        }
+    } else {
+        label.textContent = 'Amount (₱)';
+        input.required = false;
+    }
 }
 
 function setDcPartsIncluded(value) {
@@ -497,6 +516,13 @@ document.getElementById('dailyCustomerForm').addEventListener('submit', function
     const hasParts = document.querySelectorAll('.dc-part-row').length > 0;
     if (hasParts && document.getElementById('dc_parts_included_in_price').value === '') {
         e.preventDefault(); alert('Please specify whether the aircon parts used are included in the price.'); return;
+    }
+
+    if (hasParts) {
+        const amount = parseFloat(document.getElementById('dc_amount').value) || 0;
+        if (amount <= 0) {
+            e.preventDefault(); alert('Please enter the amount including parts — it must be greater than ₱0 when aircon parts are used.'); return;
+        }
     }
 });
 

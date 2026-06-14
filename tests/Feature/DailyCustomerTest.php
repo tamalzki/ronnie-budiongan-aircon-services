@@ -347,6 +347,26 @@ class DailyCustomerTest extends TestCase
         $response->assertSessionHasErrors('parts_included_in_price');
     }
 
+    public function test_create_requires_amount_greater_than_zero_when_parts_present(): void
+    {
+        $user = User::factory()->create();
+        $part = Part::create(['name' => 'Drain Hose', 'cost' => 50, 'is_active' => true]);
+
+        $response = $this->actingAs($user)->post(route('daily-customers.store'), [
+            'customer_name' => 'Pedro Reyes',
+            'service_type' => 'Outdoor Unit Cleaning',
+            'amount' => 0,
+            'status' => 'unpaid',
+            'service_date' => now()->toDateString(),
+            'parts' => [
+                ['part_id' => $part->id, 'quantity' => 1],
+            ],
+            'parts_included_in_price' => 1,
+        ]);
+
+        $response->assertSessionHasErrors('amount');
+    }
+
     public function test_editing_entry_replaces_parts_usage_and_adjusts_stock(): void
     {
         $user = User::factory()->create();

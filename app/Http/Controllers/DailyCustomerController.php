@@ -146,7 +146,17 @@ class DailyCustomerController extends Controller
             'customer_name'           => ['required', 'string', 'max:255'],
             'service_type'            => ['required', Rule::in($serviceNames)],
             'other_service'           => ['nullable', 'string', 'max:255', Rule::requiredIf(fn () => $request->service_type === 'Others')],
-            'amount'                  => ['nullable', 'numeric', 'min:0'],
+            'amount'                  => [
+                Rule::requiredIf(fn () => ! empty($request->parts)),
+                'nullable',
+                'numeric',
+                'min:0',
+                function ($attribute, $value, $fail) use ($request) {
+                    if (! empty($request->parts) && (float) $value <= 0) {
+                        $fail('The amount including parts must be greater than ₱0 when aircon parts are used.');
+                    }
+                },
+            ],
             'status'                  => ['required', Rule::in(['paid', 'unpaid'])],
             'service_date'            => ['required', 'date'],
             'notes'                   => ['nullable', 'string'],
