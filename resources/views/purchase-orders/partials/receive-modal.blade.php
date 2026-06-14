@@ -11,7 +11,8 @@
      tabindex="-1"
      aria-labelledby="{{ $modalId }}Label"
      aria-hidden="true"
-     data-po-due-receive="1">
+     data-po-due-receive="1"
+     data-po-id="{{ $purchaseOrder->id }}">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content border-0 shadow">
             <form action="{{ route('purchase-orders.receive', $purchaseOrder) }}" method="POST" class="po-receive-form" data-modal-id="{{ $modalId }}">
@@ -80,7 +81,9 @@
                     @endforeach
                 </div>
                 <div class="modal-footer border-0 bg-light">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Not yet received</button>
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal" data-po-due-receive-dismiss>
+                        Not yet received
+                    </button>
                     <button type="submit" class="btn btn-warning fw-semibold">
                         <i class="bi bi-check-circle"></i> Receive Stock &amp; Save Serials
                     </button>
