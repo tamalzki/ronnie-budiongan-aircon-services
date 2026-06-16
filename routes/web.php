@@ -56,6 +56,7 @@ Route::middleware('auth')->group(function () {
     // Installments
     Route::get('installments', [InstallmentPaymentController::class, 'index'])->name('installments.index');
     Route::get('installments/sale/{sale}', [InstallmentPaymentController::class, 'show'])->name('installments.show');
+    Route::get('installments/sale/{sale}/pdf', [InstallmentPaymentController::class, 'downloadPdf'])->name('installments.pdf');
     Route::post('installments/{installment}/pay', [InstallmentPaymentController::class, 'recordPayment'])->name('installments.pay');
     Route::put('installments/{installment}/update', [InstallmentPaymentController::class, 'update'])->name('installments.update');
     Route::put('installments/sale/{sale}/schedule', [InstallmentPaymentController::class, 'updateSchedule'])->name('installments.schedule.update');

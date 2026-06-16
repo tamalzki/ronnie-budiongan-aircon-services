@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\InstallmentPayment;
 use App\Models\Sale;
+use App\Services\InstallmentLedgerService;
 use App\Support\PaymentMethod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -12,6 +13,9 @@ use Illuminate\Validation\Rule;
 
 class InstallmentPaymentController extends Controller
 {
+    public function __construct(
+        private readonly InstallmentLedgerService $ledgerService
+    ) {}
     /**
      * Show list of customers with installment sales
      */
@@ -263,9 +267,6 @@ class InstallmentPaymentController extends Controller
         return back()->with('success', 'Installment plan updated.');
     }
 
-    /**
-     * Show customer's installment details (using first sale ID)
-     */
     public function show(Sale $sale)
     {
         $this->authorize('view', $sale);
@@ -275,18 +276,51 @@ class InstallmentPaymentController extends Controller
                 ->with('error', 'This sale is not an installment sale.');
         }
 
-        // Match installments index grouping (name + contact + address); NULL-safe for address
+        return view('installments.show', $this->resolveCustomerLedgerData($sale));
+    }
+
+    public function downloadPdf(Sale $sale)
+    {
+        $this->authorize('view', $sale);
+
+        if ($sale->payment_type !== 'installment') {
+            return redirect()->route('installments.index')
+                ->with('error', 'This sale is not an installment sale.');
+        }
+
+        $data = $this->resolveCustomerLedgerData($sale);
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('installments.pdf', [
+            'customer'       => $data['customer'],
+            'sales'          => $data['sales'],
+            'ledgerRows'     => $data['ledgerRows'],
+            'summary'        => $data['summary'],
+            'header'         => $data['header'],
+            'aging'          => $data['aging'],
+            'generatedAt'    => now(),
+        ])->setPaper('a4', 'landscape');
+
+        $safeName = preg_replace('/[^\w\-. ]+/u', '', $data['customer']['name']) ?: 'customer';
+
+        return $pdf->download('Installment Ledger - ' . $safeName . '.pdf');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function resolveCustomerLedgerData(Sale $sale): array
+    {
         $sales = Sale::where('payment_type', 'installment')
             ->where('customer_name', $sale->customer_name)
             ->where('customer_contact', $sale->customer_contact)
             ->when(
                 $sale->customer_address === null || $sale->customer_address === '',
-                fn($q) => $q->where(function ($q2) {
+                fn ($q) => $q->where(function ($q2) {
                     $q2->whereNull('customer_address')->orWhere('customer_address', '');
                 }),
-                fn($q) => $q->where('customer_address', $sale->customer_address)
+                fn ($q) => $q->where('customer_address', $sale->customer_address)
             )
-            ->with(['installmentPayments', 'items.product', 'items.serials'])
+            ->with(['installmentPayments', 'items.product', 'items.serials', 'user'])
             ->orderBy('sale_date', 'desc')
             ->get();
 
@@ -296,16 +330,25 @@ class InstallmentPaymentController extends Controller
             'address' => $sale->customer_address,
         ];
 
-        $totalAmount  = $sales->sum('total');
-        $totalPaid    = $sales->sum('paid_amount');
-        $totalBalance = $sales->sum('balance');
-
         $installments = InstallmentPayment::whereIn('sale_id', $sales->pluck('id'))
-            ->with('sale')
+            ->with(['sale.user'])
             ->orderBy('due_date', 'asc')
+            ->orderBy('installment_number', 'asc')
             ->get();
 
-        return view('installments.show', compact('customer', 'sales', 'installments', 'totalAmount', 'totalPaid', 'totalBalance'));
+        $ledger = $this->ledgerService->build($sales, $installments);
+
+        return [
+            'customer'       => $customer,
+            'sales'          => $sales,
+            'installments'   => $installments,
+            'ledger'         => $ledger,
+            'ledgerRows'     => $ledger['rows'],
+            'summary'        => $ledger['summary'],
+            'header'         => $ledger['header'],
+            'paymentHistory' => $ledger['paymentHistory'],
+            'aging'          => $ledger['aging'],
+        ];
     }
 
     /**

@@ -40,7 +40,7 @@
     .totals .grand { border-top: 2px solid #1d4ed8; font-size: 13px; font-weight: bold; color: #1d4ed8; }
     .muted { color: #6b7280; }
     .small { font-size: 9.5px; }
-    .footer { margin-top: 26px; font-size: 9px; color: #9ca3af; border-top: 1px solid #e5e7eb; padding-top: 6px; }
+
 </style>
 </head>
 <body>
@@ -173,9 +173,19 @@
 </div>
 @endif
 
-<div class="footer">
-    Generated {{ now()->format('M d, Y h:i A') }}{{ $po->user ? ' · Encoded by ' . $po->user->name : '' }} · {{ $po->display_po_number }}
+{{-- Signature --}}
+@php $signaturePath = public_path('images/signature.png'); @endphp
+<div style="margin-top: 30px; width: 220px;">
+    <div style="position: relative; height: 60px;">
+        @if(file_exists($signaturePath))
+        <img src="{{ 'file://' . $signaturePath }}"
+             style="position: absolute; bottom: 4px; left: 0; height: 52px; width: auto;">
+        @endif
+        <div style="position: absolute; bottom: 0; left: 0; right: 0; border-bottom: 1px solid #374151;"></div>
+    </div>
+    <div style="font-size: 9.5px; color: #374151; margin-top: 4px;">Requested by:</div>
 </div>
+
 
 </body>
 </html>

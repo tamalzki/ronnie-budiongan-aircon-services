@@ -247,7 +247,26 @@
                             <td class="px-3 py-2 text-end">₱{{ number_format($item->unit_cost, 2) }}</td>
                         @endif
                             <td class="px-3 py-2 text-center">
-                                @if($item->discount_percent > 0)
+                                @if($item->unit_discounts)
+                                    <span class="badge bg-warning bg-opacity-10 text-warning border border-warning" style="font-size:0.7rem;">Per Unit</span>
+                                    <div style="font-size:0.68rem;color:#666;margin-top:2px;">
+                                        @foreach($item->unit_discounts as $i => $ud)
+                                            <div>#{{ $i+1 }}:
+                                                @if(($ud['discount_percent'] ?? 0) > 0) {{ $ud['discount_percent'] }}% @endif
+                                                @if(($ud['discount_percent'] ?? 0) > 0 && ($ud['discount_amount'] ?? 0) > 0) + @endif
+                                                @if(($ud['discount_amount'] ?? 0) > 0) ₱{{ number_format($ud['discount_amount'], 0) }} @endif
+                                                @if(($ud['discount_percent'] ?? 0) == 0 && ($ud['discount_amount'] ?? 0) == 0) — @endif
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @elseif($item->discount_percent > 0 && $item->discount_amount > 0)
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success" style="font-size:0.7rem;">
+                                        {{ number_format($item->discount_percent, 2) }}%
+                                    </span>
+                                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary" style="font-size:0.7rem;">
+                                        ₱{{ number_format($item->discount_amount, 2) }}
+                                    </span>
+                                @elseif($item->discount_percent > 0)
                                     <span class="badge bg-success bg-opacity-10 text-success border border-success" style="font-size:0.7rem;">
                                         {{ number_format($item->discount_percent, 2) }}%
                                     </span>
