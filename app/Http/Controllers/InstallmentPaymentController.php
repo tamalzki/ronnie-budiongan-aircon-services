@@ -6,6 +6,7 @@ use App\Models\InstallmentPayment;
 use App\Models\Sale;
 use App\Services\InstallmentLedgerService;
 use App\Support\PaymentMethod;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -267,6 +268,32 @@ class InstallmentPaymentController extends Controller
         return back()->with('success', 'Installment plan updated.');
     }
 
+    /**
+     * Correct customer name, contact, or address on all installment sales for this account.
+     */
+    public function updateCustomer(Request $request, Sale $sale)
+    {
+        $this->authorize('update', $sale);
+
+        if ($sale->payment_type !== 'installment') {
+            return back()->with('error', 'This sale is not an installment sale.');
+        }
+
+        $validated = $request->validate([
+            'customer_name'    => ['required', 'string', 'max:255'],
+            'customer_contact' => ['nullable', 'string', 'max:255'],
+            'customer_address' => ['nullable', 'string'],
+        ]);
+
+        $updated = $this->matchingInstallmentSalesQuery($sale)->update([
+            'customer_name'    => $validated['customer_name'],
+            'customer_contact' => $validated['customer_contact'] ?? null,
+            'customer_address' => $validated['customer_address'] ?? null,
+        ]);
+
+        return back()->with('success', "Customer details updated on {$updated} installment sale(s).");
+    }
+
     public function show(Sale $sale)
     {
         $this->authorize('view', $sale);
@@ -310,16 +337,7 @@ class InstallmentPaymentController extends Controller
      */
     private function resolveCustomerLedgerData(Sale $sale): array
     {
-        $sales = Sale::where('payment_type', 'installment')
-            ->where('customer_name', $sale->customer_name)
-            ->where('customer_contact', $sale->customer_contact)
-            ->when(
-                $sale->customer_address === null || $sale->customer_address === '',
-                fn ($q) => $q->where(function ($q2) {
-                    $q2->whereNull('customer_address')->orWhere('customer_address', '');
-                }),
-                fn ($q) => $q->where('customer_address', $sale->customer_address)
-            )
+        $sales = $this->matchingInstallmentSalesQuery($sale)
             ->with(['installmentPayments', 'items.product', 'items.serials', 'user'])
             ->orderBy('sale_date', 'desc')
             ->get();
@@ -341,6 +359,7 @@ class InstallmentPaymentController extends Controller
         return [
             'customer'       => $customer,
             'sales'          => $sales,
+            'anchorSale'     => $sale,
             'installments'   => $installments,
             'ledger'         => $ledger,
             'ledgerRows'     => $ledger['rows'],
@@ -349,6 +368,21 @@ class InstallmentPaymentController extends Controller
             'paymentHistory' => $ledger['paymentHistory'],
             'aging'          => $ledger['aging'],
         ];
+    }
+
+    /** @return Builder<Sale> */
+    private function matchingInstallmentSalesQuery(Sale $sale): Builder
+    {
+        return Sale::where('payment_type', 'installment')
+            ->where('customer_name', $sale->customer_name)
+            ->where('customer_contact', $sale->customer_contact)
+            ->when(
+                $sale->customer_address === null || $sale->customer_address === '',
+                fn ($q) => $q->where(function ($q2) {
+                    $q2->whereNull('customer_address')->orWhere('customer_address', '');
+                }),
+                fn ($q) => $q->where('customer_address', $sale->customer_address)
+            );
     }
 
     /**

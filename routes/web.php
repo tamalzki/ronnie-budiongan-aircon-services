@@ -60,6 +60,7 @@ Route::middleware('auth')->group(function () {
     Route::post('installments/{installment}/pay', [InstallmentPaymentController::class, 'recordPayment'])->name('installments.pay');
     Route::put('installments/{installment}/update', [InstallmentPaymentController::class, 'update'])->name('installments.update');
     Route::put('installments/sale/{sale}/schedule', [InstallmentPaymentController::class, 'updateSchedule'])->name('installments.schedule.update');
+    Route::put('installments/sale/{sale}/customer', [InstallmentPaymentController::class, 'updateCustomer'])->name('installments.customer.update');
 
     // Reports
     Route::get('reports', [ReportController::class, 'index'])->name('reports.index');

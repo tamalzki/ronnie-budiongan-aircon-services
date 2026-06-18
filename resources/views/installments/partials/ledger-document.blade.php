@@ -29,6 +29,12 @@
         <div class="ledger-health">
             <span class="ledger-health-badge bg-{{ $accountHealth['class'] }}">{{ $accountHealth['label'] }}</span>
             <span class="ledger-health-name">{{ $customer['name'] }}</span>
+            @if($showActions && isset($anchorSale))
+            <button type="button" class="btn btn-outline-secondary btn-sm no-print"
+                    data-bs-toggle="modal" data-bs-target="#editCustomerModal" title="Edit customer">
+                <i class="bi bi-pencil"></i> Edit
+            </button>
+            @endif
         </div>
         <div class="ledger-kpis">
             <div class="ledger-kpi">
@@ -93,7 +99,18 @@
         <tr>
             <td class="pl-info-left">
                 <table class="pl-kv">
-                    <tr><td class="pl-k">Name of Customer</td><td class="pl-v">{{ $customer['name'] }}</td></tr>
+                    <tr>
+                        <td class="pl-k">Name of Customer</td>
+                        <td class="pl-v">
+                            {{ $customer['name'] }}
+                            @if($showActions && isset($anchorSale))
+                            <button type="button" class="btn btn-outline-secondary btn-sm ms-1 align-baseline no-print"
+                                    data-bs-toggle="modal" data-bs-target="#editCustomerModal" title="Edit customer">
+                                <i class="bi bi-pencil"></i> Edit
+                            </button>
+                            @endif
+                        </td>
+                    </tr>
                     <tr><td class="pl-k">Name of Comaker</td><td class="pl-v">—</td></tr>
                     <tr><td class="pl-k">Address</td><td class="pl-v">{{ $customer['address'] ?: '—' }}</td></tr>
                     <tr><td class="pl-k">Unit Acquired</td><td class="pl-v">{{ $header['unit_acquired'] ?: '—' }}</td></tr>

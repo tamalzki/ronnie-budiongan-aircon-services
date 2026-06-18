@@ -270,6 +270,10 @@
             </a>
         </div>
         <div class="d-flex flex-wrap gap-1 align-items-center">
+            <button type="button" class="btn btn-outline-secondary btn-sm"
+                    data-bs-toggle="modal" data-bs-target="#editCustomerModal">
+                <i class="bi bi-pencil"></i> Edit
+            </button>
             @foreach($sales as $s)
             <button class="btn btn-outline-primary btn-sm"
                     data-bs-toggle="modal" data-bs-target="#editPlanModal{{ $s->id }}">
@@ -291,6 +295,7 @@
         'mode' => 'screen',
         'showActions' => true,
         'enhanced' => true,
+        'anchorSale' => $anchorSale,
     ])
 
 </div>
@@ -299,6 +304,13 @@
     'sales' => $sales,
     'ledgerRows' => $ledgerRows,
     'summary' => $summary,
+])
+
+@include('installments.partials.edit-customer-modal', [
+    'formAction' => route('installments.customer.update', $anchorSale),
+    'customerName' => $customer['name'],
+    'customerContact' => $customer['contact'],
+    'customerAddress' => $customer['address'],
 ])
 
 @push('scripts')

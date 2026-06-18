@@ -165,4 +165,44 @@ class InstallmentPaymentTest extends TestCase
         $sale->refresh();
         $this->assertEquals(500.0, (float) $sale->balance);
     }
+
+    public function test_authenticated_user_can_update_installment_customer_details(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $saleA = Sale::factory()->create([
+            'user_id' => $user->id,
+            'customer_name' => 'Juan Dela Cruz',
+            'customer_contact' => '09171234567',
+            'customer_address' => 'Digos City',
+            'payment_type' => 'installment',
+        ]);
+
+        $saleB = Sale::factory()->create([
+            'user_id' => $user->id,
+            'customer_name' => 'Juan Dela Cruz',
+            'customer_contact' => '09171234567',
+            'customer_address' => 'Digos City',
+            'payment_type' => 'installment',
+        ]);
+
+        $response = $this->from(route('installments.show', $saleA))
+            ->put(route('installments.customer.update', $saleA), [
+                'customer_name' => 'Juan D. Cruz',
+                'customer_contact' => '09179876543',
+                'customer_address' => 'Davao City',
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $saleA->refresh();
+        $saleB->refresh();
+
+        $this->assertSame('Juan D. Cruz', $saleA->customer_name);
+        $this->assertSame('09179876543', $saleA->customer_contact);
+        $this->assertSame('Davao City', $saleA->customer_address);
+        $this->assertSame('Juan D. Cruz', $saleB->customer_name);
+    }
 }

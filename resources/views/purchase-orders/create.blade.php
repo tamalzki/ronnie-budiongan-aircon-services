@@ -607,27 +607,25 @@ function addItem(prefill) {
         {{-- Qty --}}
         <td class="po-col-qty">
             <input type="number" class="form-control form-control-sm qty-input text-center" name="items[${idx}][quantity]"
-                   value="1" min="1" required onchange="onQtyChange(${idx})">
+                   value="1" min="1" required oninput="onQtyChange(${idx})" onchange="onQtyChange(${idx})">
         </td>
 
         {{-- Unit Cost (optional) --}}
         <td class="po-col-cost">
             <input type="number" step="0.01" class="form-control form-control-sm cost-input po-num-input text-end"
                    name="items[${idx}][unit_cost]" value="" min="0" placeholder="₱" title="Unit cost" required
-                   onchange="calcRow(${idx})">
+                   oninput="calcRow(${idx})" onchange="calcRow(${idx})">
         </td>
 
-        {{-- Discount (% and/or ₱) --}}
+        {{-- Discount (% and fixed ₱ per unit — applied per qty in total) --}}
         <td class="po-col-disc">
-            <div id="disc-uniform-${idx}">
-                <div class="po-disc-pair">
-                    <input type="number" step="0.01" class="form-control form-control-sm disc-input po-num-input text-center"
-                           name="items[${idx}][discount_percent]" value="" min="0" max="100" placeholder="%" title="Discount %"
-                           onchange="calcRow(${idx})">
-                    <input type="number" step="0.01" class="form-control form-control-sm discount-amount-input po-num-input text-end"
-                           name="items[${idx}][discount_amount]" value="" min="0" placeholder="₱" title="Discount amount"
-                           onchange="calcRow(${idx})">
-                </div>
+            <div class="po-disc-pair">
+                <input type="number" step="0.01" class="form-control form-control-sm disc-input po-num-input text-center"
+                       name="items[${idx}][discount_percent]" value="" min="0" max="100" placeholder="%" title="Discount % (per unit)"
+                       oninput="calcRow(${idx})" onchange="calcRow(${idx})">
+                <input type="number" step="0.01" class="form-control form-control-sm discount-amount-input po-num-input text-end"
+                       name="items[${idx}][discount_amount]" value="" min="0" placeholder="₱" title="Fixed discount per unit"
+                       oninput="calcRow(${idx})" onchange="calcRow(${idx})">
             </div>
         </td>
 
@@ -639,22 +637,6 @@ function addItem(prefill) {
             <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeRow(${idx})" style="padding:0 4px;line-height:1.2;">
                 <i class="bi bi-trash"></i>
             </button>
-        </td>
-    </tr>
-    <tr id="unit-breakdown-${idx}" style="display:none;">
-        <td colspan="6" class="p-0" style="border-top:none;">
-            <div class="mx-2 mb-2 p-2 rounded" style="background:#f0f7ff;border:1px solid #cce0ff;">
-                <div class="text-muted mb-1" style="font-size:0.7rem;font-weight:600;">Per-unit discounts</div>
-                <table class="table table-sm table-borderless mb-0" style="font-size:0.75rem;">
-                    <thead><tr>
-                        <th style="width:28px;padding:2px 4px;">#</th>
-                        <th style="padding:2px 4px;">Disc %</th>
-                        <th style="padding:2px 4px;">Fixed ₱</th>
-                        <th class="text-end" style="padding:2px 4px;">Unit Total</th>
-                    </tr></thead>
-                    <tbody id="unit-rows-body-${idx}"></tbody>
-                </table>
-            </div>
         </td>
     </tr>`;
 
@@ -682,14 +664,7 @@ function addItem(prefill) {
             row.querySelector('.cost-input').value = parseFloat(prefill.unit_cost).toFixed(2);
         }
 
-        const qty = parseInt(prefill.quantity) || 1;
-
-        if (qty > 1) {
-            activateUnitBreakdown(idx, prefill.unit_discounts ?? null);
-        } else {
-            row.querySelector('.disc-input').value = (prefill.discount_percent ?? prefill.discount) || '';
-            row.querySelector('.discount-amount-input').value = prefill.discount_amount || '';
-        }
+        setRowDiscounts(row, prefill);
 
         calcRow(idx);
         refreshDropdowns();
@@ -697,15 +672,6 @@ function addItem(prefill) {
 }
 
 function onQtyChange(idx) {
-    const row = document.getElementById(`row-${idx}`);
-    const qty = parseInt(row?.querySelector('.qty-input')?.value) || 1;
-
-    if (qty > 1) {
-        activateUnitBreakdown(idx);
-    } else {
-        deactivateUnitBreakdown(idx);
-    }
-
     calcRow(idx);
 }
 
@@ -870,23 +836,23 @@ function addPartRow(prefill) {
 
         <td class="po-col-qty">
             <input type="number" class="form-control form-control-sm qty-input text-center" name="items[${idx}][quantity]"
-                   value="1" min="1" required onchange="onQtyChange(${idx})">
+                   value="1" min="1" required oninput="onQtyChange(${idx})" onchange="onQtyChange(${idx})">
         </td>
 
         <td class="po-col-cost">
             <input type="number" step="0.01" class="form-control form-control-sm cost-input po-num-input text-end"
                    name="items[${idx}][unit_cost]" value="" min="0" placeholder="₱" title="Unit cost" required
-                   onchange="calcRow(${idx})">
+                   oninput="calcRow(${idx})" onchange="calcRow(${idx})">
         </td>
 
         <td class="po-col-disc">
             <div class="po-disc-pair">
                 <input type="number" step="0.01" class="form-control form-control-sm disc-input po-num-input text-center"
-                       name="items[${idx}][discount_percent]" value="" min="0" max="100" placeholder="%" title="Discount %"
-                       onchange="calcRow(${idx})">
+                       name="items[${idx}][discount_percent]" value="" min="0" max="100" placeholder="%" title="Discount % (per unit)"
+                       oninput="calcRow(${idx})" onchange="calcRow(${idx})">
                 <input type="number" step="0.01" class="form-control form-control-sm discount-amount-input po-num-input text-end"
-                       name="items[${idx}][discount_amount]" value="" min="0" placeholder="₱" title="Discount amount"
-                       onchange="calcRow(${idx})">
+                       name="items[${idx}][discount_amount]" value="" min="0" placeholder="₱" title="Fixed discount per unit"
+                       oninput="calcRow(${idx})" onchange="calcRow(${idx})">
             </div>
         </td>
 
@@ -927,8 +893,8 @@ function addPartRow(prefill) {
         if (prefill.unit_cost !== '' && prefill.unit_cost != null) {
             row.querySelector('.cost-input').value = parseFloat(prefill.unit_cost).toFixed(2);
         }
-        row.querySelector('.disc-input').value = (prefill.discount_percent ?? prefill.discount) || '';
-        row.querySelector('.discount-amount-input').value = prefill.discount_amount || '';
+
+        setRowDiscounts(row, prefill);
 
         calcRow(idx);
     }
@@ -1098,64 +1064,20 @@ function closeAllPOCombos() {
     document.querySelectorAll('[class*="pocb-panel-"]').forEach(poComboClose);
 }
 
-function activateUnitBreakdown(idx, prefillUnits) {
-    const breakdownRow = document.getElementById(`unit-breakdown-${idx}`);
-    const uniformDiv   = document.getElementById(`disc-uniform-${idx}`);
-    if (!breakdownRow || breakdownRow.style.display !== 'none') {
-        if (breakdownRow && breakdownRow.style.display !== 'none') {
-            rebuildUnitRows(idx, prefillUnits);
-        }
-        return;
+function setRowDiscounts(row, prefill) {
+    if (!row || !prefill) return;
+
+    let pct = prefill.discount_percent ?? prefill.discount ?? '';
+    let amt = prefill.discount_amount ?? '';
+    if (prefill.unit_discounts?.length) {
+        pct = prefill.unit_discounts[0].discount_percent ?? pct;
+        amt = prefill.unit_discounts[0].discount_amount ?? amt;
     }
-    breakdownRow.style.display = '';
-    uniformDiv.style.display   = 'none';
-    rebuildUnitRows(idx, prefillUnits);
-}
 
-function deactivateUnitBreakdown(idx) {
-    const breakdownRow = document.getElementById(`unit-breakdown-${idx}`);
-    const uniformDiv   = document.getElementById(`disc-uniform-${idx}`);
-    if (!breakdownRow) return;
-    breakdownRow.style.display = 'none';
-    uniformDiv.style.display   = '';
-    document.getElementById(`unit-rows-body-${idx}`).innerHTML = '';
-}
-
-function rebuildUnitRows(idx, prefillUnits) {
-    const row  = document.getElementById(`row-${idx}`);
-    const qty  = parseInt(row.querySelector('.qty-input').value) || 1;
-    const cost = parseFloat(row.querySelector('.cost-input').value) || 0;
-    const tbody = document.getElementById(`unit-rows-body-${idx}`);
-
-    // Preserve existing entered values
-    const existing = [];
-    tbody.querySelectorAll('tr').forEach((r, i) => {
-        existing[i] = {
-            pct: parseFloat(r.querySelector('input[name$="[discount_percent]"]')?.value) || 0,
-            amt: parseFloat(r.querySelector('input[name$="[discount_amount]"]')?.value) || 0,
-        };
-    });
-
-    tbody.innerHTML = '';
-    for (let u = 0; u < qty; u++) {
-        const pct = prefillUnits?.[u]?.discount_percent ?? existing[u]?.pct ?? 0;
-        const amt = prefillUnits?.[u]?.discount_amount  ?? existing[u]?.amt ?? 0;
-        const netUnit = Math.max(0, cost * (1 - pct / 100) - amt);
-        tbody.insertAdjacentHTML('beforeend', `
-            <tr id="unit-row-${idx}-${u}">
-                <td class="text-muted" style="padding:2px 4px;">${u + 1}</td>
-                <td style="padding:2px 4px;"><input type="number" step="0.01" min="0" max="100" placeholder="%"
-                    class="form-control form-control-sm po-num-input text-center"
-                    name="items[${idx}][unit_discounts][${u}][discount_percent]"
-                    value="${pct || ''}" onchange="calcRow(${idx})"></td>
-                <td style="padding:2px 4px;"><input type="number" step="0.01" min="0" placeholder="₱"
-                    class="form-control form-control-sm po-num-input text-end"
-                    name="items[${idx}][unit_discounts][${u}][discount_amount]"
-                    value="${amt || ''}" onchange="calcRow(${idx})"></td>
-                <td class="text-end fw-bold text-primary" style="padding:2px 4px;">₱<span id="unit-total-${idx}-${u}">${formatMoney(netUnit)}</span></td>
-            </tr>
-        `);
-    }
+    const pctInput = row.querySelector('.disc-input');
+    const amtInput = row.querySelector('.discount-amount-input');
+    if (pctInput) pctInput.value = pct === 0 || pct === '' ? '' : pct;
+    if (amtInput) amtInput.value = amt === 0 || amt === '' ? '' : amt;
 }
 
 function calcRow(idx) {
@@ -1165,29 +1087,10 @@ function calcRow(idx) {
 
     const qty  = parseInt(row.querySelector('.qty-input').value) || 0;
     const cost = parseFloat(row.querySelector('.cost-input').value) || 0;
-
-    const breakdownRow = document.getElementById(`unit-breakdown-${idx}`);
-    const isPerUnit    = breakdownRow && breakdownRow.style.display !== 'none';
-
-    let total = 0;
-
-    if (isPerUnit) {
-        for (let u = 0; u < qty; u++) {
-            const pctInput = document.querySelector(`input[name="items[${idx}][unit_discounts][${u}][discount_percent]"]`);
-            const amtInput = document.querySelector(`input[name="items[${idx}][unit_discounts][${u}][discount_amount]"]`);
-            const pct = parseFloat(pctInput?.value) || 0;
-            const amt = parseFloat(amtInput?.value) || 0;
-            const netUnit = Math.max(0, cost * (1 - pct / 100) - amt);
-            total += netUnit;
-            const unitTotalEl = document.getElementById(`unit-total-${idx}-${u}`);
-            if (unitTotalEl) unitTotalEl.textContent = formatMoney(netUnit);
-        }
-    } else {
-        const discPct = parseFloat(row.querySelector('.disc-input').value) || 0;
-        const discAmt = parseFloat(row.querySelector('.discount-amount-input').value) || 0;
-        let netCost   = Math.max(0, cost * (1 - discPct / 100) - discAmt);
-        total = qty * netCost;
-    }
+    const discPct = parseFloat(row.querySelector('.disc-input')?.value) || 0;
+    const discAmt = parseFloat(row.querySelector('.discount-amount-input')?.value) || 0;
+    const netUnit = Math.max(0, cost * (1 - discPct / 100) - discAmt);
+    const total   = qty * netUnit;
 
     document.getElementById(`total-${idx}`).textContent = formatMoney(total);
 
@@ -1211,7 +1114,6 @@ function calcGrandTotal() {
 }
 
 function removeRow(idx) {
-    document.getElementById(`unit-breakdown-${idx}`)?.remove();
     document.getElementById(`row-${idx}`)?.remove();
     if (!document.querySelector('.item-row')) {
         document.getElementById('itemsTableBody').innerHTML = `
@@ -1338,6 +1240,7 @@ document.getElementById('poForm').addEventListener('submit', function (e) {
                 unit_cost:           it.unit_cost ?? '',
                 discount_percent:    it.discount_percent ?? 0,
                 discount_amount:     it.discount_amount ?? 0,
+                unit_discounts:      it.unit_discounts ?? null,
             });
             return;
         }

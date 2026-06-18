@@ -108,6 +108,7 @@
                                 <th class="text-end">Balance</th>
                                 <th style="white-space:nowrap">Last Payment</th>
                                 <th style="white-space:nowrap">Next Due</th>
+                                <th class="text-center no-print" style="width:56px;white-space:nowrap">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="installmentTableBody">
@@ -168,10 +169,18 @@
                                         <span class="badge bg-success">Fully Paid</span>
                                     @endif
                                 </td>
+                                <td class="text-center no-print">
+                                    @include('installments.partials.edit-customer-button', [
+                                        'saleId' => $customer->first_sale_id,
+                                        'name' => $customer->customer_name,
+                                        'contact' => $customer->customer_contact,
+                                        'address' => $customer->customer_address,
+                                    ])
+                                </td>
                             </tr>
                             @empty
                             <tr>
-                                <td colspan="6" class="text-center py-5 text-muted">
+                                <td colspan="7" class="text-center py-5 text-muted">
                                     <i class="bi bi-inbox fs-1 d-block mb-2"></i>
                                     No installment customers yet
                                 </td>
@@ -247,6 +256,7 @@
                                 <th class="text-end">Balance</th>
                                 <th style="white-space:nowrap">Last Payment</th>
                                 <th style="white-space:nowrap">Next Due</th>
+                                <th class="text-center no-print" style="width:56px;white-space:nowrap">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="dueTableBody">
@@ -303,10 +313,18 @@
                                         <span class="badge bg-warning text-dark ms-1"><i class="bi bi-exclamation-circle me-1"></i>Today</span>
                                     @endif
                                 </td>
+                                <td class="text-center no-print">
+                                    @include('installments.partials.edit-customer-button', [
+                                        'saleId' => $customer->first_sale_id,
+                                        'name' => $customer->customer_name,
+                                        'contact' => $customer->customer_contact,
+                                        'address' => $customer->customer_address,
+                                    ])
+                                </td>
                             </tr>
                             @empty
                             <tr>
-                                <td colspan="6" class="text-center py-5 text-muted">
+                                <td colspan="7" class="text-center py-5 text-muted">
                                     <i class="bi bi-check-circle text-success fs-1 d-block mb-2"></i>
                                     No payments due this month
                                 </td>
@@ -318,7 +336,7 @@
                             <tr class="fw-semibold">
                                 <td colspan="3" class="text-end text-muted" style="font-size:0.78rem;">Total to collect this month</td>
                                 <td class="text-end text-warning">₱{{ number_format($dueThisMonthTotal, 2) }}</td>
-                                <td colspan="2"></td>
+                                <td colspan="3"></td>
                             </tr>
                         </tfoot>
                         @endif
@@ -330,8 +348,17 @@
 
 </div>
 
+@include('installments.partials.edit-customer-modal')
+
 @push('scripts')
 <script>
+function openEditCustomerModal(btn) {
+    const form = document.getElementById('editCustomerModalForm');
+    form.action = btn.dataset.action;
+    document.getElementById('editCustomerModalName').value = btn.dataset.name || '';
+    document.getElementById('editCustomerModalContact').value = btn.dataset.contact || '';
+    document.getElementById('editCustomerModalAddress').value = btn.dataset.address || '';
+}
 // ── Tab switching ──────────────────────────────────────
 function switchTab(tab) {
     const allDiv  = document.getElementById('tabAll');
@@ -367,7 +394,7 @@ function filterTable() {
         if (!noResults) {
             noResults = document.createElement('tr');
             noResults.id = 'noResultsRow';
-            noResults.innerHTML = '<td colspan="6" class="text-center py-5 text-muted"><i class="bi bi-search fs-1 d-block mb-2"></i>No results found</td>';
+            noResults.innerHTML = '<td colspan="7" class="text-center py-5 text-muted"><i class="bi bi-search fs-1 d-block mb-2"></i>No results found</td>';
             document.getElementById('installmentTableBody').appendChild(noResults);
         }
         noResults.style.display = '';
@@ -402,7 +429,7 @@ function filterDueTable() {
         if (!noResults) {
             noResults = document.createElement('tr');
             noResults.id = 'noResultsDueRow';
-            noResults.innerHTML = '<td colspan="6" class="text-center py-5 text-muted"><i class="bi bi-search fs-1 d-block mb-2"></i>No results found</td>';
+            noResults.innerHTML = '<td colspan="7" class="text-center py-5 text-muted"><i class="bi bi-search fs-1 d-block mb-2"></i>No results found</td>';
             document.getElementById('dueTableBody').appendChild(noResults);
         }
         noResults.style.display = '';
@@ -425,8 +452,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.querySelectorAll('.installment-row[data-href], .due-row[data-href]').forEach(row => {
         row.addEventListener('click', function (e) {
-            if (e.target.closest('a, button, form, input, select, .modal')) return;
+            if (e.target.closest('a, button, form, input, select, .modal, .edit-customer-btn')) return;
             window.location.href = this.dataset.href;
+        });
+    });
+
+    document.querySelectorAll('.edit-customer-btn').forEach(btn => {
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            openEditCustomerModal(btn);
         });
     });
 });
