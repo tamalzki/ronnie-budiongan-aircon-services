@@ -31,22 +31,11 @@
                             @enderror
                         </div>
 
-                        <div class="mb-3">
-                            <label for="product_id" class="form-label small fw-semibold mb-1">Linked Model / Set</label>
-                            <select class="form-select form-select-sm @error('product_id') is-invalid @enderror"
-                                    id="product_id" name="product_id">
-                                <option value="">— General / Unlinked —</option>
-                                @foreach($productOptions as $option)
-                                    <option value="{{ $option['id'] }}" {{ (string) old('product_id') === (string) $option['id'] ? 'selected' : '' }}>
-                                        {{ $option['label'] }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            @error('product_id')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                            <div class="form-text">Optional — associates this part with an aircon model/set for reference.</div>
-                        </div>
+                        @include('parts.partials.product-model-combobox', [
+                            'productOptions' => $productOptions,
+                            'selectedId' => old('product_id'),
+                            'hasError' => $errors->has('product_id'),
+                        ])
 
                         <div class="mb-3">
                             <label for="description" class="form-label small fw-semibold mb-1">Description</label>
