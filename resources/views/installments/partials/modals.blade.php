@@ -122,22 +122,16 @@
                         </div>
                     @else
                     <div class="row g-2 mb-3 text-center">
-                        <div class="col-4">
+                        <div class="col-6">
                             <div class="card border-0 bg-primary bg-opacity-10 p-2">
                                 <small class="text-muted">Ins. Date</small>
                                 <strong class="small">{{ $installment->due_date->format('m/d/Y') }}</strong>
                             </div>
                         </div>
-                        <div class="col-4">
-                            <div class="card border-0 bg-warning bg-opacity-10 p-2">
-                                <small class="text-muted">Ins. Mons.</small>
-                                <strong class="small">₱{{ number_format($installment->amount, 2) }}</strong>
-                            </div>
-                        </div>
-                        <div class="col-4">
+                        <div class="col-6">
                             <div class="card border-0 bg-danger bg-opacity-10 p-2">
-                                <small class="text-muted">Line Balance</small>
-                                <strong class="small text-danger">₱{{ number_format($lineRemaining, 2) }}</strong>
+                                <small class="text-muted">Outstanding Balance</small>
+                                <strong class="small text-danger">₱{{ number_format($installment->sale->balance ?? 0, 2) }}</strong>
                             </div>
                         </div>
                     </div>
@@ -166,7 +160,7 @@
                                            value="{{ $lineRemaining > 0 ? $lineRemaining : $installment->amount }}"
                                            min="0.01" required>
                                 </div>
-                                <small class="text-muted">Ins. Mons. due: ₱{{ number_format($installment->amount, 2) }} · Line balance: ₱{{ number_format($lineRemaining, 2) }}</small>
+                                <small class="text-muted">Line balance: ₱{{ number_format($lineRemaining, 2) }}</small>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Payment Method <span class="text-danger">*</span></label>
@@ -232,20 +226,15 @@
                             <i class="bi bi-journal-check"></i> Payment Entry
                         </h6>
                         <div class="row g-3">
-                            <div class="col-md-4">
-                                <label class="form-label fw-semibold">Ins. Mons.</label>
-                                <input type="text" class="form-control bg-light" readonly
-                                       value="₱{{ number_format($installment->amount, 2) }}">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-semibold">Total Amt. Due (Line)</label>
-                                <input type="text" class="form-control bg-light" readonly
-                                       value="₱{{ number_format($row['total_amount_due'] ?? $installment->amount, 2) }}">
-                            </div>
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <label class="form-label fw-semibold">Total Credit (After)</label>
                                 <input type="text" class="form-control bg-light" readonly
                                        value="₱{{ number_format($row['total_credit'] ?? $installment->amount_paid, 2) }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Outstanding Balance</label>
+                                <input type="text" class="form-control bg-light fw-bold text-danger" readonly
+                                       value="₱{{ number_format($row['remaining_balance'] ?? ($installment->sale->balance ?? 0), 2) }}">
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Date Paid <span class="text-danger">*</span></label>
@@ -280,11 +269,6 @@
                                     <option value="bank_transfer" {{ ($installment->payment_method ?? '') == 'bank_transfer' ? 'selected' : '' }}>🏦 Bank Transfer</option>
                                     <option value="cheque"        {{ ($installment->payment_method ?? '') == 'cheque'        ? 'selected' : '' }}>🧾 Cheque</option>
                                 </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold">Outstanding Balance</label>
-                                <input type="text" class="form-control bg-light fw-bold text-danger" readonly
-                                       value="₱{{ number_format($row['remaining_balance'] ?? ($installment->sale->balance ?? 0), 2) }}">
                             </div>
                             <div class="col-12 pay-cheque-fields" style="{{ ($installment->payment_method ?? '') == 'cheque' ? '' : 'display:none;' }}">
                                 <label class="form-label fw-semibold">Bank / Account Name <span class="text-danger">*</span></label>

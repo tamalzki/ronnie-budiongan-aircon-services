@@ -125,9 +125,6 @@
                 <tr class="pl-h1">
                     <th rowspan="2">Bill<br>No.</th>
                     <th rowspan="2">Ins.<br>Date</th>
-                    <th rowspan="2">Ins.<br>Mons.</th>
-                    <th rowspan="2">Arr.<br>Adv.</th>
-                    <th rowspan="2">Total<br>Amount Due</th>
                     <th rowspan="2">Date<br>Paid</th>
                     <th rowspan="2">O.R.<br>No.</th>
                     <th colspan="3" class="pl-payments-group">PAYMENTS</th>
@@ -157,15 +154,6 @@
                         {{ $row['bill_no'] }}
                     </td>
                     <td class="pl-ctr">{{ $fmtDate($row['due_date']) }}</td>
-                    <td class="pl-num">{{ $fmt($row['monthly_due']) }}</td>
-                    <td class="pl-num @if($row['arrears_advance'] > 0) pl-arrears @elseif($row['arrears_advance'] < 0) pl-advance @endif">
-                        @if($row['arrears_advance'] > 0)
-                            {{ $fmt($row['arrears_advance']) }}
-                        @elseif($row['arrears_advance'] < 0)
-                            ({{ $fmt(abs($row['arrears_advance'])) }})
-                        @endif
-                    </td>
-                    <td class="pl-num">{{ $fmt($row['total_amount_due']) }}</td>
                     <td class="pl-ctr">{{ $row['paid_date'] ? $fmtDate($row['paid_date']) : '' }}</td>
                     <td class="pl-ctr pl-mono">{{ $row['reference_number'] ?? '' }}</td>
                     <td class="pl-num pl-paid-cell">{{ $row['amount_paid'] > 0 ? $fmt($row['amount_paid']) : '' }}</td>
@@ -188,7 +176,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="{{ $showActions ? 12 : 11 }}" class="pl-ctr" style="padding:20px;">No records</td>
+                    <td colspan="{{ $showActions ? 9 : 8 }}" class="pl-ctr" style="padding:20px;">No records</td>
                 </tr>
                 @endforelse
             </tbody>
@@ -236,9 +224,6 @@
         <span><i class="pl-status-dot pl-status-partial"></i> Partial</span>
         <span><i class="pl-status-dot pl-status-overdue"></i> Overdue</span>
         <span><i class="pl-status-dot pl-status-pending"></i> Upcoming</span>
-        <span class="pl-legend-sep">|</span>
-        <span class="pl-advance-val">( )</span> = Advance
-        <span class="pl-arrears">Plain</span> = Arrears
     </div>
     @endif
 </div>

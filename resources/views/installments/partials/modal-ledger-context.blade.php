@@ -2,14 +2,6 @@
 @php
     $fmt = fn ($n) => number_format((float) $n, 2);
     $fmtDate = fn ($d) => $d ? \Carbon\Carbon::parse($d)->format('m/d/Y') : '—';
-    $arrAdv = '';
-    if (($row['arrears_advance'] ?? 0) > 0) {
-        $arrAdv = $fmt($row['arrears_advance']);
-    } elseif (($row['arrears_advance'] ?? 0) < 0) {
-        $arrAdv = '(' . $fmt(abs($row['arrears_advance'])) . ')';
-    } else {
-        $arrAdv = '—';
-    }
     $st = $row['status'] ?? 'pending';
     $statusMap = [
         'paid'    => ['Paid', 'success'],
@@ -37,19 +29,13 @@
             <thead>
                 <tr>
                     <th>Ins. Date</th>
-                    <th class="text-end">Ins. Mons.</th>
-                    <th class="text-end">Arr./Adv.</th>
-                    <th class="text-end">Total Amt. Due</th>
                     <th class="text-end">Line Balance</th>
-                    <th class="text-end">Acct. Balance</th>
+                    <th class="text-end">Outstanding Balance</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
                     <td>{{ $fmtDate($row['due_date'] ?? $installment->due_date) }}</td>
-                    <td class="text-end fw-semibold">{{ $fmt($row['monthly_due'] ?? $installment->amount) }}</td>
-                    <td class="text-end {{ ($row['arrears_advance'] ?? 0) > 0 ? 'text-danger' : (($row['arrears_advance'] ?? 0) < 0 ? 'text-success' : '') }}">{{ $arrAdv }}</td>
-                    <td class="text-end">{{ $fmt($row['total_amount_due'] ?? $installment->amount) }}</td>
                     <td class="text-end text-danger fw-semibold">{{ $fmt($lineRemaining) }}</td>
                     <td class="text-end fw-bold {{ ($row['remaining_balance'] ?? 0) > 0 ? 'text-danger' : 'text-success' }}">{{ $fmt($row['remaining_balance'] ?? 0) }}</td>
                 </tr>
