@@ -131,6 +131,9 @@ class PurchaseOrderController extends Controller
             'expected_delivery_date'   => 'nullable|date',
             'payment_type'             => 'required|in:full,45days',
             'notes'                    => 'nullable|string',
+            'delivered_to_customer_no' => 'nullable|string|max:255',
+            'delivered_to_name'        => 'nullable|string|max:255',
+            'delivered_to_address'     => 'nullable|string',
             'items'                    => 'required|array|min:1',
             'items.*.item_type'        => 'nullable|in:product,part',
             'items.*.product_id'       => 'required_if:items.*.item_type,product|nullable|exists:products,id',
@@ -205,6 +208,9 @@ class PurchaseOrderController extends Controller
                 'status'                 => $allReceived ? 'received' : 'pending',
                 'received_date'          => $allReceived ? $receivedDate : null,
                 'notes'                  => $request->notes,
+                'delivered_to_customer_no' => $request->delivered_to_customer_no,
+                'delivered_to_name'        => $request->delivered_to_name,
+                'delivered_to_address'     => $request->delivered_to_address,
                 'user_id'                => auth()->id(),
             ]);
 
@@ -841,6 +847,9 @@ class PurchaseOrderController extends Controller
             'expected_delivery_date'   => 'nullable|date',
             'payment_type'             => 'required|in:full,45days',
             'notes'                    => 'nullable|string',
+            'delivered_to_customer_no' => 'nullable|string|max:255',
+            'delivered_to_name'        => 'nullable|string|max:255',
+            'delivered_to_address'     => 'nullable|string',
             'items'                    => 'required|array|min:1',
             'items.*.item_type'        => 'nullable|in:product,part',
             'items.*.product_id'       => 'required_if:items.*.item_type,product|nullable|exists:products,id',
@@ -953,6 +962,9 @@ class PurchaseOrderController extends Controller
                 'status'                 => $allReceived ? 'received' : 'pending',
                 'received_date'          => $allReceived ? $receivedDate : null,
                 'notes'                  => $request->notes,
+                'delivered_to_customer_no' => $request->delivered_to_customer_no,
+                'delivered_to_name'        => $request->delivered_to_name,
+                'delivered_to_address'     => $request->delivered_to_address,
             ]);
 
             if ($request->payment_type === 'full') {

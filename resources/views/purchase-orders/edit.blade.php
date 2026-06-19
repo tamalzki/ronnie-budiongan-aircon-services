@@ -229,29 +229,29 @@
         Document No. (DR) and serial numbers are entered in <strong>Order Receiving</strong>. Editing here updates order details and keeps received serials in stock.
     </div>
 
-    {{-- ── SOLD TO / DELIVERED TO header (static, compact) ── --}}
-    <div class="row g-2 mb-3">
-        <div class="col-md-6">
-            <div class="border rounded bg-white px-2 py-1 h-100" style="font-size:0.72rem;line-height:1.35;">
-                <span class="fw-bold text-uppercase text-primary" style="font-size:0.66rem;letter-spacing:.5px;"><i class="bi bi-person-badge"></i> Sold To</span>
-                <div class="text-muted">Customer No. : 1378</div>
-                <div class="fw-semibold">RONNIE BUDIONGAN AIRCON SUPPLY AND SERVICES, INC</div>
-                <div>DOOR 7 SORONGON BUILDING QUEZON AVE. TRES DE MAYO DIGOS DAVAO DEL SUR 8002 PH 11</div>
-                <div>TIN: 123-962-440-00000</div>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="border rounded bg-white px-2 py-1 h-100" style="font-size:0.72rem;line-height:1.35;">
-                <span class="fw-bold text-uppercase text-primary" style="font-size:0.66rem;letter-spacing:.5px;"><i class="bi bi-truck"></i> Delivered To</span>
-                <div class="text-muted">Customer No. : 1378</div>
-                <div class="fw-semibold">RONNIE BUDIONGAN AIRCON SUPPLY AND SERVICES, INC</div>
-            </div>
-        </div>
-    </div>
-
+    {{-- ── SOLD TO / DELIVERED TO header ── --}}
     <form action="{{ route('purchase-orders.update', $purchaseOrder) }}" method="POST" id="poForm">
         @csrf
         @method('PUT')
+
+        <div class="row g-2 mb-3">
+            <div class="col-md-6">
+                <div class="border rounded bg-white px-2 py-1 h-100" style="font-size:0.72rem;line-height:1.35;">
+                    <span class="fw-bold text-uppercase text-primary" style="font-size:0.66rem;letter-spacing:.5px;"><i class="bi bi-person-badge"></i> Sold To</span>
+                    <div class="text-muted">Customer No. : 1378</div>
+                    <div class="fw-semibold">RONNIE BUDIONGAN AIRCON SUPPLY AND SERVICES, INC</div>
+                    <div>DOOR 7 SORONGON BUILDING QUEZON AVE. TRES DE MAYO DIGOS DAVAO DEL SUR 8002 PH 11</div>
+                    <div>TIN: 123-962-440-00000</div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                @include('purchase-orders.partials.delivered-to-card', [
+                    'deliveredToCustomerNo' => $purchaseOrder->delivered_to_customer_no,
+                    'deliveredToName' => $purchaseOrder->delivered_to_name,
+                    'deliveredToAddress' => $purchaseOrder->delivered_to_address,
+                ])
+            </div>
+        </div>
 
         <div class="row g-3">
 
