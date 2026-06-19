@@ -141,9 +141,6 @@ class PurchaseOrderController extends Controller
             'items.*.unit_cost'        => 'required|numeric|min:0',
             'items.*.discount_percent'                     => 'nullable|numeric|min:0|max:100',
             'items.*.discount_amount'                      => 'nullable|numeric|min:0',
-            'items.*.unit_discounts'                       => 'nullable|array',
-            'items.*.unit_discounts.*.discount_percent'    => 'nullable|numeric|min:0|max:100',
-            'items.*.unit_discounts.*.discount_amount'     => 'nullable|numeric|min:0',
             'items.*.serials'          => 'nullable|array',
             'items.*.serials.*'        => 'nullable|string|max:255',
             'items.*.outdoor_serials'   => 'nullable|array',
@@ -227,7 +224,6 @@ class PurchaseOrderController extends Controller
                     'unit_cost'         => $line['unit_cost'],
                     'discount_percent'  => $line['discount_percent'],
                     'discount_amount'   => $line['discount_amount'],
-                    'unit_discounts'    => $line['unit_discounts'] ?? null,
                     'discounted_cost'   => $line['net_cost'],
                     'total_cost'        => $line['quantity'] * $line['net_cost'],
                 ]);
@@ -328,28 +324,12 @@ class PurchaseOrderController extends Controller
             $discountPercent  = (float) ($item['discount_percent'] ?? 0);
             $discountAmount   = (float) ($item['discount_amount'] ?? 0);
             $unitCost         = (float) ($item['unit_cost'] ?? 0);
-            $unitDiscountsRaw = $item['unit_discounts'] ?? null;
 
-            $unitDiscounts = null;
-            if ($unitDiscountsRaw && is_array($unitDiscountsRaw) && count($unitDiscountsRaw) > 0) {
-                $unitDiscounts  = [];
-                $totalNetCost   = 0;
-                foreach ($unitDiscountsRaw as $ud) {
-                    $udPct = (float) ($ud['discount_percent'] ?? 0);
-                    $udAmt = (float) ($ud['discount_amount'] ?? 0);
-                    $unitDiscounts[] = ['discount_percent' => $udPct, 'discount_amount' => $udAmt];
-                    $totalNetCost += max(0, $unitCost * (1 - $udPct / 100) - $udAmt);
-                }
-                $netCost         = $qty > 0 ? $totalNetCost / $qty : 0;
-                $discountPercent = 0;
-                $discountAmount  = 0;
-            } else {
-                $netCost = $unitCost * (1 - ($discountPercent / 100));
-                if ($discountAmount > 0) {
-                    $netCost -= $discountAmount;
-                }
-                $netCost = max(0, $netCost);
+            $netCost = $unitCost * (1 - ($discountPercent / 100));
+            if ($discountAmount > 0) {
+                $netCost -= $discountAmount;
             }
+            $netCost = max(0, $netCost);
 
             $serials        = collect($item['serials'] ?? [])->map(fn($s) => trim((string) $s))->filter()->values();
             $outdoorSerials = collect($item['outdoor_serials'] ?? [])->map(fn($s) => trim((string) $s))->filter()->values();
@@ -393,7 +373,6 @@ class PurchaseOrderController extends Controller
                 'unit_cost'        => $unitCost,
                 'discount_percent' => $discountPercent,
                 'discount_amount'  => $discountAmount,
-                'unit_discounts'   => $unitDiscounts,
                 'net_cost'         => $netCost,
                 'serials'          => $serials,
                 'outdoor_serials'  => $outdoorSerials,
@@ -409,31 +388,15 @@ class PurchaseOrderController extends Controller
     {
         $qty = (int) ($item['quantity'] ?? 0);
 
-        $discountPercent  = (float) ($item['discount_percent'] ?? 0);
-        $discountAmount   = (float) ($item['discount_amount'] ?? 0);
-        $unitCost         = (float) ($item['unit_cost'] ?? 0);
-        $unitDiscountsRaw = $item['unit_discounts'] ?? null;
+        $discountPercent = (float) ($item['discount_percent'] ?? 0);
+        $discountAmount  = (float) ($item['discount_amount'] ?? 0);
+        $unitCost        = (float) ($item['unit_cost'] ?? 0);
 
-        $unitDiscounts = null;
-        if ($unitDiscountsRaw && is_array($unitDiscountsRaw) && count($unitDiscountsRaw) > 0) {
-            $unitDiscounts  = [];
-            $totalNetCost   = 0;
-            foreach ($unitDiscountsRaw as $ud) {
-                $udPct = (float) ($ud['discount_percent'] ?? 0);
-                $udAmt = (float) ($ud['discount_amount'] ?? 0);
-                $unitDiscounts[] = ['discount_percent' => $udPct, 'discount_amount' => $udAmt];
-                $totalNetCost += max(0, $unitCost * (1 - $udPct / 100) - $udAmt);
-            }
-            $netCost         = $qty > 0 ? $totalNetCost / $qty : 0;
-            $discountPercent = 0;
-            $discountAmount  = 0;
-        } else {
-            $netCost = $unitCost * (1 - ($discountPercent / 100));
-            if ($discountAmount > 0) {
-                $netCost -= $discountAmount;
-            }
-            $netCost = max(0, $netCost);
+        $netCost = $unitCost * (1 - ($discountPercent / 100));
+        if ($discountAmount > 0) {
+            $netCost -= $discountAmount;
         }
+        $netCost = max(0, $netCost);
 
         $partId      = $item['part_id'] ?? null;
         $newPartName = trim((string) ($item['new_part_name'] ?? ''));
@@ -463,7 +426,6 @@ class PurchaseOrderController extends Controller
             'unit_cost'        => $unitCost,
             'discount_percent' => $discountPercent,
             'discount_amount'  => $discountAmount,
-            'unit_discounts'   => $unitDiscounts,
             'net_cost'         => $netCost,
             'received'         => true,
         ];
@@ -481,7 +443,6 @@ class PurchaseOrderController extends Controller
             'unit_cost'         => $line['unit_cost'],
             'discount_percent'  => $line['discount_percent'],
             'discount_amount'   => $line['discount_amount'],
-            'unit_discounts'    => $line['unit_discounts'] ?? null,
             'discounted_cost'   => $line['net_cost'],
             'total_cost'        => $line['quantity'] * $line['net_cost'],
         ]);
@@ -890,9 +851,6 @@ class PurchaseOrderController extends Controller
             'items.*.unit_cost'        => 'required|numeric|min:0',
             'items.*.discount_amount'                      => 'nullable|numeric|min:0',
             'items.*.discount_percent'                     => 'nullable|numeric|min:0|max:100',
-            'items.*.unit_discounts'                       => 'nullable|array',
-            'items.*.unit_discounts.*.discount_percent'    => 'nullable|numeric|min:0|max:100',
-            'items.*.unit_discounts.*.discount_amount'     => 'nullable|numeric|min:0',
             'items.*.serials'          => 'nullable|array',
             'items.*.serials.*'        => 'nullable|string|max:255',
             'items.*.outdoor_serials'   => 'nullable|array',
@@ -941,7 +899,6 @@ class PurchaseOrderController extends Controller
                     'unit_cost'         => $line['unit_cost'],
                     'discount_percent'  => $line['discount_percent'],
                     'discount_amount'   => $line['discount_amount'],
-                    'unit_discounts'    => $line['unit_discounts'] ?? null,
                     'discounted_cost'   => $line['net_cost'],
                     'total_cost'        => $line['quantity'] * $line['net_cost'],
                 ]);
