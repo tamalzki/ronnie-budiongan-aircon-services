@@ -1,3 +1,31 @@
+@once
+@push('styles')
+<style>
+    /* Form inside modal-content breaks Bootstrap scrollable flex chain — restore it here */
+    .po-due-receive-modal .modal-dialog {
+        max-height: calc(100vh - 2rem);
+    }
+    .po-due-receive-modal .modal-content,
+    .po-due-receive-modal .modal-content form.po-receive-form {
+        display: flex;
+        flex-direction: column;
+        max-height: calc(100vh - 2rem);
+        min-height: 0;
+    }
+    .po-due-receive-modal .modal-header,
+    .po-due-receive-modal .modal-footer {
+        flex-shrink: 0;
+    }
+    .po-due-receive-modal .modal-body {
+        overflow-y: auto;
+        flex: 1 1 auto;
+        min-height: 0;
+        -webkit-overflow-scrolling: touch;
+    }
+</style>
+@endpush
+@endonce
+
 @php
     $modalId = $modalId ?? 'receiveModal';
     $itemsToReceive = app(\App\Services\PurchaseOrderDueReceivingService::class)
