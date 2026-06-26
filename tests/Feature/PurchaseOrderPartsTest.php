@@ -37,7 +37,7 @@ class PurchaseOrderPartsTest extends TestCase
         return [$supplier, $product];
     }
 
-    public function test_store_with_new_part_creates_part_without_stocking_it_in_yet(): void
+    public function test_store_with_new_part_creates_part_linked_to_model_without_stocking_it_in_yet(): void
     {
         [$supplier, $product] = $this->seedCatalog();
 
@@ -57,12 +57,13 @@ class PurchaseOrderPartsTest extends TestCase
                     'discount_amount'  => 0,
                 ],
                 [
-                    'item_type'        => 'part',
-                    'new_part_name'    => 'Capacitor 35uF',
-                    'quantity'         => 5,
-                    'unit_cost'        => 120,
-                    'discount_percent' => 0,
-                    'discount_amount'  => 0,
+                    'item_type'           => 'part',
+                    'new_part_name'       => 'Capacitor 35uF',
+                    'new_part_product_id' => $product->id,
+                    'quantity'            => 5,
+                    'unit_cost'           => 120,
+                    'discount_percent'    => 0,
+                    'discount_amount'     => 0,
                 ],
             ],
         ]);
@@ -72,7 +73,7 @@ class PurchaseOrderPartsTest extends TestCase
 
         $part = Part::where('name', 'Capacitor 35uF')->first();
         $this->assertNotNull($part);
-        $this->assertNull($part->product_id);
+        $this->assertSame($product->id, $part->product_id);
         $this->assertSame(120.0, (float) $part->cost);
         $this->assertSame(0, $part->stock_quantity);
 
@@ -87,11 +88,37 @@ class PurchaseOrderPartsTest extends TestCase
         $this->assertSame(0, InventoryMovement::where('part_id', $part->id)->count());
     }
 
-    public function test_store_reuses_existing_part_with_same_name_case_insensitively(): void
+    public function test_store_with_new_part_and_no_model_creates_general_unlinked_part(): void
     {
         [$supplier, $product] = $this->seedCatalog();
 
-        $existing = Part::create(['name' => 'Drain Hose', 'cost' => 50, 'is_active' => true]);
+        $this->post(route('purchase-orders.store'), [
+            'supplier_po_number' => 'PO-PARTS-1C',
+            'supplier_id'        => $supplier->id,
+            'order_date'         => now()->toDateString(),
+            'payment_type'       => 'full',
+            'items'              => [
+                [
+                    'item_type'        => 'part',
+                    'new_part_name'    => 'Universal Remote',
+                    'quantity'         => 2,
+                    'unit_cost'        => 90,
+                    'discount_percent' => 0,
+                    'discount_amount'  => 0,
+                ],
+            ],
+        ])->assertRedirect();
+
+        $part = Part::where('name', 'Universal Remote')->first();
+        $this->assertNotNull($part);
+        $this->assertNull($part->product_id);
+    }
+
+    public function test_store_reuses_existing_part_with_same_name_and_model_case_insensitively(): void
+    {
+        [$supplier, $product] = $this->seedCatalog();
+
+        $existing = Part::create(['name' => 'Drain Hose', 'product_id' => $product->id, 'cost' => 50, 'is_active' => true]);
 
         $response = $this->post(route('purchase-orders.store'), [
             'supplier_po_number' => 'PO-PARTS-1B',
@@ -100,12 +127,13 @@ class PurchaseOrderPartsTest extends TestCase
             'payment_type' => 'full',
             'items'        => [
                 [
-                    'item_type'        => 'part',
-                    'new_part_name'    => 'drain hose',
-                    'quantity'         => 3,
-                    'unit_cost'        => 80,
-                    'discount_percent' => 0,
-                    'discount_amount'  => 0,
+                    'item_type'           => 'part',
+                    'new_part_name'       => 'drain hose',
+                    'new_part_product_id' => $product->id,
+                    'quantity'            => 3,
+                    'unit_cost'           => 80,
+                    'discount_percent'    => 0,
+                    'discount_amount'     => 0,
                 ],
             ],
         ]);
@@ -117,6 +145,41 @@ class PurchaseOrderPartsTest extends TestCase
         $existing->refresh();
         $this->assertSame(80.0, (float) $existing->cost);
         $this->assertSame(0, $existing->stock_quantity);
+    }
+
+    public function test_store_with_same_part_name_under_a_different_model_creates_a_separate_part(): void
+    {
+        [$supplier, $product] = $this->seedCatalog();
+
+        $brand2   = Brand::create(['name' => 'Parts Brand 2']);
+        $product2 = Product::create([
+            'name' => 'Unit AC 2', 'brand_id' => $brand2->id, 'model' => 'PT-2',
+            'price' => 9000, 'cost' => 0, 'is_active' => true,
+        ]);
+
+        Part::create(['name' => 'Filter', 'product_id' => $product->id, 'cost' => 30, 'is_active' => true]);
+
+        $this->post(route('purchase-orders.store'), [
+            'supplier_po_number' => 'PO-PARTS-1D',
+            'supplier_id'        => $supplier->id,
+            'order_date'         => now()->toDateString(),
+            'payment_type'       => 'full',
+            'items'              => [
+                [
+                    'item_type'           => 'part',
+                    'new_part_name'       => 'Filter',
+                    'new_part_product_id' => $product2->id,
+                    'quantity'            => 1,
+                    'unit_cost'           => 35,
+                    'discount_percent'    => 0,
+                    'discount_amount'     => 0,
+                ],
+            ],
+        ])->assertRedirect();
+
+        $this->assertSame(2, Part::where('name', 'Filter')->count());
+        $this->assertNotNull(Part::where('name', 'Filter')->where('product_id', $product->id)->first());
+        $this->assertNotNull(Part::where('name', 'Filter')->where('product_id', $product2->id)->first());
     }
 
     public function test_store_with_existing_part_id_updates_cost_without_stocking_in(): void
@@ -134,12 +197,13 @@ class PurchaseOrderPartsTest extends TestCase
             'payment_type' => 'full',
             'items'        => [
                 [
-                    'item_type'        => 'part',
-                    'part_id'          => $part->id,
-                    'quantity'         => 3,
-                    'unit_cost'        => 80,
-                    'discount_percent' => 0,
-                    'discount_amount'  => 0,
+                    'item_type'           => 'part',
+                    'part_id'             => $part->id,
+                    'new_part_product_id' => $product->id,
+                    'quantity'            => 3,
+                    'unit_cost'           => 80,
+                    'discount_percent'    => 0,
+                    'discount_amount'     => 0,
                 ],
             ],
         ]);
@@ -150,6 +214,7 @@ class PurchaseOrderPartsTest extends TestCase
         $part->refresh();
         $this->assertSame(0, $part->stock_quantity);
         $this->assertSame(80.0, (float) $part->cost);
+        $this->assertSame($product->id, $part->product_id);
     }
 
     public function test_show_page_renders_part_name_and_badge(): void
@@ -167,12 +232,13 @@ class PurchaseOrderPartsTest extends TestCase
             'payment_type' => 'full',
             'items'        => [
                 [
-                    'item_type'        => 'part',
-                    'part_id'          => $part->id,
-                    'quantity'         => 2,
-                    'unit_cost'        => 200,
-                    'discount_percent' => 0,
-                    'discount_amount'  => 0,
+                    'item_type'           => 'part',
+                    'part_id'             => $part->id,
+                    'new_part_product_id' => $product->id,
+                    'quantity'            => 2,
+                    'unit_cost'           => 200,
+                    'discount_percent'    => 0,
+                    'discount_amount'     => 0,
                 ],
             ],
         ])->assertRedirect();
@@ -201,12 +267,13 @@ class PurchaseOrderPartsTest extends TestCase
             'payment_type' => 'full',
             'items'        => [
                 [
-                    'item_type'        => 'part',
-                    'part_id'          => $part->id,
-                    'quantity'         => 4,
-                    'unit_cost'        => 100,
-                    'discount_percent' => 0,
-                    'discount_amount'  => 0,
+                    'item_type'           => 'part',
+                    'part_id'             => $part->id,
+                    'new_part_product_id' => $product->id,
+                    'quantity'            => 4,
+                    'unit_cost'           => 100,
+                    'discount_percent'    => 0,
+                    'discount_amount'     => 0,
                 ],
             ],
         ])->assertRedirect();
@@ -253,12 +320,13 @@ class PurchaseOrderPartsTest extends TestCase
             'payment_type' => 'full',
             'items'        => [
                 [
-                    'item_type'        => 'part',
-                    'part_id'          => $part->id,
-                    'quantity'         => 4,
-                    'unit_cost'        => 100,
-                    'discount_percent' => 0,
-                    'discount_amount'  => 0,
+                    'item_type'           => 'part',
+                    'part_id'             => $part->id,
+                    'new_part_product_id' => $product->id,
+                    'quantity'            => 4,
+                    'unit_cost'           => 100,
+                    'discount_percent'    => 0,
+                    'discount_amount'     => 0,
                 ],
             ],
         ])->assertRedirect();
@@ -284,12 +352,13 @@ class PurchaseOrderPartsTest extends TestCase
             'payment_type' => 'full',
             'items'        => [
                 [
-                    'item_type'        => 'part',
-                    'part_id'          => $part->id,
-                    'quantity'         => 7,
-                    'unit_cost'        => 110,
-                    'discount_percent' => 0,
-                    'discount_amount'  => 0,
+                    'item_type'           => 'part',
+                    'part_id'             => $part->id,
+                    'new_part_product_id' => $product->id,
+                    'quantity'            => 7,
+                    'unit_cost'           => 110,
+                    'discount_percent'    => 0,
+                    'discount_amount'     => 0,
                 ],
             ],
         ])->assertRedirect();
@@ -317,12 +386,13 @@ class PurchaseOrderPartsTest extends TestCase
             'payment_type' => 'full',
             'items'        => [
                 [
-                    'item_type'        => 'part',
-                    'part_id'          => $part->id,
-                    'quantity'         => 2,
-                    'unit_cost'        => 500,
-                    'discount_percent' => 0,
-                    'discount_amount'  => 0,
+                    'item_type'           => 'part',
+                    'part_id'             => $part->id,
+                    'new_part_product_id' => $product->id,
+                    'quantity'            => 2,
+                    'unit_cost'           => 500,
+                    'discount_percent'    => 0,
+                    'discount_amount'     => 0,
                 ],
             ],
         ])->assertRedirect();

@@ -115,6 +115,7 @@ class PurchaseOrderController extends Controller
             'items.*.product_id'       => 'required_if:items.*.item_type,product|nullable|exists:products,id',
             'items.*.part_id'          => 'nullable|exists:parts,id',
             'items.*.new_part_name'    => 'nullable|string|max:255',
+            'items.*.new_part_product_id' => 'nullable|exists:products,id',
             'items.*.quantity'         => 'required|integer|min:1',
             'items.*.unit_cost'        => 'required|numeric|min:0',
             'items.*.discount_percent'                     => 'nullable|numeric|min:0|max:100',
@@ -381,6 +382,7 @@ class PurchaseOrderController extends Controller
 
         $partId      = $item['part_id'] ?? null;
         $newPartName = trim((string) ($item['new_part_name'] ?? ''));
+        $modelId     = $item['new_part_product_id'] ?? null;
 
         if ($partId) {
             $part = Part::find($partId);
@@ -388,16 +390,27 @@ class PurchaseOrderController extends Controller
                 $errors["items.{$index}.part_id"] = 'Selected part could not be found.';
                 return null;
             }
+            $updates = [];
             if ($newPartName !== '' && $newPartName !== $part->name) {
-                $part->update(['name' => $newPartName]);
+                $updates['name'] = $newPartName;
+            }
+            if ((string) $modelId !== (string) $part->product_id) {
+                $updates['product_id'] = $modelId;
+            }
+            if ($updates !== []) {
+                $part->update($updates);
             }
         } elseif ($newPartName !== '') {
-            // Reuse an existing part with the same name (case-insensitive) instead of duplicating it.
-            $part = Part::whereRaw('LOWER(name) = ?', [mb_strtolower($newPartName)])->first()
+            // Reuse an existing part with the same name + linked model (case-insensitive name)
+            // instead of duplicating it.
+            $part = Part::whereRaw('LOWER(name) = ?', [mb_strtolower($newPartName)])
+                ->where('product_id', $modelId)
+                ->first()
                 ?? Part::create([
-                    'name'      => $newPartName,
-                    'cost'      => $netCost,
-                    'is_active' => true,
+                    'name'       => $newPartName,
+                    'product_id' => $modelId,
+                    'cost'       => $netCost,
+                    'is_active'  => true,
                 ]);
         } else {
             $errors["items.{$index}.part_id"] = 'Enter a name for this part.';
@@ -1013,6 +1026,7 @@ class PurchaseOrderController extends Controller
             'items.*.product_id'       => 'required_if:items.*.item_type,product|nullable|exists:products,id',
             'items.*.part_id'          => 'nullable|exists:parts,id',
             'items.*.new_part_name'    => 'nullable|string|max:255',
+            'items.*.new_part_product_id' => 'nullable|exists:products,id',
             'items.*.quantity'         => 'required|integer|min:1',
             'items.*.unit_cost'        => 'required|numeric|min:0',
             'items.*.discount_amount'                      => 'nullable|numeric|min:0',

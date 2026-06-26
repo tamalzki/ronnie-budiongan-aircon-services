@@ -135,6 +135,14 @@
         flex: 1;
         min-width: 0;
         padding: 3px 5px 4px;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+    .po-part-stack .po-combobox-display {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     .po-new-part-input {
         width: 100%;
@@ -603,11 +611,31 @@ function addPartRow(prefill) {
         <td class="po-item-product-cell po-col-product">
             <input type="hidden" name="items[${idx}][item_type]" value="part">
             <input type="hidden" name="items[${idx}][part_id]" class="part-id-input">
+            <input type="hidden" name="items[${idx}][new_part_product_id]" class="new-part-product-input">
 
             <div class="po-part-cell">
                 <div class="po-part-group">
                     <div class="po-part-group-badge" title="Aircon part">Part</div>
                     <div class="po-part-stack">
+                        <div class="combobox position-relative" id="pmcb-${idx}">
+                            <div class="form-control form-control-sm po-combobox-trigger d-flex justify-content-between align-items-center gap-1"
+                                 style="cursor:pointer;user-select:none;background:#fff;"
+                                 onclick="togglePartModelCombo(${idx})">
+                                <span class="pmcb-display-${idx} text-muted po-combobox-display">Model…</span>
+                                <i class="bi bi-chevron-down flex-shrink-0" style="font-size:0.7rem;color:#888;"></i>
+                            </div>
+                            <div class="pmcb-panel-${idx} border rounded po-combobox-panel">
+                                <div class="p-2 border-bottom">
+                                    <input type="text" class="form-control form-control-sm pmcb-search-${idx}"
+                                           placeholder="🔍 Search model…"
+                                           oninput="searchPartModelCombo(${idx})"
+                                           onclick="event.stopPropagation()">
+                                </div>
+                                <div class="pmcb-list-${idx} po-combobox-list-inner">
+                                    ${partModelOptionsHtml(idx)}
+                                </div>
+                            </div>
+                        </div>
                         <input type="text" class="form-control form-control-sm po-new-part-input"
                                name="items[${idx}][new_part_name]"
                                placeholder="Type part name (e.g. Capacitor, Remote, PCB Board)" required>
@@ -655,6 +683,12 @@ function addPartRow(prefill) {
         if (prefill.part_id) row.querySelector('.part-id-input').value = prefill.part_id;
         row.querySelector(`input[name="items[${idx}][new_part_name]"]`).value = prefill.new_part_name || prefill.label || '';
 
+        const modelId = prefill.new_part_product_id ?? '';
+        const modelLabel = modelId
+            ? (products.find(pr => String(pr.id) === String(modelId))?.label || 'Linked model')
+            : 'General / Unlinked';
+        pickPartModel(idx, modelId, modelLabel);
+
         row.querySelector('.qty-input').value = prefill.quantity || 1;
         if (prefill.unit_cost !== '' && prefill.unit_cost != null) {
             row.querySelector('.cost-input').value = parseFloat(prefill.unit_cost).toFixed(2);
@@ -664,6 +698,56 @@ function addPartRow(prefill) {
 
         calcRow(idx);
     }
+}
+
+/* ── PART MODEL COMBOBOX FUNCTIONS ── */
+function partModelOptionsHtml(idx) {
+    const generalOpt = `<div class="cb-option px-3 py-2 border-bottom" style="cursor:pointer;font-size:0.82rem;"
+         onmouseenter="this.style.background='#f0f4ff'" onmouseleave="this.style.background=''"
+         onclick="pickPartModel(${idx}, '', 'General / Unlinked')">
+         General / Unlinked
+    </div>`;
+    const productOpts = products.map(p =>
+        `<div class="cb-option px-3 py-2" style="cursor:pointer;font-size:0.82rem;"
+              data-value="${p.id}" data-label="${escAttr(p.label)}"
+              onmouseenter="this.style.background='#f0f4ff'" onmouseleave="this.style.background=''"
+              onclick="pickPartModel(${idx}, '${p.id}', this.getAttribute('data-label'))">
+            ${p.label}
+        </div>`
+    ).join('');
+    return generalOpt + productOpts;
+}
+
+function togglePartModelCombo(idx) {
+    const panel   = document.querySelector(`.pmcb-panel-${idx}`);
+    const trigger = document.querySelector(`#pmcb-${idx} .po-combobox-trigger`);
+    const wasOpen = poComboIsOpen(panel);
+    closeAllCombos();
+    if (!wasOpen) {
+        poComboOpen(trigger, panel);
+        document.querySelector(`.pmcb-search-${idx}`)?.focus();
+    }
+}
+
+function searchPartModelCombo(idx) {
+    const term = document.querySelector(`.pmcb-search-${idx}`).value.toLowerCase();
+    const panel = document.querySelector(`.pmcb-panel-${idx}`);
+    (panel ? panel : document).querySelectorAll('.cb-option').forEach(opt => {
+        opt.style.display = opt.textContent.toLowerCase().includes(term) ? '' : 'none';
+    });
+}
+
+function pickPartModel(idx, value, label) {
+    document.querySelector(`#row-${idx} .new-part-product-input`).value = value;
+
+    const disp = document.querySelector(`.pmcb-display-${idx}`);
+    disp.textContent = label;
+    disp.title = label;
+    disp.style.color = '#212529';
+
+    poComboClose(document.querySelector(`.pmcb-panel-${idx}`));
+    const search = document.querySelector(`.pmcb-search-${idx}`);
+    if (search) { search.value = ''; searchPartModelCombo(idx); }
 }
 
 function closeAllCombos() {
@@ -846,14 +930,15 @@ document.getElementById('poForm').addEventListener('submit', function (e) {
         foreach (array_values(old('items')) as $oi) {
             if (($oi['item_type'] ?? 'product') === 'part') {
                 $prefillItems[] = [
-                    'item_type'        => 'part',
-                    'part_id'          => $oi['part_id'] ?? '',
-                    'new_part_name'    => $oi['new_part_name'] ?? '',
-                    'quantity'         => (int) ($oi['quantity'] ?? 1),
-                    'unit_cost'        => $oi['unit_cost'] ?? '',
-                    'discount_percent' => $oi['discount_percent'] ?? 0,
-                    'discount_amount'  => $oi['discount_amount'] ?? 0,
-                    'unit_discounts'   => $oi['unit_discounts'] ?? null,
+                    'item_type'           => 'part',
+                    'part_id'             => $oi['part_id'] ?? '',
+                    'new_part_name'       => $oi['new_part_name'] ?? '',
+                    'new_part_product_id' => $oi['new_part_product_id'] ?? '',
+                    'quantity'            => (int) ($oi['quantity'] ?? 1),
+                    'unit_cost'           => $oi['unit_cost'] ?? '',
+                    'discount_percent'    => $oi['discount_percent'] ?? 0,
+                    'discount_amount'     => $oi['discount_amount'] ?? 0,
+                    'unit_discounts'      => $oi['unit_discounts'] ?? null,
                 ];
                 continue;
             }
@@ -872,14 +957,15 @@ document.getElementById('poForm').addEventListener('submit', function (e) {
         foreach ($purchaseOrder->items as $it) {
             if ($it->is_part) {
                 $prefillItems[] = [
-                    'item_type'        => 'part',
-                    'part_id'          => $it->part_id,
-                    'label'            => $it->part->name,
-                    'quantity'         => $it->quantity_ordered,
-                    'unit_cost'        => $it->unit_cost,
-                    'discount_percent' => $it->discount_percent ?? 0,
-                    'discount_amount'  => $it->discount_amount ?? 0,
-                    'unit_discounts'   => $it->unit_discounts ?? null,
+                    'item_type'           => 'part',
+                    'part_id'             => $it->part_id,
+                    'label'               => $it->part->name,
+                    'new_part_product_id' => $it->part->product_id,
+                    'quantity'            => $it->quantity_ordered,
+                    'unit_cost'           => $it->unit_cost,
+                    'discount_percent'    => $it->discount_percent ?? 0,
+                    'discount_amount'     => $it->discount_amount ?? 0,
+                    'unit_discounts'      => $it->unit_discounts ?? null,
                 ];
                 continue;
             }
@@ -902,14 +988,15 @@ products.forEach(p => productMap[p.id] = p);
 prefillItems.forEach(it => {
     if (it.item_type === 'part') {
         addPartRow({
-            part_id:          it.part_id || '',
-            new_part_name:    it.new_part_name || '',
-            label:            it.label || '',
-            quantity:         parseInt(it.quantity) || 1,
-            unit_cost:        it.unit_cost ?? '',
-            discount_percent: it.discount_percent ?? 0,
-            discount_amount:  it.discount_amount ?? 0,
-            unit_discounts:   it.unit_discounts ?? null,
+            part_id:             it.part_id || '',
+            new_part_name:       it.new_part_name || '',
+            new_part_product_id: it.new_part_product_id || '',
+            label:               it.label || '',
+            quantity:            parseInt(it.quantity) || 1,
+            unit_cost:           it.unit_cost ?? '',
+            discount_percent:    it.discount_percent ?? 0,
+            discount_amount:     it.discount_amount ?? 0,
+            unit_discounts:      it.unit_discounts ?? null,
         });
         return;
     }
