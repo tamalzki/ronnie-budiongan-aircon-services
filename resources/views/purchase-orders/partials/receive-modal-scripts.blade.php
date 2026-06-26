@@ -59,12 +59,38 @@
         }
     };
 
-    function poReceiveUpdateSplitSection(form) {
-        const anyChecked = !!form.querySelector('.split-remainder-checkbox:checked');
-        const section     = form.querySelector('.split-po-section');
-        if (section) section.style.display = anyChecked ? '' : 'none';
-        const poNumberInput = form.querySelector('input[name="new_po_supplier_po_number"]');
-        if (poNumberInput) poNumberInput.required = anyChecked;
+    // Moves the shared "new PO" section to sit right under the last-checked item (instead of
+    // always at the bottom), and autofocuses its PO number field the moment it first appears.
+    function poReceiveUpdateSplitSection(form, tryFocus) {
+        const section = form.querySelector('.split-po-section');
+        if (!section) return;
+
+        const checkedRows = Array.from(form.querySelectorAll('.split-remainder-checkbox:checked'))
+            .map(function (cb) { return cb.closest('.receive-item'); })
+            .filter(Boolean);
+
+        const poNumberInput = section.querySelector('input[name="new_po_supplier_po_number"]');
+
+        if (checkedRows.length === 0) {
+            section.style.display = 'none';
+            section.dataset.poSplitVisible = '0';
+            if (poNumberInput) poNumberInput.required = false;
+            return;
+        }
+
+        const lastCheckedRow = checkedRows[checkedRows.length - 1];
+        if (lastCheckedRow.nextElementSibling !== section) {
+            lastCheckedRow.insertAdjacentElement('afterend', section);
+        }
+
+        const wasHidden = section.dataset.poSplitVisible !== '1';
+        section.style.display = '';
+        section.dataset.poSplitVisible = '1';
+
+        if (poNumberInput) {
+            poNumberInput.required = true;
+            if (tryFocus && wasHidden) poNumberInput.focus();
+        }
     }
 
     function poReceiveInitForms() {
@@ -78,10 +104,10 @@
 
             form.querySelectorAll('.split-remainder-checkbox').forEach(function (checkbox) {
                 checkbox.addEventListener('change', function () {
-                    poReceiveUpdateSplitSection(form);
+                    poReceiveUpdateSplitSection(form, checkbox.checked);
                 });
             });
-            poReceiveUpdateSplitSection(form);
+            poReceiveUpdateSplitSection(form, false);
         });
     }
 
