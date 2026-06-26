@@ -1,5 +1,8 @@
 @once
-@push('styles')
+{{-- Rendered inline rather than via @push('styles') — this partial is also included from
+     due-receiving-reminders.blade.php inside the layout's <body>, which happens AFTER the
+     layout's @stack('styles') in <head> has already been flushed. A push from there would
+     silently never reach the page. --}}
 <style>
     /* The <form> wrapping header/body/footer would otherwise break Bootstrap's
        scrollable-modal flex layout (it expects them as direct .modal-content children).
@@ -11,7 +14,6 @@
         -webkit-overflow-scrolling: touch;
     }
 </style>
-@endpush
 @endonce
 
 @php
