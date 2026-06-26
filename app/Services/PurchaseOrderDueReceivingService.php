@@ -32,32 +32,29 @@ class PurchaseOrderDueReceivingService
             ->whereNotNull('expected_delivery_date')
             ->whereDate('expected_delivery_date', '<=', now()->toDateString())
             ->whereHas('items', function ($q) {
-                $q->whereNull('part_id')
-                    ->whereColumn('quantity_received', '<', 'quantity_ordered');
+                $q->whereColumn('quantity_received', '<', 'quantity_ordered');
             })
             ->orderBy('expected_delivery_date')
             ->orderBy('order_date')
             ->get()
-            ->filter(fn (PurchaseOrder $po) => $this->hasProductUnitsToReceive($po))
+            ->filter(fn (PurchaseOrder $po) => $this->hasUnitsToReceive($po))
             ->values();
     }
 
-    public function hasProductUnitsToReceive(PurchaseOrder $purchaseOrder): bool
+    public function hasUnitsToReceive(PurchaseOrder $purchaseOrder): bool
     {
         return $purchaseOrder->items->contains(
-            fn ($item) => $item->part_id === null
-                && ($item->quantity_ordered - $item->quantity_received) > 0
+            fn ($item) => ($item->quantity_ordered - $item->quantity_received) > 0
         );
     }
 
     /**
      * @return Collection<int, \App\Models\PurchaseOrderItem>
      */
-    public function productItemsToReceive(PurchaseOrder $purchaseOrder): Collection
+    public function itemsToReceive(PurchaseOrder $purchaseOrder): Collection
     {
         return $purchaseOrder->items->filter(
-            fn ($item) => $item->part_id === null
-                && ($item->quantity_ordered - $item->quantity_received) > 0
+            fn ($item) => ($item->quantity_ordered - $item->quantity_received) > 0
         )->values();
     }
 }

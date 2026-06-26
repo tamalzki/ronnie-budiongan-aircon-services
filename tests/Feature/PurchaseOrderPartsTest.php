@@ -37,7 +37,7 @@ class PurchaseOrderPartsTest extends TestCase
         return [$supplier, $product];
     }
 
-    public function test_store_with_new_part_creates_part_and_stocks_it_in(): void
+    public function test_store_with_new_part_creates_part_without_stocking_it_in_yet(): void
     {
         [$supplier, $product] = $this->seedCatalog();
 
@@ -57,13 +57,12 @@ class PurchaseOrderPartsTest extends TestCase
                     'discount_amount'  => 0,
                 ],
                 [
-                    'item_type'           => 'part',
-                    'new_part_name'       => 'Capacitor 35uF',
-                    'new_part_product_id' => $product->id,
-                    'quantity'            => 5,
-                    'unit_cost'           => 120,
-                    'discount_percent'    => 0,
-                    'discount_amount'     => 0,
+                    'item_type'        => 'part',
+                    'new_part_name'    => 'Capacitor 35uF',
+                    'quantity'         => 5,
+                    'unit_cost'        => 120,
+                    'discount_percent' => 0,
+                    'discount_amount'  => 0,
                 ],
             ],
         ]);
@@ -73,9 +72,9 @@ class PurchaseOrderPartsTest extends TestCase
 
         $part = Part::where('name', 'Capacitor 35uF')->first();
         $this->assertNotNull($part);
-        $this->assertSame($product->id, $part->product_id);
+        $this->assertNull($part->product_id);
         $this->assertSame(120.0, (float) $part->cost);
-        $this->assertSame(5, $part->stock_quantity);
+        $this->assertSame(0, $part->stock_quantity);
 
         $po = PurchaseOrder::query()->latest('id')->first();
         $partItem = $po->items()->whereNotNull('part_id')->first();
@@ -83,19 +82,44 @@ class PurchaseOrderPartsTest extends TestCase
         $this->assertSame($part->id, $partItem->part_id);
         $this->assertNull($partItem->product_id);
         $this->assertSame(5, (int) $partItem->quantity_ordered);
-        $this->assertSame(5, (int) $partItem->quantity_received);
+        $this->assertSame(0, (int) $partItem->quantity_received);
 
-        $this->assertTrue(
-            InventoryMovement::where('part_id', $part->id)
-                ->where('type', 'stock_in')
-                ->where('reference_type', 'PurchaseOrder')
-                ->where('reference_id', $po->id)
-                ->where('quantity', 5)
-                ->exists()
-        );
+        $this->assertSame(0, InventoryMovement::where('part_id', $part->id)->count());
     }
 
-    public function test_store_with_existing_part_increments_stock_and_updates_cost(): void
+    public function test_store_reuses_existing_part_with_same_name_case_insensitively(): void
+    {
+        [$supplier, $product] = $this->seedCatalog();
+
+        $existing = Part::create(['name' => 'Drain Hose', 'cost' => 50, 'is_active' => true]);
+
+        $response = $this->post(route('purchase-orders.store'), [
+            'supplier_po_number' => 'PO-PARTS-1B',
+            'supplier_id'  => $supplier->id,
+            'order_date'   => now()->toDateString(),
+            'payment_type' => 'full',
+            'items'        => [
+                [
+                    'item_type'        => 'part',
+                    'new_part_name'    => 'drain hose',
+                    'quantity'         => 3,
+                    'unit_cost'        => 80,
+                    'discount_percent' => 0,
+                    'discount_amount'  => 0,
+                ],
+            ],
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionMissing('error');
+
+        $this->assertSame(1, Part::where('name', 'Drain Hose')->count());
+        $existing->refresh();
+        $this->assertSame(80.0, (float) $existing->cost);
+        $this->assertSame(0, $existing->stock_quantity);
+    }
+
+    public function test_store_with_existing_part_id_updates_cost_without_stocking_in(): void
     {
         [$supplier, $product] = $this->seedCatalog();
 
@@ -124,7 +148,7 @@ class PurchaseOrderPartsTest extends TestCase
         $response->assertSessionMissing('error');
 
         $part->refresh();
-        $this->assertSame(3, $part->stock_quantity);
+        $this->assertSame(0, $part->stock_quantity);
         $this->assertSame(80.0, (float) $part->cost);
     }
 
@@ -159,10 +183,10 @@ class PurchaseOrderPartsTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Outdoor Bracket');
-        $response->assertSee('🔧 Part');
+        $response->assertSee('🔧 Aircon Part');
     }
 
-    public function test_update_recomputes_part_stock_after_quantity_change(): void
+    public function test_receiving_a_part_stocks_it_in(): void
     {
         [$supplier, $product] = $this->seedCatalog();
 
@@ -187,12 +211,74 @@ class PurchaseOrderPartsTest extends TestCase
             ],
         ])->assertRedirect();
 
-        $this->assertSame(4, $part->fresh()->stock_quantity);
+        $this->assertSame(0, $part->fresh()->stock_quantity);
 
         $po = PurchaseOrder::query()->latest('id')->first();
+        $partItem = $po->items()->whereNotNull('part_id')->first();
 
+        $this->post(route('purchase-orders.receive', $po), [
+            'received_date'   => now()->toDateString(),
+            'delivery_number' => 'DR-1001',
+            'items'           => [
+                ['id' => $partItem->id, 'quantity_received' => 4],
+            ],
+        ])->assertRedirect();
+
+        $this->assertSame(4, $part->fresh()->stock_quantity);
+        $this->assertSame(4, (int) $partItem->fresh()->quantity_received);
+        $this->assertSame('received', $po->fresh()->status);
+
+        $this->assertTrue(
+            InventoryMovement::where('part_id', $part->id)
+                ->where('type', 'stock_in')
+                ->where('reference_type', 'PurchaseOrder')
+                ->where('reference_id', $po->id)
+                ->where('quantity', 4)
+                ->exists()
+        );
+    }
+
+    public function test_update_carries_over_previously_received_part_quantity(): void
+    {
+        [$supplier, $product] = $this->seedCatalog();
+
+        $part = Part::create([
+            'name' => 'Fan Motor', 'product_id' => $product->id, 'cost' => 100, 'is_active' => true,
+        ]);
+
+        $this->post(route('purchase-orders.store'), [
+            'supplier_po_number' => 'PO-PARTS-5',
+            'supplier_id'  => $supplier->id,
+            'order_date'   => now()->toDateString(),
+            'payment_type' => 'full',
+            'items'        => [
+                [
+                    'item_type'        => 'part',
+                    'part_id'          => $part->id,
+                    'quantity'         => 4,
+                    'unit_cost'        => 100,
+                    'discount_percent' => 0,
+                    'discount_amount'  => 0,
+                ],
+            ],
+        ])->assertRedirect();
+
+        $po = PurchaseOrder::query()->latest('id')->first();
+        $partItem = $po->items()->whereNotNull('part_id')->first();
+
+        $this->post(route('purchase-orders.receive', $po), [
+            'received_date'   => now()->toDateString(),
+            'delivery_number' => 'DR-1002',
+            'items'           => [
+                ['id' => $partItem->id, 'quantity_received' => 4],
+            ],
+        ])->assertRedirect();
+
+        $this->assertSame(4, $part->fresh()->stock_quantity);
+
+        // Editing the PO to raise the ordered quantity should keep the 4 already received in stock.
         $this->put(route('purchase-orders.update', $po), [
-            'supplier_po_number' => 'PO-PARTS-4',
+            'supplier_po_number' => 'PO-PARTS-5',
             'supplier_id'  => $supplier->id,
             'order_date'   => now()->toDateString(),
             'payment_type' => 'full',
@@ -208,8 +294,12 @@ class PurchaseOrderPartsTest extends TestCase
             ],
         ])->assertRedirect();
 
-        $this->assertSame(7, $part->fresh()->stock_quantity);
+        $this->assertSame(4, $part->fresh()->stock_quantity);
         $this->assertSame(110.0, (float) $part->fresh()->cost);
+
+        $updatedItem = $po->fresh()->items()->whereNotNull('part_id')->first();
+        $this->assertSame(7, (int) $updatedItem->quantity_ordered);
+        $this->assertSame(4, (int) $updatedItem->quantity_received);
     }
 
     public function test_destroy_reverts_part_stock(): void
@@ -217,11 +307,11 @@ class PurchaseOrderPartsTest extends TestCase
         [$supplier, $product] = $this->seedCatalog();
 
         $part = Part::create([
-            'name' => 'Fan Motor', 'product_id' => $product->id, 'cost' => 500, 'is_active' => true,
+            'name' => 'Blower Wheel', 'product_id' => $product->id, 'cost' => 500, 'is_active' => true,
         ]);
 
         $this->post(route('purchase-orders.store'), [
-            'supplier_po_number' => 'PO-PARTS-5',
+            'supplier_po_number' => 'PO-PARTS-6',
             'supplier_id'  => $supplier->id,
             'order_date'   => now()->toDateString(),
             'payment_type' => 'full',
@@ -237,9 +327,18 @@ class PurchaseOrderPartsTest extends TestCase
             ],
         ])->assertRedirect();
 
-        $this->assertSame(2, $part->fresh()->stock_quantity);
-
         $po = PurchaseOrder::query()->latest('id')->first();
+        $partItem = $po->items()->whereNotNull('part_id')->first();
+
+        $this->post(route('purchase-orders.receive', $po), [
+            'received_date'   => now()->toDateString(),
+            'delivery_number' => 'DR-1003',
+            'items'           => [
+                ['id' => $partItem->id, 'quantity_received' => 2],
+            ],
+        ])->assertRedirect();
+
+        $this->assertSame(2, $part->fresh()->stock_quantity);
 
         $this->delete(route('purchase-orders.destroy', $po))->assertRedirect();
 

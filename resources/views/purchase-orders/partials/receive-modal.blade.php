@@ -29,7 +29,7 @@
 @php
     $modalId = $modalId ?? 'receiveModal';
     $itemsToReceive = app(\App\Services\PurchaseOrderDueReceivingService::class)
-        ->productItemsToReceive($purchaseOrder);
+        ->itemsToReceive($purchaseOrder);
     $autoOpen = $autoOpen ?? false;
 @endphp
 
@@ -53,6 +53,21 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-4" style="font-size:0.875rem;">
+                    @if($errors->any())
+                    <div class="alert alert-danger py-2 px-3 mb-3 border-0" style="font-size:0.82rem;">
+                        <ul class="mb-0">
+                            @foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach
+                        </ul>
+                    </div>
+                    @push('scripts')
+                    <script>
+                        document.addEventListener('DOMContentLoaded', function () {
+                            var modalEl = document.getElementById('{{ $modalId }}');
+                            if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
+                        });
+                    </script>
+                    @endpush
+                    @endif
                     @if($purchaseOrder->expected_delivery_date)
                     <div class="alert alert-warning py-2 px-3 mb-3 border-0" style="font-size:0.82rem;">
                         <i class="bi bi-calendar-check"></i>
@@ -78,20 +93,27 @@
 
                     @foreach($itemsToReceive as $item)
                     @php
-                        $isSetItem = $item->is_set && $item->product?->pairedProduct;
+                        $isPart    = $item->is_part;
+                        $isSetItem = !$isPart && $item->is_set && $item->product?->pairedProduct;
                         $remaining = $item->quantity_ordered - $item->quantity_received;
                     @endphp
                     <div class="border rounded p-3 mb-2 receive-item"
                          data-item-id="{{ $item->id }}"
                          data-is-set="{{ $isSetItem ? 1 : 0 }}"
-                         data-indoor-model="{{ $item->product->model }}"
+                         data-is-part="{{ $isPart ? 1 : 0 }}"
+                         data-indoor-model="{{ $isPart ? '' : $item->product->model }}"
                          data-outdoor-model="{{ $isSetItem ? $item->product->pairedProduct->model : '' }}">
                         <input type="hidden" name="items[{{ $loop->index }}][id]" value="{{ $item->id }}">
                         <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
                             <div>
-                                <span class="fw-bold" style="font-family:monospace;">{{ $isSetItem ? $item->product->set_model_label : $item->product->model }}</span>
-                                @if($isSetItem)
-                                    <span class="badge ms-1" style="background:#f3e8ff;color:#7c3aed;border:1px solid #c4b5fd;font-size:0.63rem;">❄️🌀 Set</span>
+                                @if($isPart)
+                                    <span class="fw-bold">{{ $item->part->name }}</span>
+                                    <span class="badge ms-1" style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;font-size:0.63rem;">🔧 Part</span>
+                                @else
+                                    <span class="fw-bold" style="font-family:monospace;">{{ $isSetItem ? $item->product->set_model_label : $item->product->model }}</span>
+                                    @if($isSetItem)
+                                        <span class="badge ms-1" style="background:#f3e8ff;color:#7c3aed;border:1px solid #c4b5fd;font-size:0.63rem;">❄️🌀 Set</span>
+                                    @endif
                                 @endif
                                 <span class="text-muted small ms-2">{{ $remaining }} {{ $isSetItem ? 'set(s)' : 'unit(s)' }} remaining</span>
                             </div>
@@ -105,8 +127,38 @@
                             </div>
                         </div>
                         <div class="receive-serials" id="receive-serials-{{ $modalId }}-{{ $loop->index }}"></div>
+                        <div class="form-check mt-2">
+                            <input class="form-check-input split-remainder-checkbox" type="checkbox"
+                                   name="items[{{ $loop->index }}][split_remainder]" value="1"
+                                   {{ old("items.{$loop->index}.split_remainder") ? 'checked' : '' }}
+                                   id="split-{{ $modalId }}-{{ $loop->index }}">
+                            <label class="form-check-label text-muted small" for="split-{{ $modalId }}-{{ $loop->index }}" style="font-size:0.76rem;">
+                                Remaining will arrive on a separate PO (supplier split the delivery)
+                            </label>
+                        </div>
                     </div>
                     @endforeach
+
+                    @php $showSplitSection = old('new_po_supplier_po_number') || collect(old('items', []))->contains(fn($i) => !empty($i['split_remainder'])); @endphp
+                    <div class="border rounded p-3 mb-2 split-po-section" style="{{ $showSplitSection ? '' : 'display:none;' }}background:#eff6ff;border-color:#93c5fd !important;">
+                        <div class="fw-semibold small mb-2"><i class="bi bi-signpost-split text-primary"></i> New PO for items arriving separately</div>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-semibold">New Supplier PO No. <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control form-control-sm" name="new_po_supplier_po_number"
+                                       value="{{ old('new_po_supplier_po_number') }}"
+                                       placeholder="e.g. 719-B" style="font-family:monospace;">
+                                @error('new_po_supplier_po_number')
+                                    <div class="text-danger small mt-1">{{ $message }}</div>
+                                @enderror
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-semibold">New Expected Delivery</label>
+                                <input type="date" class="form-control form-control-sm" name="new_po_expected_delivery_date"
+                                       value="{{ old('new_po_expected_delivery_date') }}">
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer border-0 bg-light">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal" data-po-due-receive-dismiss>

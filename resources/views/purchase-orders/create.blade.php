@@ -135,47 +135,6 @@
         flex: 1;
         min-width: 0;
         padding: 3px 5px 4px;
-        display: flex;
-        flex-direction: column;
-        gap: 3px;
-    }
-    .po-part-line {
-        width: 100%;
-        min-width: 0;
-    }
-    .po-part-line-part {
-        border-top: 1px dashed #fed7aa;
-        padding-top: 3px;
-    }
-    .po-part-line.is-locked {
-        opacity: 0.45;
-        pointer-events: none;
-    }
-    .po-part-line.is-locked .pacb-display-placeholder {
-        color: #adb5bd;
-        font-style: italic;
-    }
-    .po-part-line-model .po-combobox-display {
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    .po-part-line-part .po-combobox-trigger {
-        align-items: flex-start !important;
-        min-height: 26px;
-        height: auto !important;
-    }
-    .po-part-line-part .po-combobox-display,
-    .po-new-part-input {
-        white-space: normal;
-        word-break: break-word;
-        overflow: visible;
-        text-overflow: unset;
-        line-height: 1.25;
-    }
-    .po-part-new-name {
-        width: 100%;
-        min-width: 0;
     }
     .po-new-part-input {
         width: 100%;
@@ -458,7 +417,6 @@
 @push('scripts')
 <script>
 const products = {!! json_encode($productsJson) !!};
-const parts = {!! json_encode($partsJson) !!};
 let rowIndex = 0;
 
 /* ── Floating combobox: panels render on document.body so table overflow cannot clip them ── */
@@ -671,95 +629,8 @@ function onQtyChange(idx) {
     calcRow(idx);
 }
 
-function partById(id) {
-    return parts.find(p => String(p.id) === String(id)) || null;
-}
-
 function escAttr(s) {
     return String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-}
-
-function partsForModel(modelProductId) {
-    if (modelProductId === '' || modelProductId === null || modelProductId === undefined) {
-        return parts.filter(p => !p.product_id);
-    }
-    return parts.filter(p => String(p.product_id) === String(modelProductId));
-}
-
-function partModelOptionsHtml(idx) {
-    const generalOpt = `<div class="cb-option px-3 py-2 border-bottom" style="cursor:pointer;font-size:0.82rem;"
-         onmouseenter="this.style.background='#f0f4ff'" onmouseleave="this.style.background=''"
-         onclick="pickPartModel(${idx}, '', 'General / Unlinked')">
-         General / Unlinked
-    </div>`;
-    const productOpts = products.map(p =>
-        `<div class="cb-option px-3 py-2" style="cursor:pointer;font-size:0.82rem;"
-              data-value="${p.id}" data-label="${escAttr(p.label)}"
-              onmouseenter="this.style.background='#f0f4ff'" onmouseleave="this.style.background=''"
-              onclick="pickPartModel(${idx}, '${p.id}', this.getAttribute('data-label'))">
-            ${p.label}
-        </div>`
-    ).join('');
-    return generalOpt + productOpts;
-}
-
-function buildPartOptionsForRow(idx, modelProductId) {
-    const list = document.querySelector(`.pacb-list-${idx}`);
-    if (!list) return;
-
-    const filtered = partsForModel(modelProductId);
-    const newPartOpt = `<div class="cb-option px-3 py-2 border-bottom" style="cursor:pointer;font-size:0.82rem;font-weight:600;color:#198754;"
-         onmouseenter="this.style.background='#f0f4ff'" onmouseleave="this.style.background=''"
-         onclick="pickNewPart(${idx})">➕ New Aircon Part…</div>`;
-
-    if (filtered.length === 0) {
-        list.innerHTML = newPartOpt + `<div class="px-3 py-2 text-muted small">No existing parts for this model. Choose “New Aircon Part…” above.</div>`;
-        return;
-    }
-
-    const partOpts = filtered.map(p =>
-        `<div class="cb-option px-3 py-2" style="cursor:pointer;font-size:0.82rem;"
-             data-value="${p.id}" data-cost="${p.cost}" data-label="${escAttr(p.name)}"
-             data-product-id="${p.product_id ?? ''}"
-             onmouseenter="this.style.background='#f0f4ff'" onmouseleave="this.style.background=''"
-             onclick="pickPartCombo(${idx}, '${p.id}', '${p.cost}', this.getAttribute('data-label'))">
-            ${escAttr(p.name)}
-        </div>`
-    ).join('');
-
-    list.innerHTML = newPartOpt + partOpts;
-}
-
-function showPartPicker(idx) {
-    const picker = document.querySelector(`#pacb-${idx}`);
-    if (picker) picker.style.display = '';
-    const fields = document.querySelector(`.new-part-fields-${idx}`);
-    if (fields) fields.style.display = 'none';
-}
-
-function showNewPartInput(idx) {
-    const picker = document.querySelector(`#pacb-${idx}`);
-    if (picker) picker.style.display = 'none';
-    const fields = document.querySelector(`.new-part-fields-${idx}`);
-    if (fields) fields.style.display = '';
-}
-
-function clearPartSelection(idx) {
-    document.querySelector(`#row-${idx} .part-id-input`).value = '';
-    const disp = document.querySelector(`.pacb-display-${idx}`);
-    if (disp) {
-        disp.textContent = 'Part…';
-        disp.title = '';
-        disp.style.color = '#6c757d';
-        disp.classList.add('pacb-display-placeholder');
-    }
-    const nameInput = document.querySelector(`input[name="items[${idx}][new_part_name]"]`);
-    if (nameInput) nameInput.value = '';
-    showPartPicker(idx);
-}
-
-function isPartModelSet(idx) {
-    return !document.querySelector(`.part-step2-${idx}`)?.classList.contains('is-locked');
 }
 
 function addPartRow(prefill) {
@@ -774,57 +645,14 @@ function addPartRow(prefill) {
         <td class="po-item-product-cell po-col-product">
             <input type="hidden" name="items[${idx}][item_type]" value="part">
             <input type="hidden" name="items[${idx}][part_id]" class="part-id-input">
-            <input type="hidden" name="items[${idx}][new_part_product_id]" class="new-part-product-input">
 
             <div class="po-part-cell">
                 <div class="po-part-group">
                     <div class="po-part-group-badge" title="Aircon part">Part</div>
                     <div class="po-part-stack">
-                        <div class="po-part-line po-part-line-model">
-                            <div class="combobox position-relative" id="pmcb-${idx}">
-                                <div class="form-control form-control-sm po-combobox-trigger d-flex justify-content-between align-items-center gap-1"
-                                     style="cursor:pointer;user-select:none;background:#fff;"
-                                     onclick="togglePartModelCombo(${idx})">
-                                    <span class="pmcb-display-${idx} text-muted po-combobox-display">Model…</span>
-                                    <i class="bi bi-chevron-down flex-shrink-0" style="font-size:0.7rem;color:#888;"></i>
-                                </div>
-                                <div class="pmcb-panel-${idx} border rounded po-combobox-panel">
-                                    <div class="p-2 border-bottom">
-                                        <input type="text" class="form-control form-control-sm pmcb-search-${idx}"
-                                               placeholder="🔍 Search model…"
-                                               oninput="searchPartModelCombo(${idx})"
-                                               onclick="event.stopPropagation()">
-                                    </div>
-                                    <div class="pmcb-list-${idx} po-combobox-list-inner">
-                                        ${partModelOptionsHtml(idx)}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="part-step2-${idx} po-part-line po-part-line-part is-locked">
-                            <div class="combobox position-relative" id="pacb-${idx}">
-                                <div class="form-control form-control-sm po-combobox-trigger d-flex justify-content-between align-items-center gap-1"
-                                     style="cursor:pointer;user-select:none;background:#fff;"
-                                     onclick="togglePartCombo(${idx})">
-                                    <span class="pacb-display-${idx} text-muted po-combobox-display pacb-display-placeholder">Select model first</span>
-                                    <i class="bi bi-chevron-down flex-shrink-0" style="font-size:0.7rem;color:#888;margin-top:2px;"></i>
-                                </div>
-                                <div class="pacb-panel-${idx} border rounded po-combobox-panel">
-                                    <div class="p-2 border-bottom">
-                                        <input type="text" class="form-control form-control-sm pacb-search-${idx}"
-                                               placeholder="🔍 Search part…"
-                                               oninput="searchPartCombo(${idx})"
-                                               onclick="event.stopPropagation()">
-                                    </div>
-                                    <div class="pacb-list-${idx} po-combobox-list-inner"></div>
-                                </div>
-                            </div>
-                            <div class="new-part-fields-${idx} po-part-new-name" style="display:none;">
-                                <input type="text" class="form-control form-control-sm po-new-part-input" name="items[${idx}][new_part_name]"
-                                       placeholder="Enter new part name">
-                            </div>
-                        </div>
+                        <input type="text" class="form-control form-control-sm po-new-part-input"
+                               name="items[${idx}][new_part_name]"
+                               placeholder="Type part name (e.g. Capacitor, Remote, PCB Board)" required>
                     </div>
                 </div>
             </div>
@@ -866,24 +694,8 @@ function addPartRow(prefill) {
     if (prefill) {
         const row = document.getElementById(`row-${idx}`);
 
-        if (prefill.part_id) {
-            const p = partById(prefill.part_id);
-            const modelId = p?.product_id ?? '';
-            const modelLabel = modelId
-                ? (products.find(pr => String(pr.id) === String(modelId))?.label || p?.linked_model_label || 'Linked model')
-                : 'General / Unlinked';
-            pickPartModel(idx, modelId, modelLabel, true);
-            buildPartOptionsForRow(idx, modelId);
-            pickPartCombo(idx, prefill.part_id, prefill.unit_cost ?? (p ? p.cost : 0), prefill.label || (p ? p.name : ('Part #' + prefill.part_id)), true);
-        } else if (prefill.new_part_name) {
-            const modelId = prefill.new_part_product_id ?? '';
-            const modelLabel = modelId
-                ? (products.find(pr => String(pr.id) === String(modelId))?.label || 'Linked model')
-                : 'General / Unlinked';
-            pickPartModel(idx, modelId, modelLabel, true);
-            pickNewPart(idx, true);
-            row.querySelector(`input[name="items[${idx}][new_part_name]"]`).value = prefill.new_part_name;
-        }
+        if (prefill.part_id) row.querySelector('.part-id-input').value = prefill.part_id;
+        row.querySelector(`input[name="items[${idx}][new_part_name]"]`).value = prefill.new_part_name || prefill.label || '';
 
         row.querySelector('.qty-input').value = prefill.quantity || 1;
         if (prefill.unit_cost !== '' && prefill.unit_cost != null) {
@@ -894,119 +706,6 @@ function addPartRow(prefill) {
 
         calcRow(idx);
     }
-}
-
-/* ── PART MODEL + PART COMBOBOX FUNCTIONS ── */
-function togglePartModelCombo(idx) {
-    const panel   = document.querySelector(`.pmcb-panel-${idx}`);
-    const trigger = document.querySelector(`#pmcb-${idx} .po-combobox-trigger`);
-    const wasOpen = poComboIsOpen(panel);
-    closeAllCombos();
-    if (!wasOpen) {
-        poComboOpen(trigger, panel);
-        document.querySelector(`.pmcb-search-${idx}`)?.focus();
-    }
-}
-
-function searchPartModelCombo(idx) {
-    const term = document.querySelector(`.pmcb-search-${idx}`).value.toLowerCase();
-    const panel = document.querySelector(`.pmcb-panel-${idx}`);
-    (panel ? panel : document).querySelectorAll('.cb-option').forEach(opt => {
-        opt.style.display = opt.textContent.toLowerCase().includes(term) ? '' : 'none';
-    });
-}
-
-function pickPartModel(idx, value, label, skipPartRebuild) {
-    document.querySelector(`#row-${idx} .new-part-product-input`).value = value;
-
-    const disp = document.querySelector(`.pmcb-display-${idx}`);
-    disp.textContent = label;
-    disp.title = label;
-    disp.style.color = '#212529';
-
-    document.querySelector(`.part-step2-${idx}`)?.classList.remove('is-locked');
-    const partDisp = document.querySelector(`.pacb-display-${idx}`);
-    if (partDisp) partDisp.classList.remove('pacb-display-placeholder');
-    if (!skipPartRebuild) {
-        clearPartSelection(idx);
-        buildPartOptionsForRow(idx, value);
-    }
-
-    poComboClose(document.querySelector(`.pmcb-panel-${idx}`));
-    const search = document.querySelector(`.pmcb-search-${idx}`);
-    if (search) { search.value = ''; searchPartModelCombo(idx); }
-}
-
-function togglePartCombo(idx) {
-    if (!isPartModelSet(idx)) {
-        alert('Please select an AC model first.');
-        return;
-    }
-    const panel   = document.querySelector(`.pacb-panel-${idx}`);
-    const trigger = document.querySelector(`#pacb-${idx} .po-combobox-trigger`);
-    const wasOpen = poComboIsOpen(panel);
-    closeAllCombos();
-    if (!wasOpen) {
-        poComboOpen(trigger, panel);
-        document.querySelector(`.pacb-search-${idx}`)?.focus();
-    }
-}
-
-function searchPartCombo(idx) {
-    const term = document.querySelector(`.pacb-search-${idx}`).value.toLowerCase();
-    const panel = document.querySelector(`.pacb-panel-${idx}`);
-    (panel ? panel : document).querySelectorAll('.cb-option').forEach(opt => {
-        opt.style.display = opt.textContent.toLowerCase().includes(term) ? '' : 'none';
-    });
-}
-
-function pickPartCombo(idx, value, cost, label, skipCalc) {
-    document.querySelector(`#row-${idx} .part-id-input`).value = value;
-
-    const disp = document.querySelector(`.pacb-display-${idx}`);
-    disp.textContent = label;
-    disp.title = label;
-    disp.style.color = '#212529';
-    disp.classList.remove('pacb-display-placeholder');
-
-    showPartPicker(idx);
-    document.querySelector(`.new-part-fields-${idx}`).style.display = 'none';
-    const row = document.getElementById(`row-${idx}`);
-    row.querySelector(`input[name="items[${idx}][new_part_name]"]`).value = '';
-
-    if (cost !== null && cost !== undefined && parseFloat(cost) > 0 && row.querySelector('.cost-input').value === '') {
-        row.querySelector('.cost-input').value = parseFloat(cost).toFixed(2);
-    }
-
-    poComboClose(document.querySelector(`.pacb-panel-${idx}`));
-    const search = document.querySelector(`.pacb-search-${idx}`);
-    if (search) { search.value = ''; searchPartCombo(idx); }
-
-    if (!skipCalc) calcRow(idx);
-}
-
-function pickNewPart(idx, skipFocus) {
-    if (!isPartModelSet(idx)) {
-        alert('Please select an AC model first.');
-        return;
-    }
-
-    document.querySelector(`#row-${idx} .part-id-input`).value = '';
-
-    showNewPartInput(idx);
-    poComboClose(document.querySelector(`.pacb-panel-${idx}`));
-
-    if (!skipFocus) {
-        document.querySelector(`input[name="items[${idx}][new_part_name]"]`)?.focus();
-    }
-}
-
-function closeAllPartCombos() {
-    document.querySelectorAll('[class*="pacb-panel-"]').forEach(poComboClose);
-}
-
-function closeAllPartModelCombos() {
-    document.querySelectorAll('[class*="pmcb-panel-"]').forEach(poComboClose);
 }
 
 function closeAllCombos() {
@@ -1203,16 +902,13 @@ document.getElementById('poForm').addEventListener('submit', function (e) {
 
     let invalidPart = false;
     document.querySelectorAll('.part-row').forEach(row => {
-        const idx       = row.id.replace('row-', '');
-        const modelSet  = isPartModelSet(idx);
-        const partId    = row.querySelector('.part-id-input')?.value;
-        const newName   = row.querySelector(`input[name="items[${idx}][new_part_name]"]`)?.value.trim();
-        if (!modelSet) { invalidPart = true; return; }
-        if (!partId && !newName) invalidPart = true;
+        const idx     = row.id.replace('row-', '');
+        const newName = row.querySelector(`input[name="items[${idx}][new_part_name]"]`)?.value.trim();
+        if (!newName) invalidPart = true;
     });
     if (invalidPart) {
         e.preventDefault();
-        alert('For each aircon part row: select an AC model first, then choose an existing part or enter a new part name.');
+        alert('Please type a name for each aircon part row.');
         return;
     }
 });
@@ -1229,14 +925,13 @@ document.getElementById('poForm').addEventListener('submit', function (e) {
 
         if (it.item_type === 'part') {
             addPartRow({
-                part_id:             it.part_id || '',
-                new_part_name:       it.new_part_name || '',
-                new_part_product_id: it.new_part_product_id || '',
-                quantity:            parseInt(it.quantity) || 1,
-                unit_cost:           it.unit_cost ?? '',
-                discount_percent:    it.discount_percent ?? 0,
-                discount_amount:     it.discount_amount ?? 0,
-                unit_discounts:      it.unit_discounts ?? null,
+                part_id:          it.part_id || '',
+                new_part_name:    it.new_part_name || '',
+                quantity:         parseInt(it.quantity) || 1,
+                unit_cost:        it.unit_cost ?? '',
+                discount_percent: it.discount_percent ?? 0,
+                discount_amount:  it.discount_amount ?? 0,
+                unit_discounts:   it.unit_discounts ?? null,
             });
             return;
         }

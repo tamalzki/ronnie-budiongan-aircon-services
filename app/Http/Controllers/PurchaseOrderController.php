@@ -92,32 +92,8 @@ class PurchaseOrderController extends Controller
     {
         $suppliers = Supplier::where('is_active', true)->orderBy('name')->get();
         $productsJson = $this->productCatalog->activeProductsForPurchaseOrderJson();
-        $partsJson = $this->activePartsForPurchaseOrderJson();
 
-        return view('purchase-orders.create', compact('suppliers', 'productsJson', 'partsJson'));
-    }
-
-    /**
-     * Active parts as JSON-friendly rows for the PO parts combobox.
-     *
-     * @return list<array<string, mixed>>
-     */
-    private function activePartsForPurchaseOrderJson(): array
-    {
-        return Part::with('product.pairedProduct')
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get()
-            ->map(fn (Part $part) => [
-                'id'                 => $part->id,
-                'name'               => $part->name,
-                'product_id'         => $part->product_id,
-                'cost'               => (float) $part->cost,
-                'linked_model_label' => $part->linked_model_label,
-                'stock_quantity'     => $part->stock_quantity,
-            ])
-            ->values()
-            ->all();
+        return view('purchase-orders.create', compact('suppliers', 'productsJson'));
     }
 
     public function store(Request $request)
@@ -139,7 +115,6 @@ class PurchaseOrderController extends Controller
             'items.*.product_id'       => 'required_if:items.*.item_type,product|nullable|exists:products,id',
             'items.*.part_id'          => 'nullable|exists:parts,id',
             'items.*.new_part_name'    => 'nullable|string|max:255',
-            'items.*.new_part_product_id' => 'nullable|exists:products,id',
             'items.*.quantity'         => 'required|integer|min:1',
             'items.*.unit_cost'        => 'required|numeric|min:0',
             'items.*.discount_percent'                     => 'nullable|numeric|min:0|max:100',
@@ -413,15 +388,19 @@ class PurchaseOrderController extends Controller
                 $errors["items.{$index}.part_id"] = 'Selected part could not be found.';
                 return null;
             }
+            if ($newPartName !== '' && $newPartName !== $part->name) {
+                $part->update(['name' => $newPartName]);
+            }
         } elseif ($newPartName !== '') {
-            $part = Part::create([
-                'name'       => $newPartName,
-                'product_id' => $item['new_part_product_id'] ?? null,
-                'cost'       => $netCost,
-                'is_active'  => true,
-            ]);
+            // Reuse an existing part with the same name (case-insensitive) instead of duplicating it.
+            $part = Part::whereRaw('LOWER(name) = ?', [mb_strtolower($newPartName)])->first()
+                ?? Part::create([
+                    'name'      => $newPartName,
+                    'cost'      => $netCost,
+                    'is_active' => true,
+                ]);
         } else {
-            $errors["items.{$index}.part_id"] = 'Select an existing part or enter a name for a new part.';
+            $errors["items.{$index}.part_id"] = 'Enter a name for this part.';
             return null;
         }
 
@@ -433,19 +412,24 @@ class PurchaseOrderController extends Controller
             'discount_percent' => $discountPercent,
             'discount_amount'  => $discountAmount,
             'net_cost'         => $netCost,
-            'received'         => true,
+            'received'         => false,
         ];
     }
 
-    /** Create the PO item, update the part's cost, and log a stock-in movement for a part line. */
-    private function applyPartLine(PurchaseOrder $po, array $line, string $note): void
+    /**
+     * Create the PO item and update the part's cost. Stock is only added once the part is
+     * actually received — $carryReceivedQty preserves previously-received quantity across an edit.
+     */
+    private function applyPartLine(PurchaseOrder $po, array $line, string $note, int $carryReceivedQty = 0): void
     {
+        $receivedQty = min($carryReceivedQty, $line['quantity']);
+
         PurchaseOrderItem::create([
             'purchase_order_id' => $po->id,
             'part_id'           => $line['part']->id,
             'is_set'            => false,
             'quantity_ordered'  => $line['quantity'],
-            'quantity_received' => $line['quantity'],
+            'quantity_received' => $receivedQty,
             'unit_cost'         => $line['unit_cost'],
             'discount_percent'  => $line['discount_percent'],
             'discount_amount'   => $line['discount_amount'],
@@ -455,19 +439,39 @@ class PurchaseOrderController extends Controller
 
         $line['part']->update(['cost' => $line['net_cost']]);
 
-        $stockBefore = $line['part']->stock_quantity;
+        if ($receivedQty > 0) {
+            $this->stockInPart($po, $line['part'], $receivedQty, $note, $line['net_cost']);
+        }
+    }
+
+    /** Log a stock-in inventory movement for a received part quantity. */
+    private function stockInPart(PurchaseOrder $po, Part $part, int $quantity, string $note, float $netCost): void
+    {
+        $stockBefore = $part->stock_quantity;
 
         InventoryMovement::create([
-            'part_id'        => $line['part']->id,
+            'part_id'        => $part->id,
             'type'           => 'stock_in',
-            'quantity'       => $line['quantity'],
+            'quantity'       => $quantity,
             'stock_before'   => $stockBefore,
-            'stock_after'    => $stockBefore + $line['quantity'],
+            'stock_after'    => $stockBefore + $quantity,
             'reference_type' => 'PurchaseOrder',
             'reference_id'   => $po->id,
-            'notes'          => $note . ' at ₱' . number_format($line['net_cost'], 2) . '/unit',
+            'notes'          => $note . ' at ₱' . number_format($netCost, 2) . '/unit',
             'user_id'        => auth()->id(),
         ]);
+    }
+
+    /** Map of part_id => previously received quantity, captured before a PO's items are wiped during update(). */
+    private function capturePartReceivedQuantities(PurchaseOrder $po): array
+    {
+        return $po->items()
+            ->whereNotNull('part_id')
+            ->where('quantity_received', '>', 0)
+            ->get()
+            ->groupBy('part_id')
+            ->map(fn($items) => (int) $items->sum('quantity_received'))
+            ->toArray();
     }
 
     /** When the edit form omits serials, keep the ones already received on this PO. */
@@ -619,35 +623,52 @@ class PurchaseOrderController extends Controller
         $this->authorize('update', $purchaseOrder);
 
         $request->validate([
-            'received_date'             => 'required|date',
-            'delivery_number'           => 'required|string|max:255',
-            'items'                     => 'required|array',
-            'items.*.id'                => 'required|exists:purchase_order_items,id',
-            'items.*.quantity_received' => 'required|integer|min:0',
-            'items.*.serials'           => 'nullable|array',
-            'items.*.serials.*'         => 'nullable|string|max:255',
-            'items.*.outdoor_serials'   => 'nullable|array',
-            'items.*.outdoor_serials.*' => 'nullable|string|max:255',
+            'received_date'                 => 'required|date',
+            'delivery_number'                => 'required|string|max:255',
+            'items'                          => 'required|array',
+            'items.*.id'                     => 'required|exists:purchase_order_items,id',
+            'items.*.quantity_received'      => 'required|integer|min:0',
+            'items.*.serials'                => 'nullable|array',
+            'items.*.serials.*'              => 'nullable|string|max:255',
+            'items.*.outdoor_serials'        => 'nullable|array',
+            'items.*.outdoor_serials.*'      => 'nullable|string|max:255',
+            'items.*.split_remainder'        => 'nullable|boolean',
+            'new_po_supplier_po_number'      => 'nullable|string|max:255',
+            'new_po_expected_delivery_date'  => 'nullable|date',
         ]);
+
+        // Validation errors always land back on this PO's own show page — it's the only
+        // page guaranteed to render exactly one receive modal, so it can reopen reliably.
+        $receiveRedirectBack = fn() => redirect()->route('purchase-orders.show', $purchaseOrder);
 
         // ── Validate each line: serial counts must match quantity received ──
         $parsed = [];
         foreach ($request->items as $index => $itemData) {
-            $poItem = PurchaseOrderItem::with('product.pairedProduct')->findOrFail($itemData['id']);
+            $poItem = PurchaseOrderItem::with(['product.pairedProduct', 'part'])->findOrFail($itemData['id']);
             if ($poItem->purchase_order_id !== $purchaseOrder->id) {
-                return back()->with('error', 'Invalid item for this purchase order.')->withInput();
+                return $receiveRedirectBack()->with('error', 'Invalid item for this purchase order.')->withInput();
             }
 
-            $qty = (int) $itemData['quantity_received'];
-            if ($qty === 0) {
+            $qty            = (int) $itemData['quantity_received'];
+            $splitRemainder = (bool) ($itemData['split_remainder'] ?? false);
+            $remaining      = $poItem->quantity_ordered - $poItem->quantity_received;
+
+            if ($qty === 0 && !$splitRemainder) {
                 continue;
             }
 
-            $remaining = $poItem->quantity_ordered - $poItem->quantity_received;
             if ($qty > $remaining) {
-                return back()->withErrors([
-                    "items.{$index}.serials" => "Quantity received ({$qty}) exceeds remaining ({$remaining}) for {$poItem->product->display_model}.",
+                return $receiveRedirectBack()->withErrors([
+                    "items.{$index}.serials" => "Quantity received ({$qty}) exceeds remaining ({$remaining}) for {$poItem->display_label}.",
                 ])->withInput();
+            }
+
+            $leftover = $splitRemainder ? max(0, $remaining - $qty) : 0;
+
+            // Parts have no serials — just receive the quantity straight into stock.
+            if ($poItem->part_id) {
+                $parsed[] = ['po_item' => $poItem, 'type' => 'part', 'quantity' => $qty, 'leftover' => $leftover];
+                continue;
             }
 
             $isSet          = $poItem->is_set && $poItem->product->pairedProduct;
@@ -655,12 +676,12 @@ class PurchaseOrderController extends Controller
             $outdoorSerials = collect($itemData['outdoor_serials'] ?? [])->map(fn($s) => trim((string) $s))->filter()->values();
 
             if ($serials->count() !== $qty) {
-                return back()->withErrors([
+                return $receiveRedirectBack()->withErrors([
                     "items.{$index}.serials" => "Serial count ({$serials->count()}) must match quantity received ({$qty}) for {$poItem->product->display_model}.",
                 ])->withInput();
             }
             if ($isSet && $outdoorSerials->count() !== $qty) {
-                return back()->withErrors([
+                return $receiveRedirectBack()->withErrors([
                     "items.{$index}.serials" => "Outdoor serial count ({$outdoorSerials->count()}) must match quantity received ({$qty}) for {$poItem->product->set_model_label}.",
                 ])->withInput();
             }
@@ -668,20 +689,29 @@ class PurchaseOrderController extends Controller
             $err = $this->validateSerialBatch($poItem->product, $serials, null)
                 ?? ($isSet ? $this->validateSerialBatch($poItem->product->pairedProduct, $outdoorSerials, null) : null);
             if ($err !== null) {
-                return back()->withErrors(["items.{$index}.serials" => $err])->withInput();
+                return $receiveRedirectBack()->withErrors(["items.{$index}.serials" => $err])->withInput();
             }
 
             $parsed[] = [
                 'po_item'         => $poItem,
+                'type'            => 'product',
                 'is_set'          => $isSet,
                 'quantity'        => $qty,
                 'serials'         => $serials,
                 'outdoor_serials' => $outdoorSerials,
+                'leftover'        => $leftover,
             ];
         }
 
         if ($parsed === []) {
-            return back()->with('error', 'Nothing to receive — enter a quantity and serial numbers for at least one item.');
+            return $receiveRedirectBack()->with('error', 'Nothing to receive — enter a quantity and serial numbers for at least one item.');
+        }
+
+        $hasSplit = collect($parsed)->contains(fn($line) => $line['leftover'] > 0);
+        if ($hasSplit && !$request->filled('new_po_supplier_po_number')) {
+            return $receiveRedirectBack()->withErrors([
+                'new_po_supplier_po_number' => 'Enter a supplier PO number for the items arriving on a separate PO.',
+            ])->withInput();
         }
 
         DB::beginTransaction();
@@ -692,28 +722,72 @@ class PurchaseOrderController extends Controller
             }
 
             $receivedDate = $request->received_date;
+            $splitLines   = [];
+            $splitValue   = 0.0;
 
             foreach ($parsed as $line) {
                 $poItem  = $line['po_item'];
-                $product = $poItem->product;
                 $netCost = (float) ($poItem->discounted_cost ?? $poItem->unit_cost);
-
-                $poItem->update([
-                    'quantity_received' => $poItem->quantity_received + $line['quantity'],
-                ]);
-
-                $product->update(['cost' => $netCost]);
-                if ($line['is_set']) {
-                    $product->pairedProduct->update(['cost' => $netCost]);
-                }
 
                 $note = 'Received from PO: ' . $purchaseOrder->display_po_number .
                     ($request->delivery_number ? ' | DR#: ' . $request->delivery_number : '');
 
-                $this->stockInSerials($purchaseOrder, $product, $line['serials'], $receivedDate, $note, $netCost);
-                if ($line['is_set']) {
-                    $this->stockInSerials($purchaseOrder, $product->pairedProduct, $line['outdoor_serials'], $receivedDate, $note, $netCost);
+                if ($line['quantity'] > 0) {
+                    $poItem->update([
+                        'quantity_received' => $poItem->quantity_received + $line['quantity'],
+                    ]);
+
+                    if ($line['type'] === 'part') {
+                        $poItem->part->update(['cost' => $netCost]);
+                        $this->stockInPart($purchaseOrder, $poItem->part, $line['quantity'], $note, $netCost);
+                    } else {
+                        $product = $poItem->product;
+                        $product->update(['cost' => $netCost]);
+                        if ($line['is_set']) {
+                            $product->pairedProduct->update(['cost' => $netCost]);
+                        }
+
+                        $this->stockInSerials($purchaseOrder, $product, $line['serials'], $receivedDate, $note, $netCost);
+                        if ($line['is_set']) {
+                            $this->stockInSerials($purchaseOrder, $product->pairedProduct, $line['outdoor_serials'], $receivedDate, $note, $netCost);
+                        }
+                    }
                 }
+
+                if ($line['leftover'] > 0) {
+                    $splitValue += $line['leftover'] * $netCost;
+                    $splitLines[] = [
+                        'product_id'       => $poItem->product_id,
+                        'part_id'          => $poItem->part_id,
+                        'is_set'           => $poItem->is_set,
+                        'quantity'         => $line['leftover'],
+                        'unit_cost'        => $poItem->unit_cost,
+                        'discount_percent' => $poItem->discount_percent,
+                        'discount_amount'  => $poItem->discount_amount,
+                        'net_cost'         => $netCost,
+                    ];
+
+                    $newOrdered = $poItem->quantity_received;
+                    if ($newOrdered <= 0) {
+                        $poItem->delete();
+                    } else {
+                        $poItem->update([
+                            'quantity_ordered' => $newOrdered,
+                            'total_cost'       => $newOrdered * $netCost,
+                        ]);
+                    }
+                }
+            }
+
+            $newPurchaseOrder = null;
+            if ($splitLines !== []) {
+                $newPurchaseOrder = $this->splitOffRemainingPurchaseOrder(
+                    $purchaseOrder,
+                    $splitLines,
+                    $splitValue,
+                    $request->new_po_supplier_po_number,
+                    $request->new_po_expected_delivery_date
+                );
             }
 
             // PO becomes "received" only once every line is fully received
@@ -728,15 +802,100 @@ class PurchaseOrderController extends Controller
 
             DB::commit();
 
-            return redirect()->route('purchase-orders.show', $purchaseOrder)
-                ->with('success', $fullyReceived
-                    ? 'Stock received successfully. Serial numbers recorded and inventory updated.'
-                    : 'Partial receiving recorded. Remaining units can be received later.');
+            $success = $fullyReceived
+                ? 'Stock received successfully. Serial numbers recorded and inventory updated.'
+                : 'Partial receiving recorded. Remaining units can be received later.';
+            if ($newPurchaseOrder) {
+                $success .= ' Remaining units were split into new PO ' . $newPurchaseOrder->display_po_number . '.';
+            }
+
+            return redirect()->route('purchase-orders.show', $purchaseOrder)->with('success', $success);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Error receiving stock: ' . $e->getMessage());
+            return $receiveRedirectBack()->with('error', 'Error receiving stock: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Move not-yet-arrived quantity off the original PO into a brand new PO, carrying a
+     * proportional share of whatever has already been paid on the original.
+     *
+     * @param  list<array<string, mixed>>  $splitLines
+     */
+    private function splitOffRemainingPurchaseOrder(
+        PurchaseOrder $original,
+        array $splitLines,
+        float $splitValue,
+        string $supplierPoNumber,
+        ?string $expectedDeliveryDate
+    ): PurchaseOrder {
+        $originalTotalBeforeSplit = (float) $original->total;
+        $proportion   = $originalTotalBeforeSplit > 0 ? min(1, $splitValue / $originalTotalBeforeSplit) : 0;
+        $paidToNewPo  = round((float) $original->amount_paid * $proportion, 2);
+
+        $newPo = PurchaseOrder::create([
+            'supplier_po_number'     => $supplierPoNumber,
+            'supplier_id'            => $original->supplier_id,
+            'order_date'             => $original->order_date,
+            'expected_delivery_date' => $expectedDeliveryDate,
+            'subtotal'               => $splitValue,
+            'tax'                    => 0,
+            'total'                  => $splitValue,
+            'payment_type'           => $original->payment_type,
+            'payment_due_date'       => $original->payment_due_date,
+            'amount_paid'            => $paidToNewPo,
+            'balance'                => max(0, $splitValue - $paidToNewPo),
+            'payment_status'         => $paidToNewPo <= 0 ? 'unpaid' : ($paidToNewPo >= $splitValue ? 'paid' : 'partial'),
+            'status'                 => 'pending',
+            'notes'                  => 'Split from PO ' . $original->display_po_number . ' on ' . now()->toDateString()
+                . ' — remaining units are arriving from the supplier under a separate delivery.',
+            'user_id'                => auth()->id(),
+        ]);
+
+        foreach ($splitLines as $line) {
+            PurchaseOrderItem::create([
+                'purchase_order_id' => $newPo->id,
+                'product_id'        => $line['product_id'],
+                'part_id'           => $line['part_id'],
+                'is_set'            => $line['is_set'],
+                'quantity_ordered'  => $line['quantity'],
+                'quantity_received' => 0,
+                'unit_cost'         => $line['unit_cost'],
+                'discount_percent'  => $line['discount_percent'],
+                'discount_amount'   => $line['discount_amount'],
+                'discounted_cost'   => $line['net_cost'],
+                'total_cost'        => $line['quantity'] * $line['net_cost'],
+            ]);
+        }
+
+        if ($paidToNewPo > 0) {
+            SupplierPayment::create([
+                'purchase_order_id' => $newPo->id,
+                'payment_number'    => 'Carried over from PO ' . $original->display_po_number,
+                'amount'            => $paidToNewPo,
+                'payment_date'      => $original->order_date,
+                'payment_method'    => PaymentMethod::CASH,
+                'notes'             => 'Proportional share of payment already made on the original order, carried over '
+                    . 'when the remaining units were split into a separate PO during receiving.',
+                'user_id'           => auth()->id(),
+            ]);
+        }
+
+        $newSubtotal   = max(0, (float) $original->subtotal - $splitValue);
+        $newTotal      = max(0, (float) $original->total - $splitValue);
+        $newAmountPaid = max(0, (float) $original->amount_paid - $paidToNewPo);
+        $newBalance    = max(0, $newTotal - $newAmountPaid);
+
+        $original->update([
+            'subtotal'       => $newSubtotal,
+            'total'          => $newTotal,
+            'amount_paid'    => $newAmountPaid,
+            'balance'        => $newBalance,
+            'payment_status' => $newBalance <= 0 ? 'paid' : ($newAmountPaid > 0 ? 'partial' : 'unpaid'),
+        ]);
+
+        return $newPo;
     }
 
     public function recordPayment(Request $request, PurchaseOrder $purchaseOrder)
@@ -816,10 +975,9 @@ class PurchaseOrderController extends Controller
 
         $suppliers    = Supplier::where('is_active', true)->orderBy('name')->get();
         $productsJson = $this->productCatalog->activeProductsForPurchaseOrderJson();
-        $partsJson    = $this->activePartsForPurchaseOrderJson();
 
         return view('purchase-orders.edit', compact(
-            'purchaseOrder', 'suppliers', 'productsJson', 'partsJson', 'existingSerials'
+            'purchaseOrder', 'suppliers', 'productsJson', 'existingSerials'
         ));
     }
 
@@ -855,7 +1013,6 @@ class PurchaseOrderController extends Controller
             'items.*.product_id'       => 'required_if:items.*.item_type,product|nullable|exists:products,id',
             'items.*.part_id'          => 'nullable|exists:parts,id',
             'items.*.new_part_name'    => 'nullable|string|max:255',
-            'items.*.new_part_product_id' => 'nullable|exists:products,id',
             'items.*.quantity'         => 'required|integer|min:1',
             'items.*.unit_cost'        => 'required|numeric|min:0',
             'items.*.discount_amount'                      => 'nullable|numeric|min:0',
@@ -876,7 +1033,8 @@ class PurchaseOrderController extends Controller
 
         DB::beginTransaction();
         try {
-            $receivedDate = $purchaseOrder->received_date ?? $request->order_date;
+            $receivedDate      = $purchaseOrder->received_date ?? $request->order_date;
+            $partReceivedCarry = $this->capturePartReceivedQuantities($purchaseOrder);
 
             // ── Reverse the previous receive: drop this PO's serials, movements, items ──
             ProductSerial::where('purchase_order_id', $purchaseOrder->id)
@@ -888,14 +1046,16 @@ class PurchaseOrderController extends Controller
             $purchaseOrder->items()->delete();
 
             // ── Re-apply: recreate items, put serials back in stock, log movements ──
-            $subtotal    = 0;
-            $allReceived = collect($lines)->every(fn($l) => $l['received']);
+            $subtotal = 0;
 
             foreach ($lines as $line) {
                 $subtotal += $line['quantity'] * $line['net_cost'];
 
                 if ($line['type'] === 'part') {
-                    $this->applyPartLine($purchaseOrder, $line, 'Updated PO ' . $purchaseOrder->display_po_number);
+                    $partId = $line['part']->id;
+                    $carry  = $partReceivedCarry[$partId] ?? 0;
+                    $this->applyPartLine($purchaseOrder, $line, 'Updated PO ' . $purchaseOrder->display_po_number, $carry);
+                    $partReceivedCarry[$partId] = max(0, $carry - $line['quantity']);
                     continue;
                 }
 
@@ -928,6 +1088,11 @@ class PurchaseOrderController extends Controller
             }
 
             $total = $subtotal;
+
+            // Recomputed from the freshly-created items (carried-over part receipts included).
+            $allReceived = $purchaseOrder->items()
+                ->whereColumn('quantity_received', '<', 'quantity_ordered')
+                ->doesntExist();
 
             // ── Recompute payment fields ──
             if ($request->payment_type === 'full') {

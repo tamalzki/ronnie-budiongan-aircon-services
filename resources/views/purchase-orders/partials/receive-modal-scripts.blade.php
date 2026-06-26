@@ -43,10 +43,12 @@
         const card      = qtyInput.closest('.receive-item');
         if (!wrap || !card) return;
 
+        wrap.innerHTML = '';
+        if (card.dataset.isPart === '1') return;
+
         const qty   = parseInt(qtyInput.value, 10) || 0;
         const isSet = card.dataset.isSet === '1';
 
-        wrap.innerHTML = '';
         if (qty < 1) return;
 
         if (isSet) {
@@ -57,6 +59,14 @@
         }
     };
 
+    function poReceiveUpdateSplitSection(form) {
+        const anyChecked = !!form.querySelector('.split-remainder-checkbox:checked');
+        const section     = form.querySelector('.split-po-section');
+        if (section) section.style.display = anyChecked ? '' : 'none';
+        const poNumberInput = form.querySelector('input[name="new_po_supplier_po_number"]');
+        if (poNumberInput) poNumberInput.required = anyChecked;
+    }
+
     function poReceiveInitForms() {
         document.querySelectorAll('.po-receive-form').forEach(function (form) {
             form.querySelectorAll('.receive-qty').forEach(function (qtyInput) {
@@ -65,6 +75,13 @@
                     poReceiveRebuildSerials(form, qtyInput);
                 });
             });
+
+            form.querySelectorAll('.split-remainder-checkbox').forEach(function (checkbox) {
+                checkbox.addEventListener('change', function () {
+                    poReceiveUpdateSplitSection(form);
+                });
+            });
+            poReceiveUpdateSplitSection(form);
         });
     }
 
